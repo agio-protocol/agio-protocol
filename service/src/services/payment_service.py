@@ -136,7 +136,12 @@ async def create_payment(
 
     await db.commit()
 
-    await redis_client.rpush(PAYMENT_QUEUE, json.dumps({
+    # Route to correct chain's batch worker queue
+    from .router_service import parse_agio_id, get_payment_queue
+    chain_name, _ = parse_agio_id(from_agio_id)
+    queue = get_payment_queue(chain_name)
+
+    await redis_client.rpush(queue, json.dumps({
         "payment_id": payment_id,
         "from_wallet": from_agent.wallet_address,
         "to_wallet": to_agent.wallet_address,
@@ -149,6 +154,7 @@ async def create_payment(
         "to_db_id": str(to_agent.id),
         "from_agio_id": from_agio_id,
         "to_agio_id": to_agio_id,
+        "chain": chain_name,
     }))
 
     return {
