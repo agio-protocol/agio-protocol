@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AGIO — Instant payments between AI agents across any blockchain</title>
-<meta name="description" content="AGIO is a cross-chain micropayment routing protocol for AI agents. Sub-cent payments, any chain, under 1 second.">
+<title>AGIO — The payment layer for the personal agent economy</title>
+<meta name="description" content="AGIO: cross-chain micropayments for AI agents. Pay any agent, any chain, any token. Live on Base mainnet.">
 <meta property="og:title" content="AGIO Protocol">
-<meta property="og:description" content="Instant, sub-cent payments between AI agents across any blockchain.">
+<meta property="og:description" content="Pay any agent, any chain, any token. The payment layer for the personal agent economy.">
 <meta property="og:url" content="https://agiotage.finance">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,19 +22,21 @@
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
-
-/* Nav */
 nav{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto;padding:20px 24px}
 .logo{font-size:22px;font-weight:800;letter-spacing:2px;color:#fff}
 .logo span{color:var(--accent)}
-.nav-links a{margin-left:28px;color:var(--muted);font-size:14px;font-weight:500}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{color:var(--muted);font-size:14px;font-weight:500}
 .nav-links a:hover{color:#fff;text-decoration:none}
+.nav-links .dash-link{color:var(--accent);font-weight:600}
+.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:#10b98118;font-size:11px;font-weight:600;color:var(--accent)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* Hero */
 .hero{max-width:800px;margin:80px auto 0;text-align:center;padding:0 24px}
-.hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;margin-bottom:20px;
+.hero h1{font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.1;margin-bottom:20px;
   background:linear-gradient(135deg,#fff 30%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{font-size:18px;color:var(--muted);max-width:600px;margin:0 auto 36px}
+.hero p{font-size:18px;color:var(--muted);max-width:620px;margin:0 auto 36px}
 .cta-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 .btn{padding:14px 32px;border-radius:8px;font-weight:600;font-size:15px;display:inline-block;transition:all .2s}
 .btn-primary{background:var(--accent);color:#06080d}
@@ -42,24 +44,26 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1100
 .btn-outline{border:1px solid var(--border);color:var(--text);background:transparent}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 
-/* Stats */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;max-width:1000px;margin:80px auto;padding:0 24px}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center}
 .stat .num{font-size:32px;font-weight:800;color:#fff;margin-bottom:4px}
 .stat .num span{color:var(--accent)}
 .stat .label{color:var(--muted);font-size:13px}
 
-/* How it works */
 .section{max-width:1000px;margin:80px auto;padding:0 24px}
 .section h2{font-size:28px;font-weight:700;text-align:center;margin-bottom:48px}
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
-.step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px}
-.step-num{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#06080d;
-  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-bottom:16px}
-.step h3{font-size:16px;font-weight:600;margin-bottom:8px}
-.step p{color:var(--muted);font-size:14px}
 
-/* Code */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.feature{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px}
+.feature-icon{font-size:28px;margin-bottom:16px}
+.feature h3{font-size:18px;font-weight:700;margin-bottom:10px}
+.feature p{color:var(--muted);font-size:14px;line-height:1.7}
+
+.cost-statement{max-width:700px;margin:60px auto;text-align:center;padding:0 24px}
+.cost-big{font-size:20px;font-weight:600;line-height:1.6;margin-bottom:16px}
+.cost-big em{color:var(--accent);font-style:normal;font-weight:800}
+.cost-sub{color:var(--muted);font-size:15px;line-height:1.7}
+
 .code-section{max-width:700px;margin:60px auto;padding:0 24px}
 .code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;padding:24px;
   font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;overflow-x:auto}
@@ -68,7 +72,6 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1100
 .code-block .string{color:#34d399}
 .code-block .func{color:#60a5fa}
 
-/* Chains */
 .chains{text-align:center;margin:60px auto;max-width:700px}
 .chains h3{font-size:14px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:20px}
 .chain-logos{display:flex;gap:36px;justify-content:center;align-items:center;flex-wrap:wrap}
@@ -77,28 +80,25 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1100
   display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--accent)}
 .chain span{font-size:12px;color:var(--muted)}
 
-/* Signup */
-.signup{max-width:500px;margin:80px auto;text-align:center;padding:0 24px}
-.signup h2{font-size:22px;margin-bottom:12px}
-.signup p{color:var(--muted);font-size:14px;margin-bottom:20px}
-.signup-form{display:flex;gap:8px}
-.signup-form input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);
-  background:var(--card);color:var(--text);font-size:14px}
-.signup-form button{padding:12px 24px;border:none;background:var(--accent);color:#06080d;
-  font-weight:600;border-radius:8px;cursor:pointer;font-size:14px}
+.final-cta{max-width:600px;margin:80px auto;text-align:center;padding:40px 24px;background:var(--card);border:1px solid var(--border);border-radius:16px}
+.final-cta h2{font-size:24px;margin-bottom:12px}
+.final-cta p{color:var(--muted);font-size:14px;margin-bottom:24px}
 
-/* Footer */
-footer{max-width:1000px;margin:80px auto 0;padding:40px 24px;border-top:1px solid var(--border);
-  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-footer .left{color:var(--muted);font-size:13px}
-footer .links a{margin-left:20px;color:var(--muted);font-size:13px}
+footer{max-width:1000px;margin:60px auto 0;padding:40px 24px;border-top:1px solid var(--border)}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
+.footer-brand .logo{margin-bottom:8px}
+.footer-brand p{color:var(--muted);font-size:13px;line-height:1.6}
+.footer-col h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px}
+.footer-col a{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
+.footer-col a:hover{color:var(--accent);text-decoration:none}
+.footer-bottom{margin-top:32px;padding-top:20px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:12px}
 
-@media(max-width:600px){
+@media(max-width:768px){
   .hero h1{font-size:28px}
   .stats{grid-template-columns:1fr 1fr}
-  .steps{grid-template-columns:1fr}
-  .signup-form{flex-direction:column}
-  footer{flex-direction:column;text-align:center}
+  .features{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .nav-links{gap:16px}
 }
 </style>
 </head>
@@ -107,19 +107,19 @@ footer .links a{margin-left:20px;color:var(--muted);font-size:13px}
 <nav>
   <div class="logo">AG<span>IO</span></div>
   <div class="nav-links">
-    <a href="/dashboard" style="color:#00d9a3;font-weight:600">Dashboard</a>
-    <a href="https://github.com/agio-protocol/agio-contracts">Docs</a>
+    <span class="live-badge"><span class="live-dot"></span> Live on Base</span>
+    <a href="/dashboard" class="dash-link">Dashboard</a>
+    <a href="https://github.com/agio-protocol/agio-protocol">Docs</a>
     <a href="https://github.com/agio-protocol">GitHub</a>
-    <a href="#signup">Launch</a>
   </div>
 </nav>
 
 <section class="hero">
-  <h1>Instant, sub-cent payments between AI agents across any blockchain</h1>
-  <p>Sub-cent payments for the personal agent economy. Send $0.001 across chains in under 1 second. 3 lines of code.</p>
+  <h1>The payment layer for the personal agent economy</h1>
+  <p>Your agents pay other agents for services. AGIO handles the routing, batching, currency conversion, and settlement. Any chain. Any token. Under 1 second.</p>
   <div class="cta-row">
-    <a href="https://github.com/agio-protocol/agio-contracts" class="btn btn-primary">Read the Docs</a>
-    <a href="https://github.com/agio-protocol" class="btn btn-outline">View on GitHub</a>
+    <a href="https://github.com/agio-protocol/agio-protocol" class="btn btn-primary">Start building</a>
+    <a href="/dashboard" class="btn btn-outline">Check your dashboard</a>
   </div>
 </section>
 
@@ -127,132 +127,100 @@ footer .links a{margin-left:20px;color:var(--muted);font-size:13px}
   <div class="stat"><div class="num">2.2<span>B</span></div><div class="label">AI agents by 2028 (IDC)</div></div>
   <div class="stat"><div class="num">$15<span>T+</span></div><div class="label">Projected agent commerce (Gartner)</div></div>
   <div class="stat"><div class="num">60-70<span>%</span></div><div class="label">Are micropayments under $0.01</div></div>
-  <div class="stat"><div class="num"><span>0</span></div><div class="label">Protocols solve cross-chain agent payments</div></div>
+  <div class="stat"><div class="num"><span>0</span></div><div class="label">Other protocols do cross-chain agent payments</div></div>
 </section>
 
 <section class="section">
-  <h2>How it works</h2>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <h3>Agent sends payment via AGIO SDK</h3>
-      <p>3 lines of code. Your agent calls <code>agio.pay()</code> with the recipient, amount, and chain. That's it.</p>
+  <h2>What your agents can't do today</h2>
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">&#x1f310;</div>
+      <h3>Pay any agent, any chain</h3>
+      <p>Your agent on Solana pays an agent on Base. Instantly. No bridges. No manual swaps. No 20-minute wait. AGIO fronts the payment from destination reserves and settles in the background. No one else does this.</p>
     </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <h3>AGIO routes, batches, and settles</h3>
-      <p>Payments are automatically routed across chains, batched for gas efficiency, and settled in USDC. No bridges, no swaps, no waiting.</p>
+    <div class="feature">
+      <div class="feature-icon">&#x26a1;</div>
+      <h3>500 payments, 1 transaction</h3>
+      <p>AGIO batches your agent's daily payments into a single on-chain settlement. Gas cost is shared across every payment in the batch. 100 payments cost the same gas as 1.</p>
     </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <h3>Recipient gets paid in &lt;1 second</h3>
-      <p>The receiving agent gets credited instantly on their chain. Settlement happens in the background. Gas cost: ~$0.00001.</p>
+    <div class="feature">
+      <div class="feature-icon">&#x1f504;</div>
+      <h3>Pay in anything, receive in anything</h3>
+      <p>Your agent holds WETH. The other agent wants USDC. AGIO swaps automatically via Uniswap and delivers the right token. 5 tokens supported: USDC, USDT, DAI, WETH, cbETH.</p>
     </div>
   </div>
+</section>
+
+<section class="cost-statement">
+  <p class="cost-big">An agent making 1,000 micropayments per day pays less than <em>$0.05</em> in total fees through AGIO. On traditional payment rails, that same activity costs <em>$300</em>.</p>
+  <p class="cost-sub">The more you use AGIO, the less you pay. Top-tier agents earn 80% fee discounts, credit lines, and passive income from referrals. Your tier never downgrades.</p>
 </section>
 
 <section class="code-section">
   <div class="code-block">
-<span class="keyword">from</span> agio <span class="keyword">import</span> Agent<br><br>
+<span class="keyword">from</span> agio <span class="keyword">import</span> AgioClient<br><br>
 <span class="comment"># Initialize your agent</span><br>
-agent = Agent(<span class="string">"your-api-key"</span>)<br><br>
-<span class="comment"># Pay another agent — any chain, any amount</span><br>
-receipt = agent.<span class="func">pay</span>(<br>
-&nbsp;&nbsp;to=<span class="string">"agent_0x7a3f...base"</span>,<br>
-&nbsp;&nbsp;amount=<span class="string">"0.005"</span>,  <span class="comment"># $0.005 USDC</span><br>
-&nbsp;&nbsp;memo=<span class="string">"API call: sentiment analysis"</span><br>
+client = AgioClient(agent_name=<span class="string">"my-agent"</span>)<br><br>
+<span class="comment"># Deposit whatever token you have</span><br>
+<span class="keyword">await</span> client.<span class="func">deposit</span>(token=<span class="string">"WETH"</span>, amount=<span class="string">0.01</span>)<br><br>
+<span class="comment"># Pay another agent — receiver gets their preferred token</span><br>
+receipt = <span class="keyword">await</span> client.<span class="func">pay</span>(<br>
+&nbsp;&nbsp;to=<span class="string">"agio:sol:0x1234..."</span>,<br>
+&nbsp;&nbsp;amount=<span class="string">0.001</span>,<br>
+&nbsp;&nbsp;token=<span class="string">"WETH"</span> <span class="comment"># auto-swaps to receiver's preferred token</span><br>
 )<br><br>
-<span class="comment"># Check balance across all chains</span><br>
-balance = agent.<span class="func">balance</span>()  <span class="comment"># {"base": 12.50, "solana": 3.20}</span><br><br>
-<span class="comment"># Request payment from another agent</span><br>
-invoice = agent.<span class="func">request</span>(<br>
-&nbsp;&nbsp;from_agent=<span class="string">"agent_0x9b2c...solana"</span>,<br>
-&nbsp;&nbsp;amount=<span class="string">"0.002"</span>,<br>
-&nbsp;&nbsp;service=<span class="string">"data-enrichment"</span><br>
-)
+<span class="comment"># Check all balances</span><br>
+balances = <span class="keyword">await</span> client.<span class="func">all_balances</span>()<br>
+<span class="comment"># {"WETH": 0.009, "USDC": 0.50, "DAI": 0.0}</span>
   </div>
 </section>
 
 <section class="chains">
-  <h3>Supported chains</h3>
+  <h3>Live on Base &middot; Coming to every chain</h3>
   <div class="chain-logos">
-    <div class="chain"><div class="chain-icon">B</div><span>Base</span></div>
+    <div class="chain"><div class="chain-icon" style="border-color:var(--accent)">B</div><span style="color:var(--accent);font-weight:600">Base</span></div>
     <div class="chain"><div class="chain-icon">S</div><span>Solana</span></div>
     <div class="chain"><div class="chain-icon">P</div><span>Polygon</span></div>
     <div class="chain"><div class="chain-icon">A</div><span>Arbitrum</span></div>
     <div class="chain"><div class="chain-icon">E</div><span>Ethereum</span></div>
   </div>
-  <p style="margin-top:20px;color:var(--muted);font-size:13px">Built on USDC &middot; x402 compatible &middot; Settled in real-time</p>
+  <p style="margin-top:20px;color:var(--muted);font-size:13px">USDC &middot; USDT &middot; DAI &middot; WETH &middot; cbETH &middot; More coming</p>
 </section>
 
-<section class="section">
-  <h2>Cost to send $0.001</h2>
-  <p style="text-align:center;color:var(--muted);margin-bottom:32px">Built to settle underneath x402, Skyfire, and MPP — not compete with them.</p>
-  <div style="max-width:600px;margin:0 auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted)">Visa</span>
-      <span style="color:#EF4444;font-weight:600">$0.30 <span style="color:var(--muted);font-weight:400;font-size:12px">impossible</span></span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted)">Ethereum L1</span>
-      <span style="color:#EF4444;font-weight:600">$2.00 <span style="color:var(--muted);font-weight:400;font-size:12px">impossible</span></span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted)">Skyfire</span>
-      <span style="color:#EAB308;font-weight:600">$0.00005 <span style="color:var(--muted);font-weight:400;font-size:12px">+ 2-3% infra</span></span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--muted)">x402 on Base</span>
-      <span style="color:#EAB308;font-weight:600">$0.00001 <span style="color:var(--muted);font-weight:400;font-size:12px">Base only</span></span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;background:var(--card);border-radius:8px;padding:14px 16px;margin-top:4px">
-      <span style="color:var(--accent);font-weight:700">AGIO</span>
-      <span style="color:var(--accent);font-weight:700">$0.0001 <span style="font-weight:400;font-size:12px">any chain, batched</span></span>
-    </div>
+<section class="final-cta" id="signup">
+  <h2>Your agents should be getting paid</h2>
+  <p>AGIO is live on Base mainnet. Contracts are verified on Basescan. Start building today.</p>
+  <div class="cta-row">
+    <a href="https://github.com/agio-protocol/agio-protocol" class="btn btn-primary">Start building</a>
+    <a href="/dashboard" class="btn btn-outline">Agent dashboard</a>
   </div>
 </section>
-
-<section class="signup" id="signup">
-  <h2>Get notified when AGIO launches</h2>
-  <p>Be the first to integrate. We'll share early access, the SDK beta, and our full research report.</p>
-  <form id="notify-form" class="signup-form" name="notify" method="POST" data-netlify="true" netlify-honeypot="bot-field">
-    <input type="hidden" name="form-name" value="notify">
-    <p style="display:none"><input name="bot-field"></p>
-    <input type="email" name="email" placeholder="your@email.com" required>
-    <button type="submit">Notify me</button>
-  </form>
-  <div id="notify-success" style="display:none;text-align:center;padding:20px;">
-    <p style="color:#00d9a3;font-size:18px;font-weight:600;">Thanks! We'll notify you when AGIO launches.</p>
-    <p style="color:#8b949e;font-size:14px;margin-top:8px;">Check your inbox for a confirmation.</p>
-  </div>
-</section>
-
-<script>
-document.getElementById('notify-form').addEventListener('submit', function(e) {
-  e.preventDefault();
-  var form = this;
-  var data = new URLSearchParams(new FormData(form));
-  fetch('/', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: data.toString()
-  }).then(function() {
-    form.style.display = 'none';
-    document.getElementById('notify-success').style.display = 'block';
-  }).catch(function() {
-    form.style.display = 'none';
-    document.getElementById('notify-success').style.display = 'block';
-  });
-});
-</script>
 
 <footer>
-  <div class="left">&copy; 2026 AGIO Protocol. The payment layer for the machine economy.</div>
-  <div class="links">
-    <a href="https://github.com/agio-protocol">GitHub</a>
-    <a href="https://twitter.com/agiofinance">X / Twitter</a>
-    <a href="https://discord.gg/agio">Discord</a>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo">AG<span>IO</span></div>
+      <p>The payment layer for the personal agent economy. Live on Base mainnet.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="/dashboard">Agent Dashboard</a>
+      <a href="https://github.com/agio-protocol/agio-protocol">Documentation</a>
+      <a href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc">Basescan</a>
+    </div>
+    <div class="footer-col">
+      <h4>Developers</h4>
+      <a href="https://github.com/agio-protocol">GitHub</a>
+      <a href="https://github.com/agio-protocol/agio-protocol/tree/main/sdk">SDK</a>
+      <a href="https://github.com/agio-protocol/agio-protocol/tree/main/contracts">Contracts</a>
+    </div>
+    <div class="footer-col">
+      <h4>Community</h4>
+      <a href="https://twitter.com/agiofinance">X / Twitter</a>
+      <a href="https://github.com/agio-protocol/agio-protocol/issues">Feedback</a>
+    </div>
   </div>
+  <div class="footer-bottom">&copy; 2026 AGIO Protocol</div>
 </footer>
 
 </body>

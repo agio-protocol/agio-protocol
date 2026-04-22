@@ -303,6 +303,58 @@ async def admin_revenue(db: AsyncSession = Depends(get_db), _=Depends(verify_adm
     }
 
 
+@router.get("/wallets")
+async def admin_wallets(_=Depends(verify_admin)):
+    """Wallet and vault financial health."""
+    from web3 import Web3
+    try:
+        w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
+        vault_addr = "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc"
+        deployer = settings.get_deployer_address() or "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051"
+        fee_collector = settings.get_fee_collector_address() or deployer
+
+        deployer_eth = w3.eth.get_balance(Web3.to_checksum_address(deployer)) / 1e18
+        fee_collector_eth = w3.eth.get_balance(Web3.to_checksum_address(fee_collector)) / 1e18
+
+        TOKENS = {
+            "USDC": {"addr": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "dec": 6},
+            "USDT": {"addr": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", "dec": 6},
+            "DAI":  {"addr": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", "dec": 18},
+            "WETH": {"addr": "0x4200000000000000000000000000000000000006", "dec": 18},
+            "cbETH": {"addr": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", "dec": 18},
+        }
+
+        ERC20_ABI = [{"inputs":[{"name":"a","type":"address"}],"name":"balanceOf","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"}]
+
+        vault_tokens = {}
+        vault_usdc = 0.0
+        vault_weth = 0.0
+        for symbol, info in TOKENS.items():
+            try:
+                contract = w3.eth.contract(address=Web3.to_checksum_address(info["addr"]), abi=ERC20_ABI)
+                raw = contract.functions.balanceOf(Web3.to_checksum_address(vault_addr)).call()
+                val = raw / (10 ** info["dec"])
+                vault_tokens[symbol] = {"raw": raw, "tracked": f"{val:.6f}"}
+                if symbol == "USDC": vault_usdc = val
+                if symbol == "WETH": vault_weth = val
+            except Exception:
+                vault_tokens[symbol] = {"raw": 0, "tracked": "error"}
+
+        return {
+            "deployer_address": deployer,
+            "deployer_eth": deployer_eth,
+            "fee_collector_address": fee_collector,
+            "fee_collector_eth": fee_collector_eth,
+            "vault_address": vault_addr,
+            "vault_usdc": vault_usdc,
+            "vault_weth": vault_weth,
+            "vault_tokens": vault_tokens,
+            "deployer_gas_alert": deployer_eth < 0.002,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/reconciliation")
 async def admin_reconciliation(_=Depends(verify_admin)):
     """Current reconciliation status."""

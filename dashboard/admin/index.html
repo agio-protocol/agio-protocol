@@ -70,6 +70,7 @@
             <a href="#" onclick="showPage('batches')">Batches</a>
             <a href="#" onclick="showPage('revenue')">Revenue</a>
             <a href="#" onclick="showPage('reconciliation')">Reconciliation</a>
+            <a href="#" onclick="showPage('wallets')">Wallets</a>
         </div>
         <div class="main">
             <div id="page-overview"></div>
@@ -78,6 +79,7 @@
             <div id="page-batches" style="display:none"></div>
             <div id="page-revenue" style="display:none"></div>
             <div id="page-reconciliation" style="display:none"></div>
+            <div id="page-wallets" style="display:none"></div>
         </div>
     </div>
 
@@ -116,6 +118,7 @@
         if (page === 'batches') loadBatches();
         if (page === 'revenue') loadRevenue();
         if (page === 'reconciliation') loadReconciliation();
+        if (page === 'wallets') loadWallets();
     }
 
     async function loadOverview() {
@@ -313,6 +316,58 @@
                 <p><span class="status-dot ${dotClass}"></span> ${d.status}</p>
                 ${d.payments_paused ? `<p style="color:#ef4444;margin-top:10px">Payments PAUSED: ${d.pause_reason || 'Unknown reason'}</p>` : ''}
                 ${d.status === 'OK' ? '<p style="color:#10b981;margin-top:10px">All reconciliation checks passing. Books balance.</p>' : ''}
+            </div>
+        `;
+    }
+
+    async function loadWallets() {
+        const d = await api('/wallets');
+        if (!d) { document.getElementById('page-wallets').innerHTML = '<h1>Wallets</h1><p>Wallet data unavailable. Configure the /v1/admin/wallets endpoint.</p>'; return; }
+
+        const ethAlert = d.deployer_eth < 0.002 ? '<div style="background:#ef444420;border:1px solid #ef4444;padding:12px;border-radius:8px;margin-bottom:20px;color:#ef4444;font-weight:600">ALERT: Deployer ETH below $5 — cannot pay gas for batch settlement!</div>' : '';
+
+        let tokenRows = '';
+        for (const [tok, bal] of Object.entries(d.vault_tokens || {})) {
+            tokenRows += `<div class="vault-row"><span class="vault-token">${tok}</span><span class="vault-amount">${bal.tracked}</span></div>`;
+        }
+
+        document.getElementById('page-wallets').innerHTML = `
+            <h1>Wallets</h1>
+            ${ethAlert}
+            <div class="cards">
+                <div class="card">
+                    <div class="label">Deployer ETH</div>
+                    <div class="value ${d.deployer_eth < 0.002 ? 'amber' : 'green'}">${d.deployer_eth.toFixed(6)}</div>
+                    <div class="sub">for gas (~$${(d.deployer_eth * 2320).toFixed(2)})</div>
+                </div>
+                <div class="card">
+                    <div class="label">Fee Collector</div>
+                    <div class="value green">${d.fee_collector_eth.toFixed(6)} ETH</div>
+                    <div class="sub">${d.fee_collector_address.slice(0,14)}...</div>
+                </div>
+                <div class="card">
+                    <div class="label">Vault USDC</div>
+                    <div class="value blue">$${fmt(d.vault_usdc)}</div>
+                    <div class="sub">real tokens held</div>
+                </div>
+                <div class="card">
+                    <div class="label">Vault WETH</div>
+                    <div class="value">${d.vault_weth.toFixed(6)}</div>
+                    <div class="sub">~$${(d.vault_weth * 2320).toFixed(2)}</div>
+                </div>
+            </div>
+            <div class="section">
+                <h3>Vault Token Balances (on-chain)</h3>
+                ${tokenRows || '<p>Loading...</p>'}
+            </div>
+            <div class="section">
+                <h3>Addresses</h3>
+                <table>
+                    <tr><th>Role</th><th>Address</th><th>Basescan</th></tr>
+                    <tr><td>Deployer</td><td style="font-family:monospace;font-size:12px">${d.deployer_address}</td><td><a class="basescan" href="https://basescan.org/address/${d.deployer_address}" target="_blank">View</a></td></tr>
+                    <tr><td>Fee Collector</td><td style="font-family:monospace;font-size:12px">${d.fee_collector_address}</td><td><a class="basescan" href="https://basescan.org/address/${d.fee_collector_address}" target="_blank">View</a></td></tr>
+                    <tr><td>Vault</td><td style="font-family:monospace;font-size:12px">0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc</td><td><a class="basescan" href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc" target="_blank">View</a></td></tr>
+                </table>
             </div>
         `;
     }
