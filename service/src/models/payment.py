@@ -15,6 +15,7 @@ class Payment(Base):
     from_agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
     to_agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
     amount: Mapped[float] = mapped_column(Numeric(20, 6), nullable=False)
+    fee: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
     currency: Mapped[str] = mapped_column(String(10), default="USDC")
     from_token: Mapped[str] = mapped_column(String(10), default="USDC")
     to_token: Mapped[str] = mapped_column(String(10), default="USDC")

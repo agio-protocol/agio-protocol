@@ -57,9 +57,15 @@ async def admin_overview(db: AsyncSession = Depends(get_db), _=Depends(verify_ad
         )
     )).scalar() or 0)
 
-    # Fees
-    total_fees = total_volume * 0.00015  # SPARK tier approximation
-    fees_24h = volume_24h * 0.00015
+    # Fees (from actual recorded fee data)
+    total_fees = float((await db.execute(
+        select(func.coalesce(func.sum(Payment.fee), 0)).where(Payment.status == "SETTLED")
+    )).scalar() or 0)
+    fees_24h = float((await db.execute(
+        select(func.coalesce(func.sum(Payment.fee), 0)).where(
+            Payment.status == "SETTLED", Payment.settled_at >= day_ago
+        )
+    )).scalar() or 0)
     total_swap_fees = float((await db.execute(
         select(func.coalesce(func.sum(Payment.swap_fee), 0)).where(Payment.status == "SETTLED")
     )).scalar() or 0)

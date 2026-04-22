@@ -122,6 +122,7 @@ async def create_payment(
         from_agent_id=from_agent.id,
         to_agent_id=to_agent.id,
         amount=amt,
+        fee=fee,
         from_token=token,
         to_token=receiver_token,
         swap_fee=swap_fee,
@@ -140,11 +141,14 @@ async def create_payment(
         "from_wallet": from_agent.wallet_address,
         "to_wallet": to_agent.wallet_address,
         "amount": _amount_to_str(amount),
+        "fee": _amount_to_str(fee),
+        "swap_fee": _amount_to_str(swap_fee),
         "from_token": token,
         "to_token": receiver_token,
-        "swap_fee": _amount_to_str(swap_fee),
         "from_db_id": str(from_agent.id),
         "to_db_id": str(to_agent.id),
+        "from_agio_id": from_agio_id,
+        "to_agio_id": to_agio_id,
     }))
 
     return {
