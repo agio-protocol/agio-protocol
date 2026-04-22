@@ -1,0 +1,34 @@
+{
+    "network": "base-mainnet",
+    "chain_id": 8453,
+    "deployed_at": "2026-04-21T23:45:00Z",
+    "contracts": {
+        "vault": "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc",
+        "batch_settlement": "0x3937a057AE18971657AD12830964511B73D9e7C5",
+        "registry": "0xEfC4166Fc14758bAE879Bf439848Cb26E8f74927",
+        "swap_router": "0x3428833a0E578Fb0BF9bE6Db45F36B99476949d8"
+    },
+    "implementations": {
+        "vault_impl": "0xfA88E87528af2cd296dA37c5D5550D8CC008F09E",
+        "registry_impl": "0xF15E18D021f9694d06b47fF4cb835562ffc1433f",
+        "batch_impl": "0x0dC7F2cE6fe6fcff63e789C508F145F4a5e2BF28",
+        "swap_router_impl": "0x553082B4114C1D7579E716c6131C302971c3B3f4"
+    },
+    "tokens": {
+        "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "USDT": "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+        "DAI": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+        "WETH": "0x4200000000000000000000000000000000000006",
+        "cbETH": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22"
+    },
+    "dex_router": "0x2626664c2603336E57B271c5C0b26F421741e481",
+    "deployer": "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051",
+    "solana": {
+        "network": "solana-mainnet",
+        "program_id": "68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y",
+        "vault_pda": "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+        "deployer": "Csix2rY2de4eGpsVVvfytGpxTUHLeq2V32HZJmW8Wa6S",
+        "batch_signer": "Ctc668xDoXHPY7GyZYn8zQcN3SG7PzA18z1WBC2wDcUS",
+        "usdc_spl": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    }
+}
