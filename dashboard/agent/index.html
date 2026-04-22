@@ -114,13 +114,49 @@
     <div class="login" id="loginScreen">
         <div class="login-logo">AGIO</div>
         <div class="login-sub">Agent Dashboard</div>
-        <div class="login-box">
+
+        <!-- Existing agent -->
+        <div class="login-box" id="loginExisting">
             <h2>Welcome back</h2>
-            <p>Connect your wallet or enter your AGIO ID to view your dashboard.</p>
-            <button class="wallet-btn" onclick="connectWallet()">Connect Wallet</button>
-            <div class="divider">— or —</div>
+            <p>Enter your AGIO ID to view your dashboard.</p>
             <input class="id-input" id="agioIdInput" placeholder="Enter AGIO ID (0x...)" onkeyup="if(event.key==='Enter')lookupId()">
-            <button class="id-btn" onclick="lookupId()">View Dashboard</button>
+            <button class="wallet-btn" onclick="lookupId()">View Dashboard</button>
+            <div class="divider">— or —</div>
+            <button class="id-btn" onclick="showRegister()">New to AGIO? Create Agent</button>
+        </div>
+
+        <!-- New agent registration -->
+        <div class="login-box" id="loginRegister" style="display:none">
+            <h2>Create your agent</h2>
+            <p>No email, no password. Just a name and you're on AGIO in 30 seconds.</p>
+            <input class="id-input" id="regName" placeholder="Agent name (e.g. my-research-bot)" style="margin-bottom:10px">
+            <select class="id-input" id="regToken" style="margin-bottom:10px;appearance:auto">
+                <option value="USDC" selected>Preferred token: USDC</option>
+                <option value="USDT">Preferred token: USDT</option>
+                <option value="DAI">Preferred token: DAI</option>
+                <option value="WETH">Preferred token: WETH</option>
+                <option value="cbETH">Preferred token: cbETH</option>
+            </select>
+            <button class="wallet-btn" onclick="registerAgent()">Register</button>
+            <div id="regError" style="color:#ef4444;font-size:12px;margin-top:8px;display:none"></div>
+            <div class="divider">— or —</div>
+            <button class="id-btn" onclick="showLogin()">Already have an AGIO ID? Sign in</button>
+        </div>
+
+        <!-- Registration success -->
+        <div class="login-box" id="loginSuccess" style="display:none">
+            <h2 style="color:#10b981">Agent Created</h2>
+            <p style="margin-bottom:16px">Save this ID — it's your identity on AGIO.</p>
+            <div style="background:#1f2937;padding:14px;border-radius:8px;font-family:monospace;font-size:13px;word-break:break-all;margin-bottom:12px;text-align:left" id="newAgioId"></div>
+            <button class="wallet-btn" onclick="copyNewId()" id="copyBtn">Copy to Clipboard</button>
+            <div style="margin-top:20px;text-align:left;font-size:13px;color:#9ca3af;line-height:2">
+                <strong style="color:#e0e0e0">Next steps:</strong><br>
+                1. Install the SDK: <code style="color:#10b981">pip install agio-sdk</code><br>
+                2. Deposit USDC to your AGIO vault<br>
+                3. Start paying other agents<br>
+                <a href="https://github.com/agio-protocol/agio-protocol" target="_blank" style="color:#3b82f6">Full setup guide on GitHub</a>
+            </div>
+            <button class="id-btn" style="margin-top:16px" onclick="enterFromSuccess()">Open Dashboard</button>
         </div>
     </div>
 
@@ -157,14 +193,80 @@
     let agioId = '';
     let agentData = null;
 
-    function connectWallet() {
-        const id = prompt('Paste your AGIO ID to simulate wallet connect:');
-        if (id) { agioId = id.trim(); enterDashboard(); }
+    const API_ROOT = API_BASE.replace('/v1/dashboard', '/v1');
+
+    function showRegister() {
+        document.getElementById('loginExisting').style.display = 'none';
+        document.getElementById('loginRegister').style.display = 'block';
+    }
+
+    function showLogin() {
+        document.getElementById('loginRegister').style.display = 'none';
+        document.getElementById('loginExisting').style.display = 'block';
     }
 
     function lookupId() {
         agioId = document.getElementById('agioIdInput').value.trim();
         if (agioId) enterDashboard();
+    }
+
+    let newAgentId = '';
+
+    async function registerAgent() {
+        const name = document.getElementById('regName').value.trim();
+        const token = document.getElementById('regToken').value;
+        const errDiv = document.getElementById('regError');
+        errDiv.style.display = 'none';
+
+        if (!name) { errDiv.textContent = 'Please enter an agent name.'; errDiv.style.display = 'block'; return; }
+
+        // Generate a wallet address from the name (deterministic for simplicity)
+        const wallet = '0x' + Array.from(name + Date.now()).reduce((h, c) => (((h << 5) - h) + c.charCodeAt(0)) | 0, 0).toString(16).padStart(40, 'a').slice(0, 40);
+
+        try {
+            const res = await fetch(`${API_ROOT}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet_address: wallet, name: name, chain: 'base' }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                errDiv.textContent = err.detail || 'Registration failed. Try a different name.';
+                errDiv.style.display = 'block';
+                return;
+            }
+            const data = await res.json();
+            newAgentId = data.agio_id;
+
+            // Set preferred token if not USDC
+            if (token !== 'USDC') {
+                await fetch(`${API_ROOT}/token/preferred`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agio_id: newAgentId, token: token }),
+                });
+            }
+
+            // Show success
+            document.getElementById('loginRegister').style.display = 'none';
+            document.getElementById('loginSuccess').style.display = 'block';
+            document.getElementById('newAgioId').textContent = newAgentId;
+
+        } catch (e) {
+            errDiv.textContent = 'Cannot reach AGIO API. Is the service running?';
+            errDiv.style.display = 'block';
+        }
+    }
+
+    function copyNewId() {
+        navigator.clipboard.writeText(newAgentId);
+        document.getElementById('copyBtn').textContent = 'Copied!';
+        setTimeout(() => { document.getElementById('copyBtn').textContent = 'Copy to Clipboard'; }, 2000);
+    }
+
+    function enterFromSuccess() {
+        agioId = newAgentId;
+        enterDashboard();
     }
 
     async function enterDashboard() {
