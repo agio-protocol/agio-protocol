@@ -54,6 +54,13 @@ async def run_service():
             result = await run_reconciliation()
 
             if result.ok:
+                # Always clear pause flag when reconciliation passes
+                from ..core.redis import redis_client
+                paused = await redis_client.get("AGIO:payments_paused")
+                if paused == "1":
+                    await redis_client.delete("AGIO:payments_paused")
+                    await redis_client.delete("AGIO:pause_reason")
+                    logger.info("Payments UNPAUSED — reconciliation passing")
                 consecutive_failures = 0
                 logger.info(f"Reconciliation PASS — {result.checks_passed} checks")
             else:
