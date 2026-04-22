@@ -126,34 +126,60 @@ footer{max-width:1000px;margin:60px auto 0;padding:40px 24px;border-top:1px soli
 <section class="stats">
   <div class="stat"><div class="num">2.2<span>B</span></div><div class="label">AI agents by 2028 (IDC)</div></div>
   <div class="stat"><div class="num">$15<span>T+</span></div><div class="label">Projected agent commerce (Gartner)</div></div>
-  <div class="stat"><div class="num">60-70<span>%</span></div><div class="label">Are micropayments under $0.01</div></div>
-  <div class="stat"><div class="num"><span>0</span></div><div class="label">Other protocols do cross-chain agent payments</div></div>
+  <div class="stat"><div class="num">5<span> tiers</span></div><div class="label">Permanent loyalty tiers with fee discounts up to 80%</div></div>
+  <div class="stat"><div class="num"><span>1</span></div><div class="label">Network where agents build reputation, credit, and income</div></div>
 </section>
 
 <section class="section">
   <h2>What your agents can't do today</h2>
   <div class="features">
     <div class="feature">
-      <div class="feature-icon">&#x1f310;</div>
-      <h3>Pay any agent, any chain</h3>
-      <p>Your agent on Solana pays an agent on Base. Instantly. No bridges. No manual swaps. No 20-minute wait. AGIO fronts the payment from destination reserves and settles in the background. No one else does this.</p>
+      <div class="feature-icon">&#x1f50d;</div>
+      <h3>Know who you're paying</h3>
+      <p>Reputation scores, payment history, trust tiers. Before your agent sends money, it can check: is this counterparty reliable? How many payments have they completed? What's their dispute rate? No other payment protocol answers these questions.</p>
     </div>
     <div class="feature">
       <div class="feature-icon">&#x26a1;</div>
-      <h3>500 payments, 1 transaction</h3>
-      <p>AGIO batches your agent's daily payments into a single on-chain settlement. Gas cost is shared across every payment in the batch. 100 payments cost the same gas as 1.</p>
+      <h3>Transact now, fund later</h3>
+      <p>PULSE tier agents get credit lines. Your agent sees an opportunity and acts immediately — settles up when the batch clears. No need to pre-fund every transaction. Other protocols require tokens in wallet before every single payment.</p>
     </div>
     <div class="feature">
-      <div class="feature-icon">&#x1f504;</div>
-      <h3>Pay in anything, receive in anything</h3>
-      <p>Your agent holds WETH. The other agent wants USDC. AGIO swaps automatically via Uniswap and delivers the right token. 5 tokens supported: USDC, USDT, DAI, WETH, cbETH.</p>
+      <div class="feature-icon">&#x1f4c8;</div>
+      <h3>Your agents earn while they work</h3>
+      <p>Every payment builds reputation. Higher reputation unlocks lower fees (up to 80% off), credit lines, and referral income. Your agent becomes more valuable the more it uses AGIO. Tiers never downgrade — what you earn, you keep.</p>
     </div>
   </div>
 </section>
 
 <section class="cost-statement">
-  <p class="cost-big">An agent making 1,000 micropayments per day pays less than <em>$0.05</em> in total fees through AGIO. On traditional payment rails, that same activity costs <em>$300</em>.</p>
-  <p class="cost-sub">The more you use AGIO, the less you pay. Top-tier agents earn 80% fee discounts, credit lines, and passive income from referrals. Your tier never downgrades.</p>
+  <p class="cost-big">x402 moves money. <em>AGIO builds the economy around it.</em></p>
+  <p class="cost-sub" style="max-width:650px;margin:0 auto;line-height:1.9">
+    Reputation scores so agents know who to trust.<br>
+    Credit lines so agents can act without pre-funding.<br>
+    Agent discovery so services find each other.<br>
+    Referral income so your agents earn while they work.<br>
+    Multi-token support so agents pay in whatever they hold.<br>
+    Cross-chain routing so chains don't matter.
+  </p>
+  <p style="color:var(--accent);font-weight:600;margin-top:24px;font-size:16px">The payment is the simple part. The intelligence around it is what changes everything.</p>
+</section>
+
+<section class="section" style="max-width:900px">
+  <h2 style="font-size:20px;color:var(--muted);margin-bottom:32px">Under the hood</h2>
+  <div class="features" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+    <div class="feature" style="padding:24px">
+      <h3 style="font-size:14px">Batch settlement</h3>
+      <p style="font-size:13px">500 payments in 1 on-chain transaction. Gas cost shared across every payment in the batch.</p>
+    </div>
+    <div class="feature" style="padding:24px">
+      <h3 style="font-size:14px">Multi-token</h3>
+      <p style="font-size:13px">USDC, USDT, DAI, WETH, cbETH. Pay in one token, receive in another. Automatic conversion via Uniswap.</p>
+    </div>
+    <div class="feature" style="padding:24px">
+      <h3 style="font-size:14px">Cross-chain routing</h3>
+      <p style="font-size:13px">Agent on Solana pays agent on Base. Instant credit from destination reserves, background settlement via CCTP.</p>
+    </div>
+  </div>
 </section>
 
 <section class="code-section">
