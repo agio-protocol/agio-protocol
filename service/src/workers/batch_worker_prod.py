@@ -1,9 +1,8 @@
-"""Production batch worker — reads config from environment variables."""
+"""Production Base batch worker — reads config from environment variables."""
 import asyncio
 import logging
 
 from ..core.config import settings
-from ..core.database import async_session
 import src.core.database as db_mod
 
 import redis.asyncio as aioredis
@@ -16,5 +15,4 @@ redis_mod.PAYMENT_QUEUE = "agio:payment_queue"
 
 from .batch_worker import run_worker
 
-if __name__ == "__main__":
-    asyncio.run(run_worker())
+asyncio.run(run_worker())
