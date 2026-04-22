@@ -152,7 +152,8 @@
     </div>
 
     <script>
-    const API_BASE = 'https://children-full-library-investigation.trycloudflare.com/v1/dashboard';
+    // Production: set to Railway URL. Tunnel URL as fallback during observation.
+    const API_BASE = (window.AGIO_API_URL || 'https://children-full-library-investigation.trycloudflare.com') + '/v1/dashboard';
     let agioId = '';
     let agentData = null;
 
