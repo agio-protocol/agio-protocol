@@ -24,12 +24,22 @@ logger = logging.getLogger(__name__)
 
 # Chain prefix mapping: "agio:base:0x1234" → chain_name="base-sepolia"
 CHAIN_PREFIXES = {
-    "base": "base-sepolia",
-    "sol": "solana-devnet",
-    "polygon": "polygon-amoy",
-    "eth": "ethereum-sepolia",
+    "base": "base-mainnet",
+    "sol": "solana-mainnet",
+    "polygon": "polygon-mainnet",
+    "eth": "ethereum-mainnet",
 }
-DEFAULT_CHAIN = "base-sepolia"
+DEFAULT_CHAIN = "base-mainnet"
+
+CHAIN_QUEUES = {
+    "base-mainnet": "agio:payment_queue",
+    "solana-mainnet": "agio:solana_payment_queue",
+}
+
+
+def get_payment_queue(chain_name: str) -> str:
+    """Get the Redis queue name for a chain's batch worker."""
+    return CHAIN_QUEUES.get(chain_name, "agio:payment_queue")
 
 
 @dataclass
@@ -152,16 +162,22 @@ async def execute_cross_chain(
     if not from_agent or not to_agent:
         raise ValueError("Agent not found")
 
-    available = float(from_agent.balance)
-    if available < amount:
-        raise InsufficientBalance(available, amount)
+    # Calculate routing fee from agent's tier
+    from .tier_service import get_agent_tier
+    tier = await get_agent_tier(db, from_agent)
+    routing_fee = Decimal(str(tier.cross_chain_surcharge)) if tier else Decimal("0.002")
+    total_debit = Decimal(str(amount)) + routing_fee
 
-    # 1. Debit sender
-    from_agent.balance = Decimal(str(available - amount))
+    available = float(from_agent.balance)
+    if available < float(total_debit):
+        raise InsufficientBalance(available, float(total_debit))
+
+    # 1. Debit sender (amount + routing fee)
+    from_agent.balance = Decimal(str(available)) - total_debit
     from_agent.total_payments += 1
     from_agent.total_volume = Decimal(str(float(from_agent.total_volume) + amount))
 
-    # 2. Credit receiver instantly
+    # 2. Credit receiver instantly from destination reserves
     to_agent.balance = Decimal(str(float(to_agent.balance) + amount))
     to_agent.total_payments += 1
     to_agent.total_volume = Decimal(str(float(to_agent.total_volume) + amount))
@@ -178,12 +194,13 @@ async def execute_cross_chain(
         .values(reserve_balance=SupportedChain.reserve_balance + Decimal(str(amount)))
     )
 
-    # 4. Record the payment
+    # 4. Record the payment with routing fee
     payment = Payment(
         payment_id=payment_id,
         from_agent_id=from_agent.id,
         to_agent_id=to_agent.id,
         amount=Decimal(str(amount)),
+        fee=routing_fee,
         status="SETTLED",
         settled_at=datetime.utcnow(),
     )
