@@ -377,8 +377,18 @@ async def admin_wallets(_=Depends(verify_admin)):
                 info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
                 vault_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
 
+        # Deployer USDC-SPL balance
+        deployer_usdc = 0
+        r3 = await client.post(sol_rpc, json={
+            "jsonrpc": "2.0", "id": 3, "method": "getTokenAccountsByOwner",
+            "params": [sol_deployer, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]
+        })
+        for acct in r3.json().get("result", {}).get("value", []):
+            info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
+            deployer_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
+
         result["solana"] = {
-            "deployer": {"address": sol_deployer, "sol": round(sol_balance, 6)},
+            "deployer": {"address": sol_deployer, "sol": round(sol_balance, 6), "usdc_spl": deployer_usdc},
             "vault": {"address": sol_vault, "usdc_spl": vault_usdc},
         }
         if sol_balance < 0.1:
