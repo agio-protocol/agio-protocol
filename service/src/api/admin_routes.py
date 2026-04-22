@@ -357,33 +357,28 @@ async def admin_wallets(_=Depends(verify_admin)):
         sol_vault = "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ"
         sol_rpc = "https://api.mainnet-beta.solana.com"
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            # Deployer SOL balance
-            r = await client.post(sol_rpc, json={
-                "jsonrpc": "2.0", "id": 1, "method": "getBalance",
-                "params": [sol_deployer]
-            })
-            sol_balance = r.json().get("result", {}).get("value", 0) / 1e9
+        # Batch all 3 Solana RPC calls in one HTTP request
+        usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        batch = [
+            {"jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [sol_deployer]},
+            {"jsonrpc": "2.0", "id": 2, "method": "getTokenAccountsByOwner",
+             "params": [sol_vault, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]},
+            {"jsonrpc": "2.0", "id": 3, "method": "getTokenAccountsByOwner",
+             "params": [sol_deployer, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]},
+        ]
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(sol_rpc, json=batch)
+        responses = {item["id"]: item for item in r.json()}
 
-            # Vault USDC-SPL balance
-            usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-            r2 = await client.post(sol_rpc, json={
-                "jsonrpc": "2.0", "id": 2, "method": "getTokenAccountsByOwner",
-                "params": [sol_vault, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]
-            })
-            vault_usdc = 0
-            accounts = r2.json().get("result", {}).get("value", [])
-            for acct in accounts:
-                info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
-                vault_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
+        sol_balance = responses.get(1, {}).get("result", {}).get("value", 0) / 1e9
 
-        # Deployer USDC-SPL balance
+        vault_usdc = 0
+        for acct in responses.get(2, {}).get("result", {}).get("value", []):
+            info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
+            vault_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
+
         deployer_usdc = 0
-        r3 = await client.post(sol_rpc, json={
-            "jsonrpc": "2.0", "id": 3, "method": "getTokenAccountsByOwner",
-            "params": [sol_deployer, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]
-        })
-        for acct in r3.json().get("result", {}).get("value", []):
+        for acct in responses.get(3, {}).get("result", {}).get("value", []):
             info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
             deployer_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
 
@@ -395,7 +390,7 @@ async def admin_wallets(_=Depends(verify_admin)):
             result["alerts"].append("Solana deployer SOL below 0.1 — cannot pay gas")
         if vault_usdc < 10:
             result["alerts"].append(f"Solana vault USDC reserve low: ${vault_usdc}")
-        result["total_usd"] += vault_usdc
+        result["total_usd"] += vault_usdc + deployer_usdc
     except Exception as e:
         result["solana"] = {"error": str(e)[:80]}
 
