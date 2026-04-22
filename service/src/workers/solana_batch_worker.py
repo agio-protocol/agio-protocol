@@ -278,7 +278,9 @@ async def _update_agent_stats(db, payments):
         logger.warning(f"Points award failed: {e}")
 
 
+import os
+PROGRAM_ID = os.getenv("SOLANA_PROGRAM_ID", "68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y")
+SOLANA_RPC = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+
 if __name__ == "__main__":
-    PROGRAM_ID = "CpHfZKzThtYt64YjAWKkJYNZboQYjPazSTxj75j3w9YE"
-    SOLANA_RPC = "https://api.devnet.solana.com"
     asyncio.run(run_worker())

@@ -79,5 +79,4 @@ async def run_service():
         await asyncio.sleep(RECONCILE_INTERVAL)
 
 
-if __name__ == "__main__":
-    asyncio.run(run_service())
+asyncio.run(run_service())

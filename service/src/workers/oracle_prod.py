@@ -85,5 +85,4 @@ async def run_loop():
         await asyncio.sleep(QUERY_INTERVAL)
 
 
-if __name__ == "__main__":
-    asyncio.run(run_loop())
+asyncio.run(run_loop())
