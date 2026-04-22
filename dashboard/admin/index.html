@@ -323,57 +323,75 @@
     async function loadWallets() {
         let d;
         try { d = await api('/wallets'); } catch(e) { d = null; }
-        if (!d || d.error) {
-            document.getElementById('page-wallets').innerHTML = `<h1>Wallets</h1><div class="section"><p>Wallet data loading... (on-chain queries may take a moment)</p><p style="color:#6b7280;font-size:12px;margin-top:8px">${d && d.error ? d.error : 'Retrying in 10s...'}</p></div>`;
+        if (!d || (!d.base && !d.solana)) {
+            document.getElementById('page-wallets').innerHTML = `<h1>Wallets</h1><div class="section"><p>Loading wallet data... (querying Base and Solana RPCs)</p></div>`;
             setTimeout(loadWallets, 10000);
             return;
         }
 
-        const deplEth = d.deployer_eth || 0;
-        const ethAlert = deplEth < 0.002 ? '<div style="background:#ef444420;border:1px solid #ef4444;padding:12px;border-radius:8px;margin-bottom:20px;color:#ef4444;font-weight:600">ALERT: Deployer ETH below $5 — cannot pay gas for batch settlement!</div>' : '';
+        const b = d.base || {};
+        const s = d.solana || {};
+        const alerts = (d.alerts || []).map(a => `<div style="background:#ef444420;border:1px solid #ef4444;padding:10px;border-radius:6px;color:#ef4444;font-weight:600;font-size:13px;margin-bottom:8px">${a}</div>`).join('');
 
-        let tokenRows = '';
-        for (const [tok, bal] of Object.entries(d.vault_tokens || {})) {
-            tokenRows += `<div class="vault-row"><span class="vault-token">${tok}</span><span class="vault-amount">${bal.tracked}</span></div>`;
+        const bDepl = b.deployer || {};
+        const bVault = b.vault || {};
+        const bFee = b.fee_collector || {};
+        const bTokens = bVault.tokens || {};
+        const sDepl = s.deployer || {};
+        const sVault = s.vault || {};
+
+        let baseTokenRows = '';
+        for (const [tok, val] of Object.entries(bTokens)) {
+            if (val > 0) baseTokenRows += `<div class="vault-row"><span class="vault-token">${tok}</span><span class="vault-amount">${val}</span></div>`;
         }
 
         document.getElementById('page-wallets').innerHTML = `
             <h1>Wallets</h1>
-            ${ethAlert}
+            ${alerts}
             <div class="cards">
                 <div class="card">
-                    <div class="label">Deployer ETH</div>
-                    <div class="value ${deplEth < 0.002 ? 'amber' : 'green'}">${deplEth.toFixed(6)}</div>
-                    <div class="sub">for gas (~$${(deplEth * 2400).toFixed(2)})</div>
+                    <div class="label">Total Protocol Value</div>
+                    <div class="value green">$${fmt(d.total_usd || 0)}</div>
+                    <div class="sub">across both chains</div>
                 </div>
                 <div class="card">
-                    <div class="label">Fee Collector</div>
-                    <div class="value green">${(d.fee_collector_eth||0).toFixed(6)} ETH</div>
-                    <div class="sub">${(d.fee_collector_address||'').slice(0,14)}...</div>
+                    <div class="label">Base Deployer</div>
+                    <div class="value ${(bDepl.eth||0) < 0.002 ? 'amber' : ''}">${(bDepl.eth||0).toFixed(4)} ETH</div>
+                    <div class="sub">~$${((bDepl.eth||0)*2400).toFixed(0)} gas</div>
                 </div>
                 <div class="card">
-                    <div class="label">Vault USDC</div>
-                    <div class="value blue">$${fmt(d.vault_usdc||0)}</div>
-                    <div class="sub">real tokens held</div>
+                    <div class="label">Solana Deployer</div>
+                    <div class="value ${(sDepl.sol||0) < 0.1 ? 'amber' : ''}">${(sDepl.sol||0).toFixed(4)} SOL</div>
+                    <div class="sub">~$${((sDepl.sol||0)*150).toFixed(0)} gas</div>
                 </div>
                 <div class="card">
-                    <div class="label">Vault WETH</div>
-                    <div class="value">${(d.vault_weth||0).toFixed(6)}</div>
-                    <div class="sub">~$${((d.vault_weth||0) * 2400).toFixed(2)}</div>
+                    <div class="label">Solana Vault</div>
+                    <div class="value blue">$${fmt(sVault.usdc_spl||0)}</div>
+                    <div class="sub">USDC-SPL</div>
                 </div>
             </div>
-            <div class="section">
-                <h3>Vault Token Balances (on-chain)</h3>
-                ${tokenRows || '<p>Loading...</p>'}
-            </div>
-            <div class="section">
-                <h3>Addresses</h3>
-                <table>
-                    <tr><th>Role</th><th>Address</th><th>Basescan</th></tr>
-                    <tr><td>Deployer</td><td style="font-family:monospace;font-size:12px">${d.deployer_address}</td><td><a class="basescan" href="https://basescan.org/address/${d.deployer_address}" target="_blank">View</a></td></tr>
-                    <tr><td>Fee Collector</td><td style="font-family:monospace;font-size:12px">${d.fee_collector_address}</td><td><a class="basescan" href="https://basescan.org/address/${d.fee_collector_address}" target="_blank">View</a></td></tr>
-                    <tr><td>Vault</td><td style="font-family:monospace;font-size:12px">0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc</td><td><a class="basescan" href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc" target="_blank">View</a></td></tr>
-                </table>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                <div class="section">
+                    <h3>Base Mainnet</h3>
+                    ${baseTokenRows || '<div class="vault-row"><span>No tokens</span></div>'}
+                    <table style="margin-top:12px">
+                        <tr><th>Role</th><th>Address</th><th></th></tr>
+                        <tr><td>Deployer</td><td style="font-family:monospace;font-size:11px">${(bDepl.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://basescan.org/address/${bDepl.address}" target="_blank">View</a></td></tr>
+                        <tr><td>Vault</td><td style="font-family:monospace;font-size:11px">${(bVault.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://basescan.org/address/${bVault.address}" target="_blank">View</a></td></tr>
+                        <tr><td>Fees</td><td style="font-family:monospace;font-size:11px">${(bFee.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://basescan.org/address/${bFee.address}" target="_blank">View</a></td></tr>
+                    </table>
+                </div>
+                <div class="section">
+                    <h3>Solana Mainnet</h3>
+                    <div class="vault-row"><span class="vault-token">USDC-SPL</span><span class="vault-amount">${sVault.usdc_spl||0}</span></div>
+                    <div class="vault-row"><span class="vault-token">SOL (deployer)</span><span class="vault-amount">${(sDepl.sol||0).toFixed(6)}</span></div>
+                    <table style="margin-top:12px">
+                        <tr><th>Role</th><th>Address</th><th></th></tr>
+                        <tr><td>Deployer</td><td style="font-family:monospace;font-size:11px">${(sDepl.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://solscan.io/account/${sDepl.address}" target="_blank">View</a></td></tr>
+                        <tr><td>Vault PDA</td><td style="font-family:monospace;font-size:11px">${(sVault.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://solscan.io/account/${sVault.address}" target="_blank">View</a></td></tr>
+                    </table>
+                </div>
             </div>
         `;
     }
