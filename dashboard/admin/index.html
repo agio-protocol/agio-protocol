@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGIO Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e0e0; }
+        .login { display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .login-box { background: #111827; padding: 40px; border-radius: 12px; border: 1px solid #1f2937; }
+        .login-box h1 { font-size: 20px; margin-bottom: 20px; color: #10b981; }
+        .login-box input { width: 300px; padding: 10px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px; font-size: 14px; }
+        .login-box button { width: 300px; padding: 10px; background: #10b981; border: none; color: #000; border-radius: 6px; font-size: 14px; cursor: pointer; margin-top: 10px; font-weight: 600; }
+        .login-box button:hover { background: #059669; }
+        .app { display: none; }
+        .app.active { display: flex; min-height: 100vh; }
+        .sidebar { width: 220px; background: #111827; border-right: 1px solid #1f2937; padding: 20px 0; flex-shrink: 0; }
+        .sidebar h2 { font-size: 16px; color: #10b981; padding: 0 20px 20px; border-bottom: 1px solid #1f2937; }
+        .sidebar a { display: block; padding: 12px 20px; color: #9ca3af; text-decoration: none; font-size: 14px; }
+        .sidebar a:hover, .sidebar a.active { color: #10b981; background: #1f2937; }
+        .main { flex: 1; padding: 30px; overflow-y: auto; }
+        .main h1 { font-size: 22px; margin-bottom: 24px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 30px; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 20px; }
+        .card .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+        .card .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .card .value.green { color: #10b981; }
+        .card .value.blue { color: #3b82f6; }
+        .card .value.amber { color: #f59e0b; }
+        .section { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .section h3 { font-size: 14px; color: #9ca3af; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; color: #6b7280; border-bottom: 1px solid #1f2937; font-weight: 500; }
+        td { padding: 10px 12px; border-bottom: 1px solid #1f2937; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge.settled { background: #065f4620; color: #10b981; }
+        .badge.queued { background: #f59e0b20; color: #f59e0b; }
+        .badge.failed { background: #ef444420; color: #ef4444; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .status-dot.ok { background: #10b981; }
+        .status-dot.warn { background: #f59e0b; }
+        .status-dot.error { background: #ef4444; }
+        .tier-bar { display: flex; gap: 8px; margin-top: 8px; }
+        .tier-segment { height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+        .refresh { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+        .vault-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1f293740; }
+        .vault-token { font-weight: 600; }
+        .vault-amount { color: #10b981; }
+        a.basescan { color: #3b82f6; text-decoration: none; }
+        a.basescan:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login" id="loginScreen">
+        <div class="login-box">
+            <h1>AGIO Admin</h1>
+            <input type="password" id="apiKey" placeholder="Admin API Key" onkeyup="if(event.key==='Enter')login()">
+            <button onclick="login()">Sign In</button>
+        </div>
+    </div>
+
+    <div class="app" id="app">
+        <div class="sidebar">
+            <h2>AGIO Admin</h2>
+            <a href="#" class="active" onclick="showPage('overview')">Overview</a>
+            <a href="#" onclick="showPage('agents')">Agents</a>
+            <a href="#" onclick="showPage('transactions')">Transactions</a>
+            <a href="#" onclick="showPage('batches')">Batches</a>
+            <a href="#" onclick="showPage('revenue')">Revenue</a>
+            <a href="#" onclick="showPage('reconciliation')">Reconciliation</a>
+        </div>
+        <div class="main">
+            <div id="page-overview"></div>
+            <div id="page-agents" style="display:none"></div>
+            <div id="page-transactions" style="display:none"></div>
+            <div id="page-batches" style="display:none"></div>
+            <div id="page-revenue" style="display:none"></div>
+            <div id="page-reconciliation" style="display:none"></div>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = 'http://localhost:8000/v1/admin';
+    let adminKey = '';
+
+    function login() {
+        adminKey = document.getElementById('apiKey').value;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').classList.add('active');
+        loadOverview();
+    }
+
+    async function api(path) {
+        const res = await fetch(`${API_BASE}${path}`, {
+            headers: { 'x-admin-key': adminKey }
+        });
+        if (res.status === 401) { alert('Invalid API key'); return null; }
+        return await res.json();
+    }
+
+    function fmt(n, decimals = 2) {
+        if (n === null || n === undefined) return '—';
+        return Number(n).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    function showPage(page) {
+        document.querySelectorAll('.main > div').forEach(d => d.style.display = 'none');
+        document.getElementById(`page-${page}`).style.display = 'block';
+        document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+        event.target.classList.add('active');
+        if (page === 'overview') loadOverview();
+        if (page === 'agents') loadAgents();
+        if (page === 'transactions') loadTransactions();
+        if (page === 'batches') loadBatches();
+        if (page === 'revenue') loadRevenue();
+        if (page === 'reconciliation') loadReconciliation();
+    }
+
+    async function loadOverview() {
+        const d = await api('/overview');
+        if (!d) return;
+
+        const vaultHtml = Object.entries(d.vault_balances || {}).map(([token, bal]) =>
+            `<div class="vault-row"><span class="vault-token">${token}</span><span class="vault-amount">$${fmt(bal.total)}</span></div>`
+        ).join('') || '<div class="vault-row">No balances</div>';
+
+        const tierColors = { NEW: '#6b7280', SPARK: '#6b7280', ARC: '#3b82f6', PULSE: '#8b5cf6', CORE: '#f59e0b', NEXUS: '#10b981' };
+        const totalAgents = Object.values(d.tier_distribution || {}).reduce((a, b) => a + b, 0) || 1;
+        const tierHtml = Object.entries(d.tier_distribution || {}).map(([tier, count]) =>
+            `<div class="tier-segment" style="background:${tierColors[tier] || '#6b7280'}30;color:${tierColors[tier] || '#6b7280'};flex:${count}">${tier} (${count})</div>`
+        ).join('');
+
+        document.getElementById('page-overview').innerHTML = `
+            <h1>Overview</h1>
+            <div class="refresh">Last updated: ${new Date(d.timestamp).toLocaleString()} &mdash; <a href="#" onclick="loadOverview()" style="color:#10b981">Refresh</a></div>
+
+            <div class="cards">
+                <div class="card">
+                    <div class="label">Total Agents</div>
+                    <div class="value blue">${d.agents.total}</div>
+                    <div class="sub">${d.agents.active_7d} active (7d)</div>
+                </div>
+                <div class="card">
+                    <div class="label">Transactions</div>
+                    <div class="value green">${fmt(d.transactions.total, 0)}</div>
+                    <div class="sub">${d.transactions.last_24h} last 24h</div>
+                </div>
+                <div class="card">
+                    <div class="label">Volume</div>
+                    <div class="value green">$${fmt(d.volume.total_usd, 4)}</div>
+                    <div class="sub">$${fmt(d.volume.last_24h_usd, 4)} last 24h</div>
+                </div>
+                <div class="card">
+                    <div class="label">Fee Revenue</div>
+                    <div class="value amber">$${fmt(d.fees.total_revenue, 6)}</div>
+                    <div class="sub">Settlement: $${fmt(d.fees.settlement_fees_total, 6)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Swap Fees</div>
+                    <div class="value amber">$${fmt(d.fees.swap_fees_total, 6)}</div>
+                    <div class="sub">$${fmt(d.fees.swap_fees_24h, 6)} last 24h</div>
+                </div>
+                <div class="card">
+                    <div class="label">Batches Settled</div>
+                    <div class="value">${d.batches.total}</div>
+                    <div class="sub">Gas: ${fmt(d.batches.total_gas_used, 0)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Queue Depth</div>
+                    <div class="value ${d.queue_depth > 10 ? 'amber' : ''}">${d.queue_depth}</div>
+                    <div class="sub">payments waiting</div>
+                </div>
+                <div class="card">
+                    <div class="label">Last Batch</div>
+                    <div class="value" style="font-size:14px">${d.batches.last_settled_at ? new Date(d.batches.last_settled_at).toLocaleTimeString() : 'None'}</div>
+                    <div class="sub">${d.batches.last_batch_payments} payments</div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                <div class="section">
+                    <h3>Vault Balances</h3>
+                    ${vaultHtml}
+                </div>
+                <div class="section">
+                    <h3>Tier Distribution</h3>
+                    <div class="tier-bar">${tierHtml}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadAgents() {
+        const d = await api('/agents?limit=100');
+        if (!d) return;
+        const rows = d.agents.map(a => `
+            <tr>
+                <td title="${a.agio_id}">${a.agio_id.slice(0, 16)}...</td>
+                <td>${a.tier || 'NEW'}</td>
+                <td>$${fmt(a.balance)}</td>
+                <td>${a.total_payments}</td>
+                <td>$${fmt(a.total_volume, 4)}</td>
+                <td>${a.preferred_token}</td>
+                <td>${new Date(a.registered_at).toLocaleDateString()}</td>
+            </tr>
+        `).join('');
+        document.getElementById('page-agents').innerHTML = `
+            <h1>Agents (${d.total})</h1>
+            <div class="section">
+                <table>
+                    <tr><th>AGIO ID</th><th>Tier</th><th>Balance</th><th>Payments</th><th>Volume</th><th>Token</th><th>Registered</th></tr>
+                    ${rows}
+                </table>
+            </div>
+        `;
+    }
+
+    async function loadTransactions() {
+        const d = await api('/transactions?limit=100');
+        if (!d) return;
+        const rows = d.transactions.map(t => `
+            <tr>
+                <td title="${t.payment_id}">${t.payment_id.slice(0, 16)}...</td>
+                <td>$${fmt(t.amount, 4)}</td>
+                <td>${t.from_token}${t.from_token !== t.to_token ? ' → ' + t.to_token : ''}</td>
+                <td><span class="badge ${t.status.toLowerCase()}">${t.status}</span></td>
+                <td>$${fmt(t.swap_fee, 6)}</td>
+                <td title="${t.batch_id || ''}">${t.batch_id ? t.batch_id.slice(0, 12) + '...' : '—'}</td>
+                <td>${new Date(t.created_at).toLocaleString()}</td>
+            </tr>
+        `).join('');
+        document.getElementById('page-transactions').innerHTML = `
+            <h1>Transactions</h1>
+            <div class="section">
+                <table>
+                    <tr><th>Payment ID</th><th>Amount</th><th>Token</th><th>Status</th><th>Swap Fee</th><th>Batch</th><th>Created</th></tr>
+                    ${rows}
+                </table>
+            </div>
+        `;
+    }
+
+    async function loadBatches() {
+        const d = await api('/batches?limit=100');
+        if (!d) return;
+        const rows = d.batches.map(b => `
+            <tr>
+                <td title="${b.batch_id}">${b.batch_id.slice(0, 16)}...</td>
+                <td>${b.total_payments}</td>
+                <td>$${fmt(b.total_volume, 4)}</td>
+                <td>${fmt(b.gas_used, 0)}</td>
+                <td><span class="badge ${b.status.toLowerCase()}">${b.status}</span></td>
+                <td>${b.basescan_url ? `<a class="basescan" href="${b.basescan_url}" target="_blank">View</a>` : '—'}</td>
+                <td>${b.settled_at ? new Date(b.settled_at).toLocaleString() : '—'}</td>
+            </tr>
+        `).join('');
+        document.getElementById('page-batches').innerHTML = `
+            <h1>Batches</h1>
+            <div class="section">
+                <table>
+                    <tr><th>Batch ID</th><th>Payments</th><th>Volume</th><th>Gas</th><th>Status</th><th>Basescan</th><th>Settled</th></tr>
+                    ${rows}
+                </table>
+            </div>
+        `;
+    }
+
+    async function loadRevenue() {
+        const d = await api('/revenue');
+        if (!d) return;
+        document.getElementById('page-revenue').innerHTML = `
+            <h1>Revenue</h1>
+            <div class="cards">
+                <div class="card">
+                    <div class="label">Total Revenue</div>
+                    <div class="value green">$${fmt(d.total_revenue, 6)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Settlement Fees</div>
+                    <div class="value">$${fmt(d.settlement_fees, 6)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Swap Fees</div>
+                    <div class="value">$${fmt(d.swap_fees, 6)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Total Volume</div>
+                    <div class="value blue">$${fmt(d.total_volume, 4)}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Days Active</div>
+                    <div class="value">${d.days_active}</div>
+                </div>
+                <div class="card">
+                    <div class="label">Monthly Projected</div>
+                    <div class="value amber">$${fmt(d.monthly_projected, 6)}</div>
+                    <div class="sub">at $${fmt(d.daily_avg_revenue, 6)}/day</div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadReconciliation() {
+        const d = await api('/reconciliation');
+        if (!d) return;
+        const dotClass = d.status === 'OK' ? 'ok' : d.status === 'PAUSED' ? 'error' : 'warn';
+        document.getElementById('page-reconciliation').innerHTML = `
+            <h1>Reconciliation</h1>
+            <div class="section">
+                <h3>Current Status</h3>
+                <p><span class="status-dot ${dotClass}"></span> ${d.status}</p>
+                ${d.payments_paused ? `<p style="color:#ef4444;margin-top:10px">Payments PAUSED: ${d.pause_reason || 'Unknown reason'}</p>` : ''}
+                ${d.status === 'OK' ? '<p style="color:#10b981;margin-top:10px">All reconciliation checks passing. Books balance.</p>' : ''}
+            </div>
+        `;
+    }
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        if (document.getElementById('page-overview').style.display !== 'none') loadOverview();
+    }, 30000);
+    </script>
+</body>
+</html>

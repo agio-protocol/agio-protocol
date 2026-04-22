@@ -1,0 +1,17 @@
+{
+  "name": "agiotage-sdk",
+  "version": "0.0.1",
+  "description": "AGIO SDK — Cross-chain micropayments for AI agents. The payment layer for the machine economy.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Coming soon\" && exit 0"
+  },
+  "keywords": ["ai-agents", "payments", "micropayments", "cross-chain", "usdc", "web3", "agio", "agent-payments"],
+  "author": "AGIO Protocol <hello@agiotage.finance>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agio-protocol/agio-sdk"
+  },
+  "homepage": "https://agiotage.finance"
+}

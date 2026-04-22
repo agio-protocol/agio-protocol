@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGIO Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e0e0; }
+
+        /* Login */
+        .login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 24px; }
+        .login-logo { font-size: 32px; font-weight: 800; color: #10b981; letter-spacing: -1px; }
+        .login-sub { color: #6b7280; font-size: 14px; margin-top: -16px; }
+        .login-box { background: #111827; padding: 36px; border-radius: 14px; border: 1px solid #1f2937; width: 400px; text-align: center; }
+        .login-box h2 { font-size: 18px; margin-bottom: 8px; }
+        .login-box p { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+        .wallet-btn { width: 100%; padding: 14px; background: #10b981; border: none; color: #000; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: 700; margin-bottom: 12px; }
+        .wallet-btn:hover { background: #059669; }
+        .divider { color: #374151; font-size: 12px; margin: 16px 0; }
+        .id-input { width: 100%; padding: 12px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
+        .id-btn { width: 100%; padding: 10px; background: #1f2937; border: 1px solid #374151; color: #9ca3af; border-radius: 8px; font-size: 13px; cursor: pointer; }
+        .id-btn:hover { border-color: #10b981; color: #10b981; }
+
+        /* App layout */
+        .app { display: none; min-height: 100vh; }
+        .app.active { display: flex; }
+        .sidebar { width: 240px; background: #111827; border-right: 1px solid #1f2937; padding: 0; flex-shrink: 0; position: fixed; height: 100vh; overflow-y: auto; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #1f2937; }
+        .sidebar-header .logo { font-size: 18px; font-weight: 800; color: #10b981; }
+        .sidebar-header .dash-label { font-size: 11px; color: #6b7280; margin-top: 2px; }
+        .sidebar-agent { padding: 16px 20px; border-bottom: 1px solid #1f2937; }
+        .sidebar-agent .agent-id { font-size: 12px; color: #9ca3af; font-family: monospace; cursor: pointer; }
+        .sidebar-agent .agent-id:hover { color: #10b981; }
+        .tier-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-top: 6px; }
+        .tier-SPARK, .tier-NEW { background: #6b728020; color: #9ca3af; }
+        .tier-ARC { background: #3b82f620; color: #3b82f6; }
+        .tier-PULSE { background: #8b5cf620; color: #8b5cf6; }
+        .tier-CORE { background: #f59e0b20; color: #f59e0b; }
+        .tier-NEXUS { background: #10b98120; color: #10b981; }
+        .sidebar-bal { font-size: 20px; font-weight: 700; color: #10b981; margin-top: 8px; }
+        .sidebar nav { padding: 12px 0; }
+        .sidebar nav a { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: #9ca3af; text-decoration: none; font-size: 14px; }
+        .sidebar nav a:hover, .sidebar nav a.active { color: #10b981; background: #10b98108; }
+        .sidebar nav a .icon { width: 18px; text-align: center; }
+        .sidebar-footer { padding: 16px 20px; border-top: 1px solid #1f2937; position: absolute; bottom: 0; width: 100%; }
+        .sidebar-footer a { color: #6b7280; text-decoration: none; font-size: 12px; display: block; margin-bottom: 4px; }
+        .sidebar-footer a:hover { color: #10b981; }
+        .main { margin-left: 240px; flex: 1; padding: 30px; min-height: 100vh; }
+
+        /* Cards */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 18px; }
+        .card .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+        .card .sub { font-size: 11px; color: #6b7280; margin-top: 3px; }
+        .green { color: #10b981; }
+        .blue { color: #3b82f6; }
+        .purple { color: #8b5cf6; }
+        .amber { color: #f59e0b; }
+
+        /* Sections */
+        .section { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .section h3 { font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+        h1 { font-size: 22px; margin-bottom: 20px; }
+
+        /* Balance bars */
+        .bal-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #1f293740; }
+        .bal-token { font-weight: 700; width: 60px; }
+        .bal-bar-track { flex: 1; height: 20px; background: #1f2937; border-radius: 4px; overflow: hidden; }
+        .bal-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .bal-bar-fill.USDC { background: #3b82f6; }
+        .bal-bar-fill.WETH { background: #8b5cf6; }
+        .bal-bar-fill.DAI { background: #f59e0b; }
+        .bal-bar-fill.USDT { background: #10b981; }
+        .bal-bar-fill.cbETH { background: #ef4444; }
+        .bal-amount { width: 100px; text-align: right; font-weight: 600; }
+        .bal-pct { width: 50px; text-align: right; color: #6b7280; font-size: 12px; }
+        .pref-token { font-size: 12px; color: #6b7280; margin-top: 10px; }
+        .pref-token span { color: #10b981; font-weight: 600; }
+
+        /* Tier progress */
+        .progress-track { height: 8px; background: #1f2937; border-radius: 4px; margin: 10px 0; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 0.5s; }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; }
+
+        /* Ledger table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; color: #6b7280; border-bottom: 1px solid #1f2937; font-weight: 500; font-size: 11px; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #1f2937; }
+        .dir-sent { color: #ef4444; }
+        .dir-recv { color: #10b981; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge.SETTLED { background: #10b98120; color: #10b981; }
+        .badge.QUEUED { background: #f59e0b20; color: #f59e0b; }
+        .memo { color: #6b7280; font-size: 11px; font-style: italic; }
+        .basescan { color: #3b82f6; text-decoration: none; font-size: 11px; }
+        .basescan:hover { text-decoration: underline; }
+        .ledger-summary { display: flex; gap: 24px; margin-bottom: 16px; font-size: 13px; }
+        .ledger-summary span { color: #6b7280; }
+        .ledger-summary strong { margin-left: 4px; }
+        .filters { display: flex; gap: 10px; margin-bottom: 16px; }
+        .filters select, .filters input { padding: 6px 10px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px; font-size: 12px; }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 16px; }
+            .cards { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login" id="loginScreen">
+        <div class="login-logo">AGIO</div>
+        <div class="login-sub">Agent Dashboard</div>
+        <div class="login-box">
+            <h2>Welcome back</h2>
+            <p>Connect your wallet or enter your AGIO ID to view your dashboard.</p>
+            <button class="wallet-btn" onclick="connectWallet()">Connect Wallet</button>
+            <div class="divider">— or —</div>
+            <input class="id-input" id="agioIdInput" placeholder="Enter AGIO ID (0x...)" onkeyup="if(event.key==='Enter')lookupId()">
+            <button class="id-btn" onclick="lookupId()">View Dashboard</button>
+        </div>
+    </div>
+
+    <!-- App -->
+    <div class="app" id="app">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">AGIO</div>
+                <div class="dash-label">Agent Dashboard</div>
+            </div>
+            <div class="sidebar-agent" id="sidebarAgent"></div>
+            <nav>
+                <a href="#" class="active" onclick="showPage('overview',this)"><span class="icon">◉</span> Overview</a>
+                <a href="#" onclick="showPage('ledger',this)"><span class="icon">≡</span> Ledger</a>
+                <a href="#" onclick="showPage('rewards',this)"><span class="icon">★</span> Rewards</a>
+                <a href="#" onclick="showPage('settings',this)"><span class="icon">⚙</span> Settings</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="https://agiotage.finance" target="_blank">agiotage.finance</a>
+                <a href="https://github.com/agio-protocol" target="_blank">GitHub</a>
+            </div>
+        </div>
+        <div class="main">
+            <div id="page-overview"></div>
+            <div id="page-ledger" style="display:none"></div>
+            <div id="page-rewards" style="display:none"></div>
+            <div id="page-settings" style="display:none"></div>
+        </div>
+    </div>
+
+    <script>
+    // Production: set to Railway URL. Tunnel URL as fallback during observation.
+    const API_BASE = (window.AGIO_API_URL || 'https://children-full-library-investigation.trycloudflare.com') + '/v1/dashboard';
+    let agioId = '';
+    let agentData = null;
+
+    function connectWallet() {
+        const id = prompt('Paste your AGIO ID to simulate wallet connect:');
+        if (id) { agioId = id.trim(); enterDashboard(); }
+    }
+
+    function lookupId() {
+        agioId = document.getElementById('agioIdInput').value.trim();
+        if (agioId) enterDashboard();
+    }
+
+    async function enterDashboard() {
+        try {
+            const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`);
+            if (!res.ok) { alert('Agent not found. Check your AGIO ID.'); return; }
+            agentData = await res.json();
+        } catch (e) { alert('Cannot connect to API. Is the server running?'); return; }
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').classList.add('active');
+        updateSidebar();
+        loadOverview();
+    }
+
+    function updateSidebar() {
+        const d = agentData;
+        const tier = d.tier || 'SPARK';
+        document.getElementById('sidebarAgent').innerHTML = `
+            <div class="agent-id" onclick="navigator.clipboard.writeText('${d.agio_id}')" title="Click to copy">${d.agio_id.slice(0, 22)}...</div>
+            <span class="tier-badge tier-${tier}">${tier}</span>
+            <div class="sidebar-bal">$${fmt(d.total_usd)}</div>
+        `;
+    }
+
+    function fmt(n, dec = 2) {
+        if (n === null || n === undefined) return '—';
+        return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    function showPage(page, el) {
+        document.querySelectorAll('.main > div').forEach(d => d.style.display = 'none');
+        document.getElementById(`page-${page}`).style.display = 'block';
+        document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+        if (el) el.classList.add('active');
+        if (page === 'overview') loadOverview();
+        if (page === 'ledger') loadLedger();
+        if (page === 'rewards') loadRewards();
+        if (page === 'settings') loadSettings();
+    }
+
+    async function loadOverview() {
+        const d = agentData;
+        const tier = d.tier || 'SPARK';
+        const balances = d.balances || {};
+        const total = d.total_usd || 0;
+
+        // Balance bars
+        const tokens = ['USDC', 'WETH', 'DAI', 'USDT', 'cbETH'];
+        let balHtml = '';
+        for (const t of tokens) {
+            const b = balances[t];
+            if (!b) continue;
+            const amt = b.total || 0;
+            const pct = total > 0 ? (amt / total * 100) : 0;
+            if (amt === 0 && pct === 0) continue;
+            balHtml += `
+                <div class="bal-row">
+                    <span class="bal-token">${t}</span>
+                    <div class="bal-bar-track"><div class="bal-bar-fill ${t}" style="width:${Math.max(pct, 2)}%"></div></div>
+                    <span class="bal-amount">$${fmt(amt, 4)}</span>
+                    <span class="bal-pct">${fmt(pct, 1)}%</span>
+                </div>`;
+        }
+        if (!balHtml) balHtml = '<div style="color:#6b7280;padding:12px 0">No balances yet. Deposit tokens to get started.</div>';
+
+        // Tier progress
+        let tierHtml = '';
+        const tp = d.tier_progress;
+        if (tp) {
+            tierHtml = `
+                <div class="section">
+                    <h3>Tier Progress</h3>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline">
+                        <span class="tier-badge tier-${tier}" style="font-size:14px">${tier}</span>
+                        <span style="color:#6b7280;font-size:13px">Next: <strong style="color:#e0e0e0">${tp.next_tier}</strong></span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" style="width:${tp.pct_txns}%"></div></div>
+                    <div class="progress-labels">
+                        <span>${d.stats.total_payments} transactions</span>
+                        <span>${tp.txns_needed} needed</span>
+                    </div>
+                    <div style="margin-top:8px;font-size:12px;color:#6b7280">
+                        Account age: ${d.stats.days_on_agio} days (${tp.days_needed} needed)
+                    </div>
+                </div>`;
+        }
+
+        // Savings
+        const savingsHtml = d.savings_vs_spark_pct > 0
+            ? `<div class="card"><div class="label">Your Savings vs SPARK</div><div class="value green">${d.savings_vs_spark_pct}%</div><div class="sub">lower fees at ${tier} tier</div></div>`
+            : `<div class="card"><div class="label">Fee Rate</div><div class="value">$${fmt(d.fee_rate, 5)}</div><div class="sub">per transaction (SPARK)</div></div>`;
+
+        document.getElementById('page-overview').innerHTML = `
+            <h1>Overview</h1>
+            <div class="cards">
+                <div class="card">
+                    <div class="label">Total Balance</div>
+                    <div class="value green">$${fmt(total, 4)}</div>
+                    <div class="sub">across all tokens</div>
+                </div>
+                <div class="card">
+                    <div class="label">Transactions</div>
+                    <div class="value blue">${d.stats.total_payments}</div>
+                    <div class="sub">all time</div>
+                </div>
+                <div class="card">
+                    <div class="label">Volume</div>
+                    <div class="value">$${fmt(d.stats.total_volume, 4)}</div>
+                    <div class="sub">total traded</div>
+                </div>
+                ${savingsHtml}
+                <div class="card">
+                    <div class="label">Days on AGIO</div>
+                    <div class="value">${d.stats.days_on_agio}</div>
+                    <div class="sub">since ${new Date(d.stats.registered_at).toLocaleDateString()}</div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                <div class="section">
+                    <h3>Balances</h3>
+                    ${balHtml}
+                    <div class="pref-token">Preferred receive token: <span>${d.preferred_token}</span></div>
+                </div>
+                ${tierHtml || '<div></div>'}
+            </div>
+        `;
+    }
+
+    async function loadLedger(direction = '', token = '') {
+        let url = `${API_BASE}/${encodeURIComponent(agioId)}/ledger?limit=100`;
+        if (direction) url += `&direction=${direction}`;
+        if (token) url += `&token=${token}`;
+
+        const [ledgerRes, summaryRes] = await Promise.all([
+            fetch(url).then(r => r.json()),
+            fetch(`${API_BASE}/${encodeURIComponent(agioId)}/ledger/summary`).then(r => r.json()),
+        ]);
+
+        const s = summaryRes;
+        const rows = ledgerRes.ledger.map(t => {
+            const isSent = t.direction === 'sent';
+            const dirClass = isSent ? 'dir-sent' : 'dir-recv';
+            const dirLabel = isSent ? 'SENT' : 'RECEIVED';
+            const sign = isSent ? '-' : '+';
+            const cpId = t.counterparty_id ? t.counterparty_id.slice(0, 18) + '...' : '—';
+            const tokenInfo = t.from_token !== t.to_token ? `${t.from_token} → ${t.to_token}` : t.from_token;
+
+            return `<tr>
+                <td>${new Date(t.created_at).toLocaleString()}</td>
+                <td class="${dirClass}" style="font-weight:600">${sign}$${fmt(t.amount, 4)}</td>
+                <td>${dirLabel}</td>
+                <td>${tokenInfo}</td>
+                <td title="${t.counterparty_id || ''}">${cpId}</td>
+                <td><span class="badge ${t.status}">${t.status}</span></td>
+                <td>${t.swap_fee > 0 ? '$' + fmt(t.swap_fee, 6) : '—'}</td>
+                <td>${t.memo ? `<span class="memo">${t.memo.slice(0, 30)}</span>` : ''}</td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('page-ledger').innerHTML = `
+            <h1>Ledger</h1>
+            <div class="ledger-summary">
+                <div><span>Total sent:</span><strong class="dir-sent">$${fmt(s.total_sent_usd, 4)}</strong></div>
+                <div><span>Total received:</span><strong class="dir-recv">$${fmt(s.total_received_usd, 4)}</strong></div>
+                <div><span>Net:</span><strong style="color:${s.net_usd >= 0 ? '#10b981' : '#ef4444'}">$${fmt(s.net_usd, 4)}</strong></div>
+                <div><span>Transactions:</span><strong>${s.transaction_count}</strong></div>
+            </div>
+            <div class="filters">
+                <select onchange="loadLedger(this.value, '')">
+                    <option value="">All directions</option>
+                    <option value="sent">Sent only</option>
+                    <option value="received">Received only</option>
+                </select>
+                <select onchange="loadLedger('', this.value)">
+                    <option value="">All tokens</option>
+                    <option value="USDC">USDC</option>
+                    <option value="WETH">WETH</option>
+                    <option value="DAI">DAI</option>
+                </select>
+            </div>
+            <div class="section">
+                <table>
+                    <tr><th>Date</th><th>Amount</th><th>Direction</th><th>Token</th><th>Counterparty</th><th>Status</th><th>Swap Fee</th><th>Memo</th></tr>
+                    ${rows || '<tr><td colspan="8" style="color:#6b7280;text-align:center;padding:20px">No transactions yet</td></tr>'}
+                </table>
+            </div>
+        `;
+    }
+
+    async function loadRewards() {
+        const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/rewards`);
+        const d = await res.json();
+
+        document.getElementById('page-rewards').innerHTML = `
+            <h1>Rewards</h1>
+            <div class="cards">
+                <div class="card">
+                    <div class="label">Current Tier</div>
+                    <div class="value"><span class="tier-badge tier-${d.tier}" style="font-size:16px">${d.tier}</span></div>
+                </div>
+                <div class="card">
+                    <div class="label">Fee Rate</div>
+                    <div class="value">$${fmt(d.fee_rate, 5)}</div>
+                    <div class="sub">per transaction</div>
+                </div>
+                <div class="card">
+                    <div class="label">Points Multiplier</div>
+                    <div class="value purple">${d.points_multiplier}x</div>
+                </div>
+                <div class="card">
+                    <div class="label">Savings vs SPARK</div>
+                    <div class="value green">$${fmt(d.fee_savings_vs_spark, 6)}</div>
+                    <div class="sub">total saved by your tier</div>
+                </div>
+            </div>
+            <div class="section">
+                <h3>How Tiers Work</h3>
+                <p style="color:#9ca3af;font-size:13px;line-height:1.6">
+                    Your tier is <strong>permanent</strong> — once earned, it never downgrades. The more you use AGIO, the cheaper it gets.
+                    Every transaction moves you closer to the next tier and its lower fees.
+                </p>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px">
+                    <div style="text-align:center;padding:12px;background:#6b728010;border-radius:8px">
+                        <div style="font-weight:700;color:#9ca3af">SPARK</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px">$0.00015/tx</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#3b82f610;border-radius:8px">
+                        <div style="font-weight:700;color:#3b82f6">ARC</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px">$0.00012 (20% off)</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#8b5cf610;border-radius:8px">
+                        <div style="font-weight:700;color:#8b5cf6">PULSE</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px">$0.00008 (47% off)</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#f59e0b10;border-radius:8px">
+                        <div style="font-weight:700;color:#f59e0b">CORE</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px">$0.00005 (67% off)</div>
+                    </div>
+                    <div style="text-align:center;padding:12px;background:#10b98110;border-radius:8px">
+                        <div style="font-weight:700;color:#10b981">NEXUS</div>
+                        <div style="font-size:11px;color:#6b7280;margin-top:4px">$0.00003 (80% off)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function loadSettings() {
+        const d = agentData;
+        document.getElementById('page-settings').innerHTML = `
+            <h1>Settings</h1>
+            <div class="section">
+                <h3>Preferred Receive Token</h3>
+                <p style="color:#9ca3af;font-size:13px;margin-bottom:12px">When someone pays you in a different token, AGIO will automatically convert to your preferred token.</p>
+                <select style="padding:8px 12px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-size:14px">
+                    <option ${d.preferred_token==='USDC'?'selected':''}>USDC</option>
+                    <option ${d.preferred_token==='USDT'?'selected':''}>USDT</option>
+                    <option ${d.preferred_token==='DAI'?'selected':''}>DAI</option>
+                    <option ${d.preferred_token==='WETH'?'selected':''}>WETH</option>
+                    <option ${d.preferred_token==='cbETH'?'selected':''}>cbETH</option>
+                </select>
+            </div>
+            <div class="section">
+                <h3>Account Info</h3>
+                <div style="font-size:13px;color:#9ca3af;line-height:2">
+                    <div>AGIO ID: <span style="color:#e0e0e0;font-family:monospace">${d.agio_id}</span></div>
+                    <div>Wallet: <span style="color:#e0e0e0;font-family:monospace">${d.wallet}</span></div>
+                    <div>Registered: ${new Date(d.stats.registered_at).toLocaleDateString()}</div>
+                    <div>Network: Base mainnet (chain 8453)</div>
+                </div>
+            </div>
+            <div class="section">
+                <h3>Contract Addresses</h3>
+                <div style="font-size:12px;color:#6b7280;font-family:monospace;line-height:2">
+                    <div>Vault: <a class="basescan" href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc" target="_blank">0xe68bA48B...Ec3FeEBc</a></div>
+                    <div>Settlement: <a class="basescan" href="https://basescan.org/address/0x3937a057AE18971657AD12830964511B73D9e7C5" target="_blank">0x3937a057...D9e7C5</a></div>
+                    <div>Registry: <a class="basescan" href="https://basescan.org/address/0xEfC4166Fc14758bAE879Bf439848Cb26E8f74927" target="_blank">0xEfC4166F...f74927</a></div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Auto-refresh overview every 30 seconds
+    setInterval(async () => {
+        if (!agioId || document.getElementById('page-overview').style.display === 'none') return;
+        try {
+            const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`);
+            if (res.ok) { agentData = await res.json(); updateSidebar(); loadOverview(); }
+        } catch (e) {}
+    }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+version: "3.9"
+
+# AGIO Production Docker Compose
+# Target: 99.99% uptime
+# Use managed services (Neon/Supabase/Upstash) for databases in real production.
+# This compose file is for self-hosted or staging deployments.
+
+x-api-common: &api-common
+  build: .
+  env_file: .env.prod
+  restart: always
+  depends_on:
+    postgres-primary:
+      condition: service_healthy
+    redis-queue:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 15s
+
+services:
+  # ============================================================
+  # LOAD BALANCER
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-1
+      - api-2
+      - api-3
+    restart: always
+
+  # ============================================================
+  # API INSTANCES (3x for redundancy)
+  # ============================================================
+  api-1:
+    <<: *api-common
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  api-2:
+    <<: *api-common
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  api-3:
+    <<: *api-common
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  # ============================================================
+  # BATCH WORKERS (active-passive)
+  # ============================================================
+  worker-active:
+    build: .
+    command: python -m src.workers.batch_worker
+    env_file: .env.prod
+    restart: always
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+
+  worker-passive:
+    build: .
+    command: python -m src.workers.batch_worker
+    env_file: .env.prod
+    restart: always
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+
+  # ============================================================
+  # RECONCILIATION SERVICE (critical safety check)
+  # ============================================================
+  reconciler:
+    build: .
+    command: python -m src.workers.reconciliation_service
+    env_file: .env.prod
+    restart: always
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+
+  # ============================================================
+  # POSTGRESQL (primary + 2 replicas)
+  # ============================================================
+  postgres-primary:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: agio
+      POSTGRES_USER: agio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-primary:/var/lib/postgresql/data
+    command: >
+      postgres
+        -c wal_level=replica
+        -c max_wal_senders=5
+        -c max_replication_slots=5
+        -c hot_standby=on
+        -c shared_buffers=256MB
+        -c work_mem=16MB
+        -c max_connections=200
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agio"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    environment:
+      POSTGRESQL_HOST: postgres-primary
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: agio
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRESQL_DATABASE: agio
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 50
+      PGBOUNCER_POOL_MODE: transaction
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+
+  # ============================================================
+  # REDIS (3 separate instances + sentinel)
+  # ============================================================
+  redis-queue:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec --port 6379
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-queue-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-cache:
+    image: redis:7-alpine
+    command: redis-server --port 6380 --save ""
+    ports:
+      - "6380:6380"
+
+  redis-session:
+    image: redis:7-alpine
+    command: redis-server --port 6381 --save 300 1
+    ports:
+      - "6381:6381"
+
+  redis-sentinel-1:
+    image: redis:7-alpine
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      - redis-queue
+
+  redis-sentinel-2:
+    image: redis:7-alpine
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      - redis-queue
+
+  redis-sentinel-3:
+    image: redis:7-alpine
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./redis/sentinel.conf:/etc/redis/sentinel.conf:ro
+    depends_on:
+      - redis-queue
+
+volumes:
+  pgdata-primary:
+  redis-queue-data:
