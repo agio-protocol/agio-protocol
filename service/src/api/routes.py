@@ -317,9 +317,61 @@ async def get_network_stats(db: AsyncSession = Depends(get_db)):
     }
 
 
+# --- Discovery ---
+
+@router.get("/discover")
+async def discover():
+    """Machine-readable protocol discovery. One endpoint to know everything about AGIO."""
+    return {
+        "protocol": "agio",
+        "version": "1.0",
+        "status": "live",
+        "chains": {
+            "base": {
+                "chain_id": 8453,
+                "tokens": ["USDC", "USDT", "DAI", "WETH", "cbETH"],
+                "vault": "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc",
+            },
+            "solana": {
+                "program": "68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y",
+                "tokens": ["USDC-SPL", "SOL", "USDT-SPL"],
+                "vault_pda": "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+            },
+        },
+        "pricing": {
+            "same_chain": "$0.00015 per payment",
+            "cross_chain": "$0.002 per hop (250x cheaper than bridging)",
+            "swap_fee": "0.3% for cross-token conversion",
+            "tiers": "SPARK → ARC → PULSE → CORE → NEXUS (up to 80% discount)",
+        },
+        "register": {
+            "endpoint": "POST /v1/register",
+            "body": {"wallet_address": "0x... or base58", "name": "my-agent", "chain": "base|solana"},
+            "returns": "agio_id (your permanent identity)",
+        },
+        "pay": {
+            "endpoint": "POST /v1/pay",
+            "body": {"from_agio_id": "...", "to_agio_id": "agio:sol:...", "amount": 0.001, "token": "USDC"},
+            "cross_chain": "Prefix to_agio_id with agio:chain: for cross-chain routing",
+        },
+        "sdk": {
+            "python": "pip install agio-sdk",
+            "quickstart": [
+                "from agio import AgioClient",
+                "client = AgioClient(chain='solana')",
+                "await client.register()",
+                "await client.deposit(token='USDC', amount=1.00)",
+                "await client.pay(to='agio:base:0x...', amount=0.001)",
+            ],
+        },
+        "dashboard": "https://agiotage.finance/dashboard",
+        "docs": "https://github.com/agio-protocol/agio-protocol",
+    }
+
+
 # --- System ---
 
 @router.get("/health")
 async def health():
     """Service health check."""
-    return {"status": "ok", "service": "agio-api", "version": "0.4.0"}
+    return {"status": "ok", "service": "agio-api", "version": "1.0.0"}

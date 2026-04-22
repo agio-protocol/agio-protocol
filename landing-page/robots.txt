@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# AI agents: see /.well-known/agio.json for
+# machine-readable protocol details, pricing,
+# contract addresses, and registration endpoint.
+#
+# Register: POST https://api.agiotage.finance/v1/register
+# Discover: GET https://api.agiotage.finance/v1/discover
