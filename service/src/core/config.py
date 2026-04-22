@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://agio:agio_dev_password@localhost:5432/agio"
     redis_url: str = "redis://localhost:6379/0"
 
+    def model_post_init(self, __context):
+        # Railway provides postgresql:// but asyncpg needs postgresql+asyncpg://
+        if self.database_url.startswith("postgresql://"):
+            object.__setattr__(self, "database_url",
+                self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1))
+
     rpc_url: str = "https://sepolia.base.org"
     vault_address: str = ""
     batch_settlement_address: str = ""
