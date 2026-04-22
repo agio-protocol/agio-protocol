@@ -1,0 +1,11 @@
+{
+  "chain": "base-sepolia",
+  "chain_id": 84532,
+  "rpc": "https://sepolia.base.org",
+  "explorer": "https://sepolia.basescan.org",
+  "usdc": "0xfE410eDE48Ca12EBBebDd9427265e8008b04979A",
+  "vault": "0x4c2832D147403bF37933F51BDc7F2493f90C7d11",
+  "registry": "0x9AB057a60104f04994d446f2D7323D58cd06d0f2",
+  "batch_settlement": "0x9F7534ef8a023c3f4b8F40B43F1F9a1A09815A01",
+  "deployer": "0xA8635794C0d2f4fFCCBA277EA03069B24c1B7949"
+}

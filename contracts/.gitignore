@@ -1,0 +1,13 @@
+# Compiler files
+cache/
+out/
+
+# Broadcast logs (contain deployment data, keep mainnet runs)
+broadcast/*/31337/
+broadcast/**/dry-run/
+
+# Docs
+docs/
+
+# Dotenv file
+.env

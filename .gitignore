@@ -1,0 +1,36 @@
+# === SECRETS (NEVER COMMIT) ===
+.env
+.env.*
+!.env.*.example
+scripts/.env.mainnet
+*.key
+scripts/deployed_addresses.json
+scripts/verification_result.json
+
+# === Foundry build artifacts ===
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# === Python ===
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+*.egg
+dist/
+build/
+
+# === Node ===
+node_modules/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# === Logs ===
+*.log
+/tmp/

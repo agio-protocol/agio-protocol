@@ -1,0 +1,10 @@
+{
+  "chain": "base-sepolia-fork",
+  "rpc": "http://localhost:8545",
+  "usdc": "0xcD16a75CFaCacef266f91bF45680d619ba8C53Ac",
+  "vault": "0x27B2E063A6BDdcd239473E854CE90D79b25626dD",
+  "registry": "0xea917cf52b4B2a81964952bb3E8AD279cb53968B",
+  "batch_settlement": "0x24BA8c3F14F706FA557b568BFbc0bd40Bc4A466D",
+  "deployer": "0xA8635794C0d2f4fFCCBA277EA03069B24c1B7949",
+  "deployer_key": "0x3f3615e3031af645ecd615bb6f2c9b5a0affcfb4acdb12b9e33387680ea2ee57"
+}

@@ -1,0 +1,14 @@
+[project]
+name = "agio-sdk"
+version = "0.1.0"
+description = "AGIO SDK — Cross-chain micropayments for AI agents"
+requires-python = ">=3.11"
+dependencies = ["web3>=6.0", "eth-account>=0.11", "pydantic>=2.0"]
+license = {text = "MIT"}
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

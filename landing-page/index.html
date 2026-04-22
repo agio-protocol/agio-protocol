@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGIO — Instant payments between AI agents across any blockchain</title>
+<meta name="description" content="AGIO is a cross-chain micropayment routing protocol for AI agents. Sub-cent payments, any chain, under 1 second.">
+<meta property="og:title" content="AGIO Protocol">
+<meta property="og:description" content="Instant, sub-cent payments between AI agents across any blockchain.">
+<meta property="og:url" content="https://agiotage.finance">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#06080d;--card:#0c1018;--border:#1a2030;
+  --text:#e0e6ef;--muted:#7a8599;
+  --accent:#00d9a3;--accent2:#00b88a;
+  --code-bg:#111827;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Nav */
+nav{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto;padding:20px 24px}
+.logo{font-size:22px;font-weight:800;letter-spacing:2px;color:#fff}
+.logo span{color:var(--accent)}
+.nav-links a{margin-left:28px;color:var(--muted);font-size:14px;font-weight:500}
+.nav-links a:hover{color:#fff;text-decoration:none}
+
+/* Hero */
+.hero{max-width:800px;margin:80px auto 0;text-align:center;padding:0 24px}
+.hero h1{font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.1;margin-bottom:20px;
+  background:linear-gradient(135deg,#fff 30%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:18px;color:var(--muted);max-width:600px;margin:0 auto 36px}
+.cta-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn{padding:14px 32px;border-radius:8px;font-weight:600;font-size:15px;display:inline-block;transition:all .2s}
+.btn-primary{background:var(--accent);color:#06080d}
+.btn-primary:hover{background:var(--accent2);text-decoration:none}
+.btn-outline{border:1px solid var(--border);color:var(--text);background:transparent}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;max-width:1000px;margin:80px auto;padding:0 24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center}
+.stat .num{font-size:32px;font-weight:800;color:#fff;margin-bottom:4px}
+.stat .num span{color:var(--accent)}
+.stat .label{color:var(--muted);font-size:13px}
+
+/* How it works */
+.section{max-width:1000px;margin:80px auto;padding:0 24px}
+.section h2{font-size:28px;font-weight:700;text-align:center;margin-bottom:48px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.step{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px}
+.step-num{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#06080d;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-bottom:16px}
+.step h3{font-size:16px;font-weight:600;margin-bottom:8px}
+.step p{color:var(--muted);font-size:14px}
+
+/* Code */
+.code-section{max-width:700px;margin:60px auto;padding:0 24px}
+.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;padding:24px;
+  font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;overflow-x:auto}
+.code-block .comment{color:#6b7280}
+.code-block .keyword{color:#c084fc}
+.code-block .string{color:#34d399}
+.code-block .func{color:#60a5fa}
+
+/* Chains */
+.chains{text-align:center;margin:60px auto;max-width:700px}
+.chains h3{font-size:14px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:20px}
+.chain-logos{display:flex;gap:36px;justify-content:center;align-items:center;flex-wrap:wrap}
+.chain{display:flex;flex-direction:column;align-items:center;gap:8px}
+.chain-icon{width:48px;height:48px;border-radius:50%;background:var(--card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--accent)}
+.chain span{font-size:12px;color:var(--muted)}
+
+/* Signup */
+.signup{max-width:500px;margin:80px auto;text-align:center;padding:0 24px}
+.signup h2{font-size:22px;margin-bottom:12px}
+.signup p{color:var(--muted);font-size:14px;margin-bottom:20px}
+.signup-form{display:flex;gap:8px}
+.signup-form input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);
+  background:var(--card);color:var(--text);font-size:14px}
+.signup-form button{padding:12px 24px;border:none;background:var(--accent);color:#06080d;
+  font-weight:600;border-radius:8px;cursor:pointer;font-size:14px}
+
+/* Footer */
+footer{max-width:1000px;margin:80px auto 0;padding:40px 24px;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+footer .left{color:var(--muted);font-size:13px}
+footer .links a{margin-left:20px;color:var(--muted);font-size:13px}
+
+@media(max-width:600px){
+  .hero h1{font-size:28px}
+  .stats{grid-template-columns:1fr 1fr}
+  .steps{grid-template-columns:1fr}
+  .signup-form{flex-direction:column}
+  footer{flex-direction:column;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">AG<span>IO</span></div>
+  <div class="nav-links">
+    <a href="/dashboard" style="color:#00d9a3;font-weight:600">Dashboard</a>
+    <a href="https://github.com/agio-protocol/agio-contracts">Docs</a>
+    <a href="https://github.com/agio-protocol">GitHub</a>
+    <a href="#signup">Launch</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <h1>Instant, sub-cent payments between AI agents across any blockchain</h1>
+  <p>Sub-cent payments for the personal agent economy. Send $0.001 across chains in under 1 second. 3 lines of code.</p>
+  <div class="cta-row">
+    <a href="https://github.com/agio-protocol/agio-contracts" class="btn btn-primary">Read the Docs</a>
+    <a href="https://github.com/agio-protocol" class="btn btn-outline">View on GitHub</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat"><div class="num">2.2<span>B</span></div><div class="label">AI agents by 2028 (IDC)</div></div>
+  <div class="stat"><div class="num">$15<span>T+</span></div><div class="label">Projected agent commerce (Gartner)</div></div>
+  <div class="stat"><div class="num">60-70<span>%</span></div><div class="label">Are micropayments under $0.01</div></div>
+  <div class="stat"><div class="num"><span>0</span></div><div class="label">Protocols solve cross-chain agent payments</div></div>
+</section>
+
+<section class="section">
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Agent sends payment via AGIO SDK</h3>
+      <p>3 lines of code. Your agent calls <code>agio.pay()</code> with the recipient, amount, and chain. That's it.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>AGIO routes, batches, and settles</h3>
+      <p>Payments are automatically routed across chains, batched for gas efficiency, and settled in USDC. No bridges, no swaps, no waiting.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Recipient gets paid in &lt;1 second</h3>
+      <p>The receiving agent gets credited instantly on their chain. Settlement happens in the background. Gas cost: ~$0.00001.</p>
+    </div>
+  </div>
+</section>
+
+<section class="code-section">
+  <div class="code-block">
+<span class="keyword">from</span> agio <span class="keyword">import</span> Agent<br><br>
+<span class="comment"># Initialize your agent</span><br>
+agent = Agent(<span class="string">"your-api-key"</span>)<br><br>
+<span class="comment"># Pay another agent — any chain, any amount</span><br>
+receipt = agent.<span class="func">pay</span>(<br>
+&nbsp;&nbsp;to=<span class="string">"agent_0x7a3f...base"</span>,<br>
+&nbsp;&nbsp;amount=<span class="string">"0.005"</span>,  <span class="comment"># $0.005 USDC</span><br>
+&nbsp;&nbsp;memo=<span class="string">"API call: sentiment analysis"</span><br>
+)<br><br>
+<span class="comment"># Check balance across all chains</span><br>
+balance = agent.<span class="func">balance</span>()  <span class="comment"># {"base": 12.50, "solana": 3.20}</span><br><br>
+<span class="comment"># Request payment from another agent</span><br>
+invoice = agent.<span class="func">request</span>(<br>
+&nbsp;&nbsp;from_agent=<span class="string">"agent_0x9b2c...solana"</span>,<br>
+&nbsp;&nbsp;amount=<span class="string">"0.002"</span>,<br>
+&nbsp;&nbsp;service=<span class="string">"data-enrichment"</span><br>
+)
+  </div>
+</section>
+
+<section class="chains">
+  <h3>Supported chains</h3>
+  <div class="chain-logos">
+    <div class="chain"><div class="chain-icon">B</div><span>Base</span></div>
+    <div class="chain"><div class="chain-icon">S</div><span>Solana</span></div>
+    <div class="chain"><div class="chain-icon">P</div><span>Polygon</span></div>
+    <div class="chain"><div class="chain-icon">A</div><span>Arbitrum</span></div>
+    <div class="chain"><div class="chain-icon">E</div><span>Ethereum</span></div>
+  </div>
+  <p style="margin-top:20px;color:var(--muted);font-size:13px">Built on USDC &middot; x402 compatible &middot; Settled in real-time</p>
+</section>
+
+<section class="section">
+  <h2>Cost to send $0.001</h2>
+  <p style="text-align:center;color:var(--muted);margin-bottom:32px">Built to settle underneath x402, Skyfire, and MPP — not compete with them.</p>
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">Visa</span>
+      <span style="color:#EF4444;font-weight:600">$0.30 <span style="color:var(--muted);font-weight:400;font-size:12px">impossible</span></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">Ethereum L1</span>
+      <span style="color:#EF4444;font-weight:600">$2.00 <span style="color:var(--muted);font-weight:400;font-size:12px">impossible</span></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">Skyfire</span>
+      <span style="color:#EAB308;font-weight:600">$0.00005 <span style="color:var(--muted);font-weight:400;font-size:12px">+ 2-3% infra</span></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">x402 on Base</span>
+      <span style="color:#EAB308;font-weight:600">$0.00001 <span style="color:var(--muted);font-weight:400;font-size:12px">Base only</span></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;background:var(--card);border-radius:8px;padding:14px 16px;margin-top:4px">
+      <span style="color:var(--accent);font-weight:700">AGIO</span>
+      <span style="color:var(--accent);font-weight:700">$0.0001 <span style="font-weight:400;font-size:12px">any chain, batched</span></span>
+    </div>
+  </div>
+</section>
+
+<section class="signup" id="signup">
+  <h2>Get notified when AGIO launches</h2>
+  <p>Be the first to integrate. We'll share early access, the SDK beta, and our full research report.</p>
+  <form id="notify-form" class="signup-form" name="notify" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+    <input type="hidden" name="form-name" value="notify">
+    <p style="display:none"><input name="bot-field"></p>
+    <input type="email" name="email" placeholder="your@email.com" required>
+    <button type="submit">Notify me</button>
+  </form>
+  <div id="notify-success" style="display:none;text-align:center;padding:20px;">
+    <p style="color:#00d9a3;font-size:18px;font-weight:600;">Thanks! We'll notify you when AGIO launches.</p>
+    <p style="color:#8b949e;font-size:14px;margin-top:8px;">Check your inbox for a confirmation.</p>
+  </div>
+</section>
+
+<script>
+document.getElementById('notify-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var form = this;
+  var data = new URLSearchParams(new FormData(form));
+  fetch('/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: data.toString()
+  }).then(function() {
+    form.style.display = 'none';
+    document.getElementById('notify-success').style.display = 'block';
+  }).catch(function() {
+    form.style.display = 'none';
+    document.getElementById('notify-success').style.display = 'block';
+  });
+});
+</script>
+
+<footer>
+  <div class="left">&copy; 2026 AGIO Protocol. The payment layer for the machine economy.</div>
+  <div class="links">
+    <a href="https://github.com/agio-protocol">GitHub</a>
+    <a href="https://twitter.com/agiofinance">X / Twitter</a>
+    <a href="https://discord.gg/agio">Discord</a>
+  </div>
+</footer>
+
+</body>
+</html>
