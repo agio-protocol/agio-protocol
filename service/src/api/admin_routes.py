@@ -305,16 +305,21 @@ async def admin_revenue(db: AsyncSession = Depends(get_db), _=Depends(verify_adm
 
 @router.get("/wallets")
 async def admin_wallets(_=Depends(verify_admin)):
-    """Wallet and vault financial health."""
-    from web3 import Web3
+    """All protocol wallet balances across Base and Solana."""
+    import httpx
+
+    result = {"base": {}, "solana": {}, "alerts": [], "total_usd": 0.0}
+
+    # === BASE CHAIN ===
     try:
+        from web3 import Web3
         w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
         vault_addr = "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc"
         deployer = settings.get_deployer_address() or "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051"
         fee_collector = settings.get_fee_collector_address() or deployer
 
         deployer_eth = w3.eth.get_balance(Web3.to_checksum_address(deployer)) / 1e18
-        fee_collector_eth = w3.eth.get_balance(Web3.to_checksum_address(fee_collector)) / 1e18
+        fee_eth = w3.eth.get_balance(Web3.to_checksum_address(fee_collector)) / 1e18
 
         TOKENS = {
             "USDC": {"addr": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "dec": 6},
@@ -323,36 +328,68 @@ async def admin_wallets(_=Depends(verify_admin)):
             "WETH": {"addr": "0x4200000000000000000000000000000000000006", "dec": 18},
             "cbETH": {"addr": "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", "dec": 18},
         }
-
         ERC20_ABI = [{"inputs":[{"name":"a","type":"address"}],"name":"balanceOf","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"}]
 
         vault_tokens = {}
-        vault_usdc = 0.0
-        vault_weth = 0.0
         for symbol, info in TOKENS.items():
             try:
-                contract = w3.eth.contract(address=Web3.to_checksum_address(info["addr"]), abi=ERC20_ABI)
-                raw = contract.functions.balanceOf(Web3.to_checksum_address(vault_addr)).call()
-                val = raw / (10 ** info["dec"])
-                vault_tokens[symbol] = {"raw": raw, "tracked": f"{val:.6f}"}
-                if symbol == "USDC": vault_usdc = val
-                if symbol == "WETH": vault_weth = val
+                c = w3.eth.contract(address=Web3.to_checksum_address(info["addr"]), abi=ERC20_ABI)
+                raw = c.functions.balanceOf(Web3.to_checksum_address(vault_addr)).call()
+                vault_tokens[symbol] = round(raw / (10 ** info["dec"]), 6)
             except Exception:
-                vault_tokens[symbol] = {"raw": 0, "tracked": "error"}
+                vault_tokens[symbol] = 0
 
-        return {
-            "deployer_address": deployer,
-            "deployer_eth": deployer_eth,
-            "fee_collector_address": fee_collector,
-            "fee_collector_eth": fee_collector_eth,
-            "vault_address": vault_addr,
-            "vault_usdc": vault_usdc,
-            "vault_weth": vault_weth,
-            "vault_tokens": vault_tokens,
-            "deployer_gas_alert": deployer_eth < 0.002,
+        result["base"] = {
+            "deployer": {"address": deployer, "eth": round(deployer_eth, 6)},
+            "fee_collector": {"address": fee_collector, "eth": round(fee_eth, 6)},
+            "vault": {"address": vault_addr, "tokens": vault_tokens},
         }
+        if deployer_eth < 0.002:
+            result["alerts"].append("Base deployer ETH below $5 — cannot pay gas")
+        result["total_usd"] += vault_tokens.get("USDC", 0) + vault_tokens.get("USDT", 0) + vault_tokens.get("DAI", 0)
+        result["total_usd"] += vault_tokens.get("WETH", 0) * 2400
     except Exception as e:
-        return {"error": str(e)}
+        result["base"] = {"error": str(e)[:80]}
+
+    # === SOLANA CHAIN ===
+    try:
+        sol_deployer = "Csix2rY2de4eGpsVVvfytGpxTUHLeq2V32HZJmW8Wa6S"
+        sol_vault = "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ"
+        sol_rpc = "https://api.mainnet-beta.solana.com"
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            # Deployer SOL balance
+            r = await client.post(sol_rpc, json={
+                "jsonrpc": "2.0", "id": 1, "method": "getBalance",
+                "params": [sol_deployer]
+            })
+            sol_balance = r.json().get("result", {}).get("value", 0) / 1e9
+
+            # Vault USDC-SPL balance
+            usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+            r2 = await client.post(sol_rpc, json={
+                "jsonrpc": "2.0", "id": 2, "method": "getTokenAccountsByOwner",
+                "params": [sol_vault, {"mint": usdc_mint}, {"encoding": "jsonParsed"}]
+            })
+            vault_usdc = 0
+            accounts = r2.json().get("result", {}).get("value", [])
+            for acct in accounts:
+                info = acct.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
+                vault_usdc = float(info.get("tokenAmount", {}).get("uiAmount", 0))
+
+        result["solana"] = {
+            "deployer": {"address": sol_deployer, "sol": round(sol_balance, 6)},
+            "vault": {"address": sol_vault, "usdc_spl": vault_usdc},
+        }
+        if sol_balance < 0.1:
+            result["alerts"].append("Solana deployer SOL below 0.1 — cannot pay gas")
+        if vault_usdc < 10:
+            result["alerts"].append(f"Solana vault USDC reserve low: ${vault_usdc}")
+        result["total_usd"] += vault_usdc
+    except Exception as e:
+        result["solana"] = {"error": str(e)[:80]}
+
+    return result
 
 
 @router.get("/reconciliation")
