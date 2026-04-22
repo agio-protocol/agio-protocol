@@ -321,10 +321,16 @@
     }
 
     async function loadWallets() {
-        const d = await api('/wallets');
-        if (!d) { document.getElementById('page-wallets').innerHTML = '<h1>Wallets</h1><p>Wallet data unavailable. Configure the /v1/admin/wallets endpoint.</p>'; return; }
+        let d;
+        try { d = await api('/wallets'); } catch(e) { d = null; }
+        if (!d || d.error) {
+            document.getElementById('page-wallets').innerHTML = `<h1>Wallets</h1><div class="section"><p>Wallet data loading... (on-chain queries may take a moment)</p><p style="color:#6b7280;font-size:12px;margin-top:8px">${d && d.error ? d.error : 'Retrying in 10s...'}</p></div>`;
+            setTimeout(loadWallets, 10000);
+            return;
+        }
 
-        const ethAlert = d.deployer_eth < 0.002 ? '<div style="background:#ef444420;border:1px solid #ef4444;padding:12px;border-radius:8px;margin-bottom:20px;color:#ef4444;font-weight:600">ALERT: Deployer ETH below $5 — cannot pay gas for batch settlement!</div>' : '';
+        const deplEth = d.deployer_eth || 0;
+        const ethAlert = deplEth < 0.002 ? '<div style="background:#ef444420;border:1px solid #ef4444;padding:12px;border-radius:8px;margin-bottom:20px;color:#ef4444;font-weight:600">ALERT: Deployer ETH below $5 — cannot pay gas for batch settlement!</div>' : '';
 
         let tokenRows = '';
         for (const [tok, bal] of Object.entries(d.vault_tokens || {})) {
@@ -337,23 +343,23 @@
             <div class="cards">
                 <div class="card">
                     <div class="label">Deployer ETH</div>
-                    <div class="value ${d.deployer_eth < 0.002 ? 'amber' : 'green'}">${d.deployer_eth.toFixed(6)}</div>
-                    <div class="sub">for gas (~$${(d.deployer_eth * 2320).toFixed(2)})</div>
+                    <div class="value ${deplEth < 0.002 ? 'amber' : 'green'}">${deplEth.toFixed(6)}</div>
+                    <div class="sub">for gas (~$${(deplEth * 2400).toFixed(2)})</div>
                 </div>
                 <div class="card">
                     <div class="label">Fee Collector</div>
-                    <div class="value green">${d.fee_collector_eth.toFixed(6)} ETH</div>
-                    <div class="sub">${d.fee_collector_address.slice(0,14)}...</div>
+                    <div class="value green">${(d.fee_collector_eth||0).toFixed(6)} ETH</div>
+                    <div class="sub">${(d.fee_collector_address||'').slice(0,14)}...</div>
                 </div>
                 <div class="card">
                     <div class="label">Vault USDC</div>
-                    <div class="value blue">$${fmt(d.vault_usdc)}</div>
+                    <div class="value blue">$${fmt(d.vault_usdc||0)}</div>
                     <div class="sub">real tokens held</div>
                 </div>
                 <div class="card">
                     <div class="label">Vault WETH</div>
-                    <div class="value">${d.vault_weth.toFixed(6)}</div>
-                    <div class="sub">~$${(d.vault_weth * 2320).toFixed(2)}</div>
+                    <div class="value">${(d.vault_weth||0).toFixed(6)}</div>
+                    <div class="sub">~$${((d.vault_weth||0) * 2400).toFixed(2)}</div>
                 </div>
             </div>
             <div class="section">
