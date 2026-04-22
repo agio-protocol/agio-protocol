@@ -203,7 +203,7 @@ receipt = <span class="kw">await</span> client.<span class="fn">pay</span>(
 <script>
 (async function(){
   try {
-    const r = await fetch('https://children-full-library-investigation.trycloudflare.com/v1/network/stats');
+    const r = await fetch('https://agio-protocol-production.up.railway.app/v1/network/stats');
     if(r.ok){
       const d = await r.json();
       document.getElementById('st-txns').innerHTML = d.total_transactions.toLocaleString();
