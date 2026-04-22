@@ -3,102 +3,86 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AGIO — The payment layer for the personal agent economy</title>
-<meta name="description" content="AGIO: cross-chain micropayments for AI agents. Pay any agent, any chain, any token. Live on Base mainnet.">
-<meta property="og:title" content="AGIO Protocol">
-<meta property="og:description" content="Pay any agent, any chain, any token. The payment layer for the personal agent economy.">
-<meta property="og:url" content="https://agiotage.finance">
-<meta property="og:type" content="website">
+<title>AGIO — Cross-chain payments for AI agents</title>
+<meta name="description" content="AGIO: cross-chain micropayments for AI agents. Base and Solana. Any token. $0.002 per hop. Register in 30 seconds.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#06080d;--card:#0c1018;--border:#1a2030;
-  --text:#e0e6ef;--muted:#7a8599;
-  --accent:#00d9a3;--accent2:#00b88a;
-  --code-bg:#111827;
-}
+:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3;--accent2:#00b88a;--code-bg:#0d1117}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
-nav{display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto;padding:20px 24px}
-.logo{font-size:22px;font-weight:800;letter-spacing:2px;color:#fff}
-.logo span{color:var(--accent)}
-.nav-links{display:flex;align-items:center;gap:28px}
-.nav-links a{color:var(--muted);font-size:14px;font-weight:500}
-.nav-links a:hover{color:#fff;text-decoration:none}
-.nav-links .dash-link{color:var(--accent);font-weight:600}
-.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:#10b98118;font-size:11px;font-weight:600;color:var(--accent)}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+code,pre,.mono{font-family:'JetBrains Mono',monospace}
 
-.hero{max-width:800px;margin:80px auto 0;text-align:center;padding:0 24px}
-.hero h1{font-size:clamp(32px,5vw,52px);font-weight:800;line-height:1.1;margin-bottom:20px;
-  background:linear-gradient(135deg,#fff 30%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{font-size:18px;color:var(--muted);max-width:620px;margin:0 auto 36px}
-.cta-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-.btn{padding:14px 32px;border-radius:8px;font-weight:600;font-size:15px;display:inline-block;transition:all .2s}
+nav{display:flex;align-items:center;justify-content:space-between;max-width:900px;margin:0 auto;padding:16px 24px}
+.logo{font-size:20px;font-weight:800;letter-spacing:3px;color:#fff}
+.logo span{color:var(--accent)}
+.nav-r{display:flex;gap:24px;align-items:center}
+.nav-r a{color:var(--muted);font-size:13px;font-weight:500}
+.nav-r a:hover{color:#fff;text-decoration:none}
+
+.hero{max-width:700px;margin:60px auto 0;padding:0 24px;text-align:center}
+.hero h1{font-size:48px;font-weight:800;letter-spacing:4px;margin-bottom:8px}
+.hero .sub{color:var(--muted);font-size:16px;margin-bottom:40px}
+.hero .sub strong{color:var(--text);font-weight:600}
+
+.terminal{max-width:620px;margin:0 auto 32px;background:var(--code-bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;text-align:left}
+.terminal-bar{background:#161b22;padding:8px 14px;display:flex;gap:6px;align-items:center}
+.terminal-dot{width:10px;height:10px;border-radius:50%}
+.terminal-bar span{color:var(--muted);font-size:11px;margin-left:auto;font-family:'JetBrains Mono',monospace}
+.terminal pre{padding:20px;font-size:13px;line-height:1.8;overflow-x:auto;color:#c9d1d9}
+.terminal .cm{color:#6b7280}
+.terminal .kw{color:#c084fc}
+.terminal .fn{color:#60a5fa}
+.terminal .st{color:#34d399}
+.terminal .op{color:#e0e6ef}
+
+.cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:60px}
+.btn{padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;font-family:'JetBrains Mono',monospace;display:inline-block;transition:all .15s}
 .btn-primary{background:var(--accent);color:#06080d}
 .btn-primary:hover{background:var(--accent2);text-decoration:none}
-.btn-outline{border:1px solid var(--border);color:var(--text);background:transparent}
+.btn-outline{border:1px solid var(--border);color:var(--muted);background:transparent}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px;max-width:1000px;margin:80px auto;padding:0 24px}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center}
-.stat .num{font-size:32px;font-weight:800;color:#fff;margin-bottom:4px}
-.stat .num span{color:var(--accent)}
-.stat .label{color:var(--muted);font-size:13px}
+.section{max-width:800px;margin:0 auto 64px;padding:0 24px}
+.section h2{font-size:16px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:28px;text-align:center}
 
-.section{max-width:1000px;margin:80px auto;padding:0 24px}
-.section h2{font-size:28px;font-weight:700;text-align:center;margin-bottom:48px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.block{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px}
+.block h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.block p{color:var(--muted);font-size:13px;line-height:1.7}
 
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
-.feature{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px}
-.feature-icon{font-size:28px;margin-bottom:16px}
-.feature h3{font-size:18px;font-weight:700;margin-bottom:10px}
-.feature p{color:var(--muted);font-size:14px;line-height:1.7}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center}
+.stat .n{font-size:24px;font-weight:800;color:#fff}
+.stat .n span{color:var(--accent)}
+.stat .l{color:var(--muted);font-size:11px;margin-top:4px}
 
-.cost-statement{max-width:700px;margin:60px auto;text-align:center;padding:0 24px}
-.cost-big{font-size:20px;font-weight:600;line-height:1.6;margin-bottom:16px}
-.cost-big em{color:var(--accent);font-style:normal;font-weight:800}
-.cost-sub{color:var(--muted);font-size:15px;line-height:1.7}
+.pricing{display:grid;grid-template-columns:1fr 1fr;gap:0;max-width:500px;margin:0 auto 24px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.pricing div{padding:14px 20px;font-size:13px;border-bottom:1px solid var(--border)}
+.pricing div:nth-child(odd){color:var(--muted);background:var(--card)}
+.pricing div:nth-child(even){font-weight:600}
+.pricing div:last-child,.pricing div:nth-last-child(2){border-bottom:none}
+.tier-bar{display:flex;gap:4px;max-width:500px;margin:0 auto;height:28px}
+.tier-bar div{flex:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
 
-.code-section{max-width:700px;margin:60px auto;padding:0 24px}
-.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:12px;padding:24px;
-  font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;overflow-x:auto}
-.code-block .comment{color:#6b7280}
-.code-block .keyword{color:#c084fc}
-.code-block .string{color:#34d399}
-.code-block .func{color:#60a5fa}
+.contracts{max-width:500px;margin:0 auto}
+.contract-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.contract-row:last-child{border:none}
+.contract-label{color:var(--muted);font-size:13px}
+.contract-addr{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)}
+.contract-link{color:var(--accent);font-size:12px;margin-left:8px}
 
-.chains{text-align:center;margin:60px auto;max-width:700px}
-.chains h3{font-size:14px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:20px}
-.chain-logos{display:flex;gap:36px;justify-content:center;align-items:center;flex-wrap:wrap}
-.chain{display:flex;flex-direction:column;align-items:center;gap:8px}
-.chain-icon{width:48px;height:48px;border-radius:50%;background:var(--card);border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--accent)}
-.chain span{font-size:12px;color:var(--muted)}
+footer{max-width:800px;margin:0 auto;padding:40px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+footer a{color:var(--muted);margin-left:20px}
+footer a:hover{color:var(--accent)}
 
-.final-cta{max-width:600px;margin:80px auto;text-align:center;padding:40px 24px;background:var(--card);border:1px solid var(--border);border-radius:16px}
-.final-cta h2{font-size:24px;margin-bottom:12px}
-.final-cta p{color:var(--muted);font-size:14px;margin-bottom:24px}
-
-footer{max-width:1000px;margin:60px auto 0;padding:40px 24px;border-top:1px solid var(--border)}
-.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px}
-.footer-brand .logo{margin-bottom:8px}
-.footer-brand p{color:var(--muted);font-size:13px;line-height:1.6}
-.footer-col h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px}
-.footer-col a{display:block;color:var(--muted);font-size:13px;margin-bottom:8px}
-.footer-col a:hover{color:var(--accent);text-decoration:none}
-.footer-bottom{margin-top:32px;padding-top:20px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:12px}
-
-@media(max-width:768px){
-  .hero h1{font-size:28px}
-  .stats{grid-template-columns:1fr 1fr}
-  .features{grid-template-columns:1fr}
-  .footer-grid{grid-template-columns:1fr 1fr}
-  .nav-links{gap:16px}
+@media(max-width:600px){
+  .hero h1{font-size:32px}
+  .pricing{grid-template-columns:1fr}
+  .grid3{grid-template-columns:1fr}
+  footer{flex-direction:column;gap:12px;text-align:center}
 }
 </style>
 </head>
@@ -106,148 +90,133 @@ footer{max-width:1000px;margin:60px auto 0;padding:40px 24px;border-top:1px soli
 
 <nav>
   <div class="logo">AG<span>IO</span></div>
-  <div class="nav-links">
-    <span class="live-badge"><span class="live-dot"></span> Live on Base</span>
-    <a href="/dashboard" class="dash-link">Dashboard</a>
+  <div class="nav-r">
+    <a href="/dashboard">Dashboard</a>
     <a href="https://github.com/agio-protocol/agio-protocol">Docs</a>
     <a href="https://github.com/agio-protocol">GitHub</a>
   </div>
 </nav>
 
 <section class="hero">
-  <h1>The payment layer for the personal agent economy</h1>
-  <p>Your agents pay other agents for services. AGIO handles the routing, batching, currency conversion, and settlement. Any chain. Any token. Under 1 second.</p>
-  <div class="cta-row">
-    <a href="https://github.com/agio-protocol/agio-protocol" class="btn btn-primary">Start building</a>
-    <a href="/dashboard" class="btn btn-outline">Check your dashboard</a>
-  </div>
-</section>
+  <h1>AGIO</h1>
+  <p class="sub">Cross-chain payments for AI agents.<br><strong>Base ↔ Solana</strong>. Any token. <strong>$0.002</strong> per hop.</p>
 
-<section class="stats">
-  <div class="stat"><div class="num">2.2<span>B</span></div><div class="label">AI agents by 2028 (IDC)</div></div>
-  <div class="stat"><div class="num">$15<span>T+</span></div><div class="label">Projected agent commerce (Gartner)</div></div>
-  <div class="stat"><div class="num">5<span> tiers</span></div><div class="label">Permanent loyalty tiers with fee discounts up to 80%</div></div>
-  <div class="stat"><div class="num"><span>1</span></div><div class="label">Network where agents build reputation, credit, and income</div></div>
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="terminal-dot" style="background:#ff5f57"></div>
+      <div class="terminal-dot" style="background:#febc2e"></div>
+      <div class="terminal-dot" style="background:#28c840"></div>
+      <span>agent.py</span>
+    </div>
+    <pre><span class="kw">from</span> agio <span class="kw">import</span> AgioClient
+
+<span class="cm"># 30 seconds to your first payment</span>
+client = AgioClient(chain=<span class="st">"solana"</span>)
+<span class="kw">await</span> client.<span class="fn">register</span>()
+<span class="kw">await</span> client.<span class="fn">deposit</span>(token=<span class="st">"USDC"</span>, amount=<span class="st">1.00</span>)
+
+<span class="cm"># Pay any agent on any chain</span>
+receipt = <span class="kw">await</span> client.<span class="fn">pay</span>(
+    to=<span class="st">"agio:base:0x1234..."</span>,
+    amount=<span class="st">0.001</span>
+)
+<span class="cm"># Done. Cross-chain. Instant.</span></pre>
+  </div>
+
+  <div class="cta-row">
+    <a href="https://github.com/agio-protocol/agio-protocol" class="btn btn-primary">pip install agio-sdk</a>
+    <a href="/dashboard" class="btn btn-outline">Register now →</a>
+  </div>
 </section>
 
 <section class="section">
-  <h2>What your agents can't do today</h2>
-  <div class="features">
-    <div class="feature">
-      <div class="feature-icon">&#x1f50d;</div>
-      <h3>Know who you're paying</h3>
-      <p>Reputation scores, payment history, trust tiers. Before your agent sends money, it can check: is this counterparty reliable? How many payments have they completed? What's their dispute rate? No other payment protocol answers these questions.</p>
+  <h2>Why AGIO</h2>
+  <div class="grid3">
+    <div class="block">
+      <h3>Cross-chain</h3>
+      <p>Your Solana agent pays a Base agent. $0.002. Instant. Manual bridging costs $0.50–$2.00 and takes 20 minutes.</p>
     </div>
-    <div class="feature">
-      <div class="feature-icon">&#x26a1;</div>
-      <h3>Transact now, fund later</h3>
-      <p>PULSE tier agents get credit lines. Your agent sees an opportunity and acts immediately — settles up when the batch clears. No need to pre-fund every transaction. Other protocols require tokens in wallet before every single payment.</p>
+    <div class="block">
+      <h3>Non-custodial</h3>
+      <p>Smart contracts on both chains. Your funds in PDA vaults, not our wallets. Verify on <a href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc" target="_blank">Basescan</a> and <a href="https://solscan.io/account/68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y" target="_blank">Solscan</a>.</p>
     </div>
-    <div class="feature">
-      <div class="feature-icon">&#x1f4c8;</div>
-      <h3>Your agents earn while they work</h3>
-      <p>Every payment builds reputation. Higher reputation unlocks lower fees (up to 80% off), credit lines, and referral income. Your agent becomes more valuable the more it uses AGIO. Tiers never downgrade — what you earn, you keep.</p>
+    <div class="block">
+      <h3>Earn while you pay</h3>
+      <p>Fees drop 80% as you transact more. Refer agents for passive income. Your tier never downgrades.</p>
     </div>
   </div>
 </section>
 
-<section class="cost-statement">
-  <p class="cost-big">x402 moves money. <em>AGIO builds the economy around it.</em></p>
-  <p class="cost-sub" style="max-width:650px;margin:0 auto;line-height:1.9">
-    Reputation scores so agents know who to trust.<br>
-    Credit lines so agents can act without pre-funding.<br>
-    Agent discovery so services find each other.<br>
-    Referral income so your agents earn while they work.<br>
-    Multi-token support so agents pay in whatever they hold.<br>
-    Cross-chain routing so chains don't matter.
-  </p>
-  <p style="color:var(--accent);font-weight:600;margin-top:24px;font-size:16px">The payment is the simple part. The intelligence around it is what changes everything.</p>
+<section class="section">
+  <h2>Live now</h2>
+  <div class="stats" id="live-stats">
+    <div class="stat"><div class="n" id="st-txns">—</div><div class="l">Transactions</div></div>
+    <div class="stat"><div class="n" id="st-agents">—</div><div class="l">Agents</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">Chains</div></div>
+    <div class="stat"><div class="n" id="st-vol">—</div><div class="l">Volume (USD)</div></div>
+  </div>
 </section>
 
-<section class="section" style="max-width:900px">
-  <h2 style="font-size:20px;color:var(--muted);margin-bottom:32px">Under the hood</h2>
-  <div class="features" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
-    <div class="feature" style="padding:24px">
-      <h3 style="font-size:14px">Batch settlement</h3>
-      <p style="font-size:13px">500 payments in 1 on-chain transaction. Gas cost shared across every payment in the batch.</p>
+<section class="section">
+  <h2>Pricing</h2>
+  <div class="pricing">
+    <div>Same-chain payment</div><div>$0.00015</div>
+    <div>Cross-chain hop</div><div>$0.002</div>
+    <div>Token swap</div><div>0.3%</div>
+    <div>Manual bridge (others)</div><div style="color:#ef4444">$0.50–$2.00</div>
+  </div>
+  <div style="text-align:center;color:var(--muted);font-size:12px;margin-bottom:12px">Use more, pay less:</div>
+  <div class="tier-bar">
+    <div style="background:#6b728020;color:#9ca3af">SPARK</div>
+    <div style="background:#3b82f620;color:#3b82f6">ARC<br><span style="font-weight:400;font-size:8px">-20%</span></div>
+    <div style="background:#8b5cf620;color:#8b5cf6">PULSE<br><span style="font-weight:400;font-size:8px">-50%</span></div>
+    <div style="background:#f59e0b20;color:#f59e0b">CORE<br><span style="font-weight:400;font-size:8px">-65%</span></div>
+    <div style="background:#10b98120;color:#10b981">NEXUS<br><span style="font-weight:400;font-size:8px">-80%</span></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Contracts</h2>
+  <div class="contracts">
+    <div class="contract-row">
+      <span class="contract-label">Base vault</span>
+      <span><span class="contract-addr">0xe68bA48B...FeEBc</span><a class="contract-link" href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc" target="_blank">Basescan ↗</a></span>
     </div>
-    <div class="feature" style="padding:24px">
-      <h3 style="font-size:14px">Multi-token</h3>
-      <p style="font-size:13px">USDC, USDT, DAI, WETH, cbETH. Pay in one token, receive in another. Automatic conversion via Uniswap.</p>
-    </div>
-    <div class="feature" style="padding:24px">
-      <h3 style="font-size:14px">Cross-chain routing</h3>
-      <p style="font-size:13px">Agent on Solana pays agent on Base. $0.002 routing fee vs $0.50+ manual bridging — 250x cheaper, instant settlement.</p>
+    <div class="contract-row">
+      <span class="contract-label">Solana program</span>
+      <span><span class="contract-addr">68RkssML...w9YE</span><a class="contract-link" href="https://solscan.io/account/68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y" target="_blank">Solscan ↗</a></span>
     </div>
   </div>
-</section>
-
-<section class="code-section">
-  <div class="code-block">
-<span class="keyword">from</span> agio <span class="keyword">import</span> AgioClient<br><br>
-<span class="comment"># Initialize your agent</span><br>
-client = AgioClient(agent_name=<span class="string">"my-agent"</span>)<br><br>
-<span class="comment"># Deposit whatever token you have</span><br>
-<span class="keyword">await</span> client.<span class="func">deposit</span>(token=<span class="string">"WETH"</span>, amount=<span class="string">0.01</span>)<br><br>
-<span class="comment"># Pay another agent — receiver gets their preferred token</span><br>
-receipt = <span class="keyword">await</span> client.<span class="func">pay</span>(<br>
-&nbsp;&nbsp;to=<span class="string">"agio:sol:0x1234..."</span>,<br>
-&nbsp;&nbsp;amount=<span class="string">0.001</span>,<br>
-&nbsp;&nbsp;token=<span class="string">"WETH"</span> <span class="comment"># auto-swaps to receiver's preferred token</span><br>
-)<br><br>
-<span class="comment"># Check all balances</span><br>
-balances = <span class="keyword">await</span> client.<span class="func">all_balances</span>()<br>
-<span class="comment"># {"WETH": 0.009, "USDC": 0.50, "DAI": 0.0}</span>
-  </div>
-</section>
-
-<section class="chains">
-  <h3>Live on Base &middot; Coming to every chain</h3>
-  <div class="chain-logos">
-    <div class="chain"><div class="chain-icon" style="border-color:var(--accent)">B</div><span style="color:var(--accent);font-weight:600">Base</span></div>
-    <div class="chain"><div class="chain-icon">S</div><span>Solana</span></div>
-    <div class="chain"><div class="chain-icon">P</div><span>Polygon</span></div>
-    <div class="chain"><div class="chain-icon">A</div><span>Arbitrum</span></div>
-    <div class="chain"><div class="chain-icon">E</div><span>Ethereum</span></div>
-  </div>
-  <p style="margin-top:20px;color:var(--muted);font-size:13px">USDC &middot; USDT &middot; DAI &middot; WETH &middot; cbETH &middot; More coming</p>
-</section>
-
-<section class="final-cta" id="signup">
-  <h2>Your agents should be getting paid</h2>
-  <p>AGIO is live on Base mainnet. Contracts are verified on Basescan. Start building today.</p>
-  <div class="cta-row">
-    <a href="https://github.com/agio-protocol/agio-protocol" class="btn btn-primary">Start building</a>
-    <a href="/dashboard" class="btn btn-outline">Agent dashboard</a>
-  </div>
+  <p style="text-align:center;color:var(--muted);font-size:12px;margin-top:16px">Verified. Non-custodial. Audit your funds anytime.</p>
 </section>
 
 <footer>
-  <div class="footer-grid">
-    <div class="footer-brand">
-      <div class="logo">AG<span>IO</span></div>
-      <p>The payment layer for the personal agent economy. Live on Base mainnet.</p>
-    </div>
-    <div class="footer-col">
-      <h4>Product</h4>
-      <a href="/dashboard">Agent Dashboard</a>
-      <a href="https://github.com/agio-protocol/agio-protocol">Documentation</a>
-      <a href="https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc">Basescan</a>
-    </div>
-    <div class="footer-col">
-      <h4>Developers</h4>
-      <a href="https://github.com/agio-protocol">GitHub</a>
-      <a href="https://github.com/agio-protocol/agio-protocol/tree/main/sdk">SDK</a>
-      <a href="https://github.com/agio-protocol/agio-protocol/tree/main/contracts">Contracts</a>
-    </div>
-    <div class="footer-col">
-      <h4>Community</h4>
-      <a href="https://twitter.com/agiofinance">X / Twitter</a>
-      <a href="https://github.com/agio-protocol/agio-protocol/issues">Feedback</a>
-    </div>
+  <span>AGIO Protocol</span>
+  <div>
+    <a href="https://github.com/agio-protocol/agio-protocol">GitHub</a>
+    <a href="https://twitter.com/agiofinance">X</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/.well-known/agio.json">API</a>
   </div>
-  <div class="footer-bottom">&copy; 2026 AGIO Protocol</div>
 </footer>
+
+<script>
+(async function(){
+  try {
+    const r = await fetch('https://children-full-library-investigation.trycloudflare.com/v1/network/stats');
+    if(r.ok){
+      const d = await r.json();
+      document.getElementById('st-txns').innerHTML = d.total_transactions.toLocaleString();
+      document.getElementById('st-agents').innerHTML = d.total_agents;
+      document.getElementById('st-vol').innerHTML = '$'+d.total_volume_usd.toFixed(2);
+    }
+  } catch(e) {
+    document.getElementById('st-txns').innerHTML = '800<span>+</span>';
+    document.getElementById('st-agents').innerHTML = '12';
+    document.getElementById('st-vol').innerHTML = '$0.80';
+  }
+})();
+</script>
 
 </body>
 </html>

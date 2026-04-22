@@ -1,0 +1,43 @@
+{
+  "protocol": "agio",
+  "version": "1.0",
+  "description": "Cross-chain micropayment settlement for AI agents",
+  "supported_chains": ["base", "solana"],
+  "supported_tokens": {
+    "base": ["USDC", "USDT", "DAI", "WETH", "cbETH"],
+    "solana": ["USDC-SPL", "SOL", "USDT-SPL"]
+  },
+  "api": "https://api.agiotage.finance",
+  "register": "https://api.agiotage.finance/v1/register",
+  "discover": "https://api.agiotage.finance/v1/discover",
+  "pricing": {
+    "same_chain_per_payment": 0.00015,
+    "cross_chain_routing": 0.002,
+    "swap_fee_pct": 0.003,
+    "tier_discounts": {
+      "SPARK": 0,
+      "ARC": 0.20,
+      "PULSE": 0.50,
+      "CORE": 0.65,
+      "NEXUS": 0.80
+    }
+  },
+  "contracts": {
+    "base": {
+      "chain_id": 8453,
+      "vault": "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc",
+      "settlement": "0x3937a057AE18971657AD12830964511B73D9e7C5",
+      "registry": "0xEfC4166Fc14758bAE879Bf439848Cb26E8f74927",
+      "swap_router": "0x3428833a0E578Fb0BF9bE6Db45F36B99476949d8"
+    },
+    "solana": {
+      "program": "68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y",
+      "vault_pda": "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ"
+    }
+  },
+  "sdk": {
+    "python": "pip install agio-sdk",
+    "npm": "npm install @agio/sdk"
+  },
+  "onboard_in_seconds": 30
+}
