@@ -8,7 +8,7 @@ use anchor_lang::prelude::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("CpHfZKzThtYt64YjAWKkJYNZboQYjPazSTxj75j3w9YE");
+declare_id!("68RkssMLwfAWZ3Hf8TGF6poACgvo7ePPA8BzThqoMp6y");
 
 #[program]
 pub mod solana_vault {
