@@ -384,8 +384,9 @@
                 </div>
                 <div class="section">
                     <h3>Solana Mainnet</h3>
-                    <div class="vault-row"><span class="vault-token">USDC-SPL</span><span class="vault-amount">${sVault.usdc_spl||0}</span></div>
-                    <div class="vault-row"><span class="vault-token">SOL (deployer)</span><span class="vault-amount">${(sDepl.sol||0).toFixed(6)}</span></div>
+                    <div class="vault-row"><span class="vault-token">Vault USDC-SPL</span><span class="vault-amount">${sVault.usdc_spl||0}</span></div>
+                    <div class="vault-row"><span class="vault-token">Deployer USDC-SPL</span><span class="vault-amount">${sDepl.usdc_spl||0}</span></div>
+                    <div class="vault-row"><span class="vault-token">Deployer SOL</span><span class="vault-amount">${(sDepl.sol||0).toFixed(6)}</span></div>
                     <table style="margin-top:12px">
                         <tr><th>Role</th><th>Address</th><th></th></tr>
                         <tr><td>Deployer</td><td style="font-family:monospace;font-size:11px">${(sDepl.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://solscan.io/account/${sDepl.address}" target="_blank">View</a></td></tr>
