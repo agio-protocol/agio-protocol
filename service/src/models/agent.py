@@ -12,7 +12,7 @@ class Agent(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agio_id: Mapped[str] = mapped_column(String(66), unique=True, nullable=False)
-    wallet_address: Mapped[str] = mapped_column(String(42), unique=True, nullable=False)
+    wallet_address: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     tier: Mapped[str] = mapped_column(String(20), default="NEW")
     balance: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
     locked_balance: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
