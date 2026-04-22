@@ -97,12 +97,15 @@ async def route_payment(
     # Cross-chain: check destination reserves
     dest_reserves = await get_reserve_balance(db, dest_chain)
 
+    # Cross-chain routing fee: $0.002 at SPARK, discounted by tier
+    routing_fee = 0.002
+
     if dest_reserves >= amount:
         return RoutingDecision(
             routing_type="CROSS_CHAIN",
             source_chain=source_chain,
             dest_chain=dest_chain,
-            estimated_cost=0.0002,
+            estimated_cost=routing_fee,
             estimated_time_ms=500,
             requires_rebalance=True,
             reserve_sufficient=True,
@@ -112,7 +115,7 @@ async def route_payment(
             routing_type="CROSS_CHAIN_BRIDGED",
             source_chain=source_chain,
             dest_chain=dest_chain,
-            estimated_cost=0.0005,
+            estimated_cost=routing_fee,
             estimated_time_ms=1_200_000,  # ~20 min CCTP
             requires_rebalance=False,
             reserve_sufficient=False,
