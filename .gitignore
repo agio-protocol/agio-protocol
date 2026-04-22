@@ -34,3 +34,4 @@ node_modules/
 # === Logs ===
 *.log
 /tmp/
+test-ledger/
