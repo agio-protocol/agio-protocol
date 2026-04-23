@@ -1,0 +1,143 @@
+"""Knowledge Marketplace API — agents buy and sell data, models, tools."""
+from decimal import Decimal
+from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import select, func, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+from typing import Optional
+
+from ..core.database import get_db
+from ..models.agent import Agent
+from ..models.platform import MarketListing, MarketPurchase
+
+router = APIRouter(prefix="/v1/market")
+
+MARKET_COMMISSION = Decimal("0.05")  # 5%
+
+CATEGORIES = ["dataset", "research", "model", "api_access", "data_feed", "tool", "other"]
+
+
+class ListRequest(BaseModel):
+    seller_agio_id: str
+    title: str
+    description: str
+    category: str
+    price: float
+    price_token: str = "USDC"
+    content_url: Optional[str] = None
+
+
+@router.post("/list")
+async def create_listing(req: ListRequest, db: AsyncSession = Depends(get_db)):
+    """Create a marketplace listing. Free to list."""
+    if req.category not in CATEGORIES:
+        raise HTTPException(400, f"Invalid category. Options: {CATEGORIES}")
+    if req.price <= 0:
+        raise HTTPException(400, "Price must be positive")
+
+    listing = MarketListing(
+        seller_agent=req.seller_agio_id,
+        title=req.title[:200],
+        description=req.description[:5000],
+        category=req.category,
+        price=Decimal(str(req.price)),
+        price_token=req.price_token,
+        content_url=req.content_url,
+    )
+    db.add(listing)
+    await db.commit()
+    await db.refresh(listing)
+
+    return {"listing_id": listing.id, "title": listing.title, "price": float(listing.price), "status": "ACTIVE"}
+
+
+@router.get("/search")
+async def search_listings(
+    category: str = Query(None),
+    max_price: float = Query(1_000_000),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search marketplace listings."""
+    query = select(MarketListing).where(MarketListing.status == "ACTIVE", MarketListing.price <= max_price)
+    if category:
+        query = query.where(MarketListing.category == category)
+    query = query.order_by(MarketListing.total_sales.desc()).offset((page - 1) * limit).limit(limit)
+    listings = (await db.execute(query)).scalars().all()
+
+    return {
+        "listings": [
+            {
+                "id": l.id, "title": l.title, "category": l.category,
+                "price": float(l.price), "token": l.price_token,
+                "seller": l.seller_agent[:20] + "...",
+                "sales": l.total_sales, "rating": float(l.avg_rating),
+            }
+            for l in listings
+        ],
+    }
+
+
+@router.post("/purchase/{listing_id}")
+async def purchase(listing_id: int, buyer_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    """Purchase a listing. Debits buyer, credits seller minus 5% commission."""
+    listing = (await db.execute(select(MarketListing).where(MarketListing.id == listing_id))).scalar_one_or_none()
+    if not listing or listing.status != "ACTIVE":
+        raise HTTPException(404, "Listing not found or inactive")
+    if listing.seller_agent == buyer_id:
+        raise HTTPException(400, "Cannot buy your own listing")
+
+    buyer = (await db.execute(select(Agent).where(Agent.agio_id == buyer_id).with_for_update())).scalar_one_or_none()
+    if not buyer:
+        raise HTTPException(404, "Buyer not found")
+
+    available = Decimal(str(buyer.balance)) - Decimal(str(buyer.locked_balance))
+    if available < listing.price:
+        raise HTTPException(400, f"Insufficient balance: ${float(available):.2f}")
+
+    seller = (await db.execute(select(Agent).where(Agent.agio_id == listing.seller_agent).with_for_update())).scalar_one_or_none()
+    if not seller:
+        raise HTTPException(404, "Seller not found")
+
+    commission = (listing.price * MARKET_COMMISSION).quantize(Decimal("0.000001"))
+    seller_payout = listing.price - commission
+
+    buyer.balance = Decimal(str(buyer.balance)) - listing.price
+    seller.balance = Decimal(str(seller.balance)) + seller_payout
+    listing.total_sales += 1
+
+    purchase = MarketPurchase(listing_id=listing_id, buyer_agent=buyer_id)
+    db.add(purchase)
+    await db.commit()
+
+    return {
+        "purchase_id": purchase.id, "listing_id": listing_id,
+        "price": float(listing.price), "commission": float(commission),
+        "seller_received": float(seller_payout),
+        "content_url": listing.content_url,
+    }
+
+
+@router.post("/rate/{listing_id}")
+async def rate_purchase(listing_id: int, buyer_id: str = Query(...), rating: int = Query(..., ge=1, le=5), db: AsyncSession = Depends(get_db)):
+    """Rate a purchase (1-5 stars)."""
+    purchase = (await db.execute(
+        select(MarketPurchase).where(MarketPurchase.listing_id == listing_id, MarketPurchase.buyer_agent == buyer_id)
+    )).scalar_one_or_none()
+    if not purchase:
+        raise HTTPException(404, "Purchase not found")
+    if purchase.rating:
+        raise HTTPException(400, "Already rated")
+
+    purchase.rating = rating
+
+    # Update average rating
+    listing = (await db.execute(select(MarketListing).where(MarketListing.id == listing_id))).scalar_one()
+    all_ratings = (await db.execute(
+        select(func.avg(MarketPurchase.rating)).where(MarketPurchase.listing_id == listing_id, MarketPurchase.rating.isnot(None))
+    )).scalar()
+    listing.avg_rating = Decimal(str(all_ratings or 0))
+    await db.commit()
+
+    return {"listing_id": listing_id, "rating": rating, "avg_rating": float(listing.avg_rating)}
