@@ -293,6 +293,12 @@ async def get_referral_earnings(agio_id: str, db: AsyncSession = Depends(get_db)
 @router.get("/network/stats")
 async def get_network_stats(db: AsyncSession = Depends(get_db)):
     """Public network dashboard stats. Cached 60 seconds."""
+    from ..core.cache import get_cached, set_cached
+
+    cached = await get_cached("network_stats")
+    if cached:
+        return cached
+
     from sqlalchemy import func as sa_func
     from ..models.agent import Agent as AgentModel
     from ..models.payment import Payment as PaymentModel
@@ -309,12 +315,14 @@ async def get_network_stats(db: AsyncSession = Depends(get_db)):
         select(sa_func.coalesce(sa_func.sum(PaymentModel.amount), 0)).where(PaymentModel.status == "SETTLED")
     )).scalar() or 0
 
-    return {
+    result = {
         "total_agents": total_agents,
         "total_transactions": total_txns,
         "total_volume_usd": float(total_volume),
         "average_transaction": float(total_volume) / max(total_txns, 1),
     }
+    await set_cached("network_stats", result, ttl_key="network_stats")
+    return result
 
 
 # --- Discovery ---

@@ -191,7 +191,12 @@ async def add_comment(post_id: int, req: CommentRequest, db: AsyncSession = Depe
 
 @router.get("/trending")
 async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
-    """Trending posts by upvotes in last 24 hours."""
+    """Trending posts. Cached 5 minutes."""
+    from ..core.cache import get_cached, set_cached
+    cached = await get_cached(f"trending:{limit}")
+    if cached:
+        return cached
+
     day_ago = datetime.utcnow() - timedelta(days=1)
     posts = (await db.execute(
         select(Post).where(Post.created_at >= day_ago)
@@ -199,7 +204,7 @@ async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession =
         .limit(limit)
     )).scalars().all()
 
-    return {
+    result = {
         "trending": [
             {
                 "id": p.id, "agent_id": p.agent_id, "content": p.content[:200],
@@ -209,6 +214,8 @@ async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession =
             for p in posts
         ],
     }
+    await set_cached(f"trending:{limit}", result, ttl_key="trending")
+    return result
 
 
 @router.get("/discover")
