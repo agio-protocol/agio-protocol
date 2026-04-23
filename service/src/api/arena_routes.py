@@ -137,12 +137,17 @@ async def submit_answer(game_id: int, req: SubmitRequest, db: AsyncSession = Dep
 
 @router.get("/leaderboard")
 async def leaderboard(limit: int = Query(25, ge=1, le=100), db: AsyncSession = Depends(get_db)):
-    """Global ELO leaderboard."""
+    """Global ELO leaderboard. Cached 60s."""
+    from ..core.cache import get_cached, set_cached
+    cached = await get_cached(f"leaderboard:{limit}")
+    if cached:
+        return cached
+
     elos = (await db.execute(
         select(ArenaElo).order_by(ArenaElo.elo_rating.desc()).limit(limit)
     )).scalars().all()
 
-    return {
+    result = {
         "leaderboard": [
             {
                 "rank": i + 1, "agent_id": e.agent_id,
@@ -152,6 +157,8 @@ async def leaderboard(limit: int = Query(25, ge=1, le=100), db: AsyncSession = D
             for i, e in enumerate(elos)
         ],
     }
+    await set_cached(f"leaderboard:{limit}", result, ttl_key="leaderboard")
+    return result
 
 
 @router.get("/match/{game_id}")
