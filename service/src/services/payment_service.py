@@ -97,7 +97,10 @@ async def create_payment(
     from .tier_service import get_agent_tier, calculate_fee
     tier = await get_agent_tier(db, from_agent)
     amt = Decimal(str(amount))
-    fee = calculate_fee(tier, amt, is_cross_chain=False)
+    if tier:
+        fee = calculate_fee(tier, amt, is_cross_chain=False)
+    else:
+        fee = Decimal("0.00015")  # SPARK default
 
     if needs_swap:
         swap_fee = _calculate_swap_fee(amt)
