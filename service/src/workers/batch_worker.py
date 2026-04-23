@@ -128,9 +128,10 @@ async def run_worker():
                 # Re-check — more may have arrived
                 queue_depth = await redis_client.llen(PAYMENT_QUEUE)
 
-            # 1. Pull pending payments from Redis
+            # 1. Pull pending payments from Redis (max 50 per batch for gas safety)
+            effective_batch_size = min(settings.max_batch_size, 50)
             raw_payments = []
-            for _ in range(settings.max_batch_size):
+            for _ in range(effective_batch_size):
                 item = await redis_client.lpop(PAYMENT_QUEUE)
                 if item is None:
                     break
@@ -194,10 +195,12 @@ async def run_worker():
                     f"fees=${float(total_fees):.6f}, est_gas=${estimated_gas:.6f}"
                 )
 
-            # Only defer if gas is extremely high (Base spike or L1 congestion)
-            if estimated_gas > 0.10:
+            # Only defer if gas per payment is extremely high (Base spike)
+            # Normal Base: ~$0.0006/payment. Congested: >$0.01/payment.
+            gas_per_payment = estimated_gas / max(len(raw_payments), 1)
+            if gas_per_payment > 0.01:
                 logger.warning(
-                    f"GAS TOO HIGH: ${estimated_gas:.4f} — deferring batch. "
+                    f"GAS TOO HIGH: ${gas_per_payment:.4f}/payment — deferring batch. "
                     f"Base may be congested."
                 )
                 _send_unprofitable_alert(len(raw_payments), float(total_fees), estimated_gas)
