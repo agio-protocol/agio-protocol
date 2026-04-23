@@ -151,12 +151,16 @@ async def execute_cross_chain(
     source_chain = routing.source_chain
     dest_chain = routing.dest_chain
 
+    # Strip chain prefix to get raw AGIO ID for DB lookup
+    _, from_raw = parse_agio_id(from_agio_id)
+    _, to_raw = parse_agio_id(to_agio_id)
+
     # Look up agents
     from_agent = (await db.execute(
-        select(Agent).where(Agent.agio_id == from_agio_id)
+        select(Agent).where(Agent.agio_id == from_raw)
     )).scalar_one_or_none()
     to_agent = (await db.execute(
-        select(Agent).where(Agent.agio_id == to_agio_id)
+        select(Agent).where(Agent.agio_id == to_raw)
     )).scalar_one_or_none()
 
     if not from_agent or not to_agent:
