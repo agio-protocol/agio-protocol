@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.routes import router
 from .api.admin_routes import router as admin_router
 from .api.dashboard_routes import router as dashboard_router
+from .api.jobs_routes import router as jobs_router
+from .api.social_routes import router as social_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -45,3 +47,5 @@ app.add_middleware(RateLimitMiddleware)
 app.include_router(router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
+app.include_router(jobs_router)
+app.include_router(social_router)
