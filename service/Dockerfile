@@ -26,6 +26,8 @@ CMD sh -c '\
     python -m src.workers.reconciler_prod; \
   elif [ "$WORKER_CMD" = "oracle" ]; then \
     python -m src.workers.oracle_prod; \
+  elif [ "$WORKER_CMD" = "arena" ]; then \
+    python -m src.workers.arena_worker; \
   else \
     gunicorn src.main:app --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile -; \
   fi'

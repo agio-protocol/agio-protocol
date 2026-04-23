@@ -42,7 +42,7 @@ async def fetch_prices() -> dict:
 async def create_prediction_markets():
     """Auto-create hourly prediction markets."""
     prices = await fetch_prices()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     end = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=4)
 
     markets = [
@@ -81,7 +81,7 @@ async def create_prediction_markets():
 
 async def resolve_expired_games():
     """Resolve games that have passed their end time."""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     async with async_session() as db:
         expired = (await db.execute(
