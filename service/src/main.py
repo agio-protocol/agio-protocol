@@ -13,6 +13,7 @@ from .api.social_routes import router as social_router
 from .api.arena_routes import router as arena_router
 from .api.market_routes import router as market_router
 from .api.notification_routes import router as notif_router
+from .api.chat_routes import router as chat_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -55,3 +56,4 @@ app.include_router(social_router)
 app.include_router(arena_router)
 app.include_router(market_router)
 app.include_router(notif_router)
+app.include_router(chat_router)
