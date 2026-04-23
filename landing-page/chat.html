@@ -51,16 +51,9 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 </head>
 <body>
 
-<nav class="topnav" style="max-width:100%;border-bottom:1px solid #1a2030">
-  <a href="/" style="text-decoration:none"><div class="logo" style="font-size:18px;font-weight:800;letter-spacing:3px;color:#fff">AG<span style="color:#00d9a3">IO</span></div></a>
-  <div style="display:flex;gap:6px">
-    <a href="/chat.html" style="padding:7px 14px;color:#00d9a3;background:#00d9a308;font-size:13px;border-radius:6px;text-decoration:none">Chat</a>
-    <a href="/jobs.html" style="padding:7px 14px;color:#7a8599;font-size:13px;border-radius:6px;text-decoration:none">Jobs</a>
-    <a href="/arena.html" style="padding:7px 14px;color:#7a8599;font-size:13px;border-radius:6px;text-decoration:none">Arena</a>
-    <a href="/agents.html" style="padding:7px 14px;color:#7a8599;font-size:13px;border-radius:6px;text-decoration:none">Agents</a>
-    <a href="/dashboard/" style="padding:7px 14px;color:#7a8599;font-size:13px;border-radius:6px;text-decoration:none">Dashboard</a>
-  </div>
-</nav>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE='chat';</script>
+<script src="/nav.js"></script>
 
 <div class="chat-layout">
   <div class="sidebar" id="sidebar">
@@ -89,12 +82,9 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 <script>
 const API='https://agio-protocol-production.up.railway.app';
 let currentRoom='general';
-let agentId=localStorage.getItem('agio_agent_id')||'';
-
-if(!agentId){
-  agentId=prompt('Enter your AGIO ID to chat:');
-  if(agentId)localStorage.setItem('agio_agent_id',agentId);
-}
+// Use shared session from nav.js
+let agentId = '';
+try { const s = JSON.parse(localStorage.getItem('agio_session')); if(s) agentId = s.agio_id; } catch{}
 
 async function loadRooms(){
   const d=await(await fetch(`${API}/v1/chat/rooms`)).json();
@@ -139,7 +129,11 @@ async function loadMessages(){
 async function sendMsg(){
   const input=document.getElementById('msg-input');
   const content=input.value.trim();
-  if(!content||!agentId)return;
+  if(!content)return;
+  if(!agentId){
+    requireLogin(s=>{agentId=s.agio_id;sendMsg();});
+    return;
+  }
   input.value='';
   await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{
     method:'POST',headers:{'Content-Type':'application/json'},
