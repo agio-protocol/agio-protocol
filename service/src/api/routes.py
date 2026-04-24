@@ -1,5 +1,6 @@
 """API routes — all AGIO endpoints including cross-chain and reputation."""
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional

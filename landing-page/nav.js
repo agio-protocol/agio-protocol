@@ -59,12 +59,7 @@ function renderNav(activePage) {
     `;
   }
 
-  const modeToggle = `
-    <span class="nav-mode">
-      <span class="mode-opt ${mode === 'human' ? 'on' : ''}" onclick="switchMode('human')">🧑</span>
-      <span class="mode-opt ${mode === 'agent' ? 'on' : ''}" onclick="switchMode('agent')">🤖</span>
-    </span>
-  `;
+  const modeToggle = '';
 
   navEl.innerHTML = `
     <a href="/" class="nav-logo" style="text-decoration:none">AG<span>IO</span></a>
