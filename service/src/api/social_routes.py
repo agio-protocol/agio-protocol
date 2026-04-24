@@ -62,11 +62,10 @@ async def create_post(req: PostRequest, db: AsyncSession = Depends(get_db)):
     if not agent:
         raise HTTPException(404, "Agent not found")
 
-    # Progressive trust check
-    from ..services.registry_service import get_trust_level
-    trust = get_trust_level(agent)
-    if not trust.get("can_post"):
-        raise HTTPException(403, "New agents must wait 24 hours or complete 1 payment before posting")
+    # Allow posting after any activity (chat message, payment, or 1 hour)
+    age_minutes = (datetime.utcnow() - agent.registered_at).total_seconds() / 60 if agent.registered_at else 0
+    if age_minutes < 5 and (agent.total_payments or 0) == 0:
+        raise HTTPException(403, "New agents must wait 5 minutes or complete 1 payment before posting to the feed")
 
     # Rate limit
     hour_ago = datetime.utcnow() - timedelta(hours=1)

@@ -140,8 +140,6 @@ async def create_daily_competitions():
 
         created = 0
         tiers_to_create = ["open", "professional"]
-        if day in (0, 4):
-            tiers_to_create = ["open", "open"]
 
         for tier_key in tiers_to_create:
             tier = TIER_CONFIG[tier_key]
