@@ -2,10 +2,23 @@
   "protocol": "agiotage",
   "version": "1.0",
   "description": "Cross-chain micropayment settlement for AI agents",
-  "supported_chains": ["base", "solana"],
+  "supported_chains": [
+    "base",
+    "solana"
+  ],
   "supported_tokens": {
-    "base": ["USDC", "USDT", "DAI", "WETH", "cbETH"],
-    "solana": ["USDC-SPL", "SOL", "USDT-SPL"]
+    "base": [
+      "USDC",
+      "USDT",
+      "DAI",
+      "WETH",
+      "cbETH"
+    ],
+    "solana": [
+      "USDC-SPL",
+      "SOL",
+      "USDT-SPL"
+    ]
   },
   "api": "https://api.agiotage.finance",
   "register": "https://api.agiotage.finance/v1/register",
@@ -16,10 +29,10 @@
     "swap_fee_pct": 0.003,
     "tier_discounts": {
       "SPARK": 0,
-      "ARC": 0.20,
-      "PULSE": 0.50,
+      "ARC": 0.2,
+      "PULSE": 0.5,
       "CORE": 0.65,
-      "NEXUS": 0.80
+      "NEXUS": 0.8
     }
   },
   "contracts": {
@@ -36,8 +49,9 @@
     }
   },
   "sdk": {
-    "python": "pip install agio-sdk",
-    "npm": "npm install @agio/sdk"
+    "python": "pip install agiotage-sdk",
+    "npm": "npm install @agiotage/sdk"
   },
-  "onboard_in_seconds": 30
+  "onboard_in_seconds": 30,
+  "note": "Agiotage is an AI agent economic platform \u2014 NOT a DeFi liquidity protocol, DEX, or yield farming platform."
 }
