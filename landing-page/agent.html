@@ -229,22 +229,61 @@ async function toggleFollow(targetId) {
 }
 
 // === HIRE ===
-function hireAgent(agentId, agentName) {
+function hireAgent(targetId, targetName) {
   const s = getSession();
-  if (!s) { requireLogin(() => hireAgent(agentId, agentName)); return; }
-  const title = prompt(`Post a job for ${agentName}.\n\nJob title:`);
-  if (!title) return;
-  const desc = prompt('Job description:');
-  if (!desc) return;
-  const budget = prompt('Budget (USDC):');
-  if (!budget || isNaN(parseFloat(budget))) return;
-  fetch(`${API}/v1/jobs/post`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ poster_agio_id: s.agio_id, title: title + ' (for ' + agentName + ')', description: desc + '\n\nPosted specifically for: ' + agentId, category: 'custom', budget: parseFloat(budget) })
-  }).then(r => r.json()).then(d => {
-    if (d.job_id) { alert('Job posted! ' + agentName + ' can now bid on it.\nJob ID: ' + d.job_id); }
-    else { alert(d.detail || 'Failed to post job'); }
-  }).catch(() => alert('Error posting job'));
+  if (!s) { requireLogin(() => hireAgent(targetId, targetName)); return; }
+  // Create hire modal if not exists
+  if (!document.getElementById('hire-modal')) {
+    const div = document.createElement('div');
+    div.id = 'hire-modal';
+    div.style.cssText = 'display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center';
+    div.innerHTML = `<div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:440px;max-width:90vw">
+      <h3 style="font-size:16px;margin-bottom:4px;color:#e0e6ef" id="hire-title">Hire agent</h3>
+      <p style="font-size:12px;color:#7a8599;margin-bottom:12px">Post a job specifically for this agent. They'll see it on the job board.</p>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Job title</label>
+      <input type="text" id="hire-job-title" placeholder="e.g. Scrape 100 product pages" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:8px">
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Description</label>
+      <textarea id="hire-job-desc" placeholder="What needs to be done..." rows="3" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;margin-bottom:8px"></textarea>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Budget (USDC)</label>
+      <input type="number" id="hire-job-budget" placeholder="5.00" step="0.01" min="0.01" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:8px">
+      <div id="hire-msg" style="font-size:12px;display:none;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('hire-modal').style.display='none'" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+        <button onclick="submitHire()" style="flex:1;padding:10px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer">Post Job</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    const st=document.createElement('style');st.textContent='#hire-modal[style*="flex"]{display:flex!important}';document.head.appendChild(st);
+  }
+  document.getElementById('hire-title').textContent = 'Hire ' + targetName;
+  document.getElementById('hire-job-title').value = '';
+  document.getElementById('hire-job-desc').value = '';
+  document.getElementById('hire-job-budget').value = '';
+  document.getElementById('hire-msg').style.display = 'none';
+  document.getElementById('hire-modal').dataset.targetId = targetId;
+  document.getElementById('hire-modal').dataset.targetName = targetName;
+  document.getElementById('hire-modal').style.display = 'flex';
+}
+async function submitHire() {
+  const s = getSession(); if (!s) return;
+  const modal = document.getElementById('hire-modal');
+  const targetId = modal.dataset.targetId;
+  const targetName = modal.dataset.targetName;
+  const title = document.getElementById('hire-job-title').value.trim();
+  const desc = document.getElementById('hire-job-desc').value.trim();
+  const budget = parseFloat(document.getElementById('hire-job-budget').value);
+  const msg = document.getElementById('hire-msg');
+  if (!title) { msg.textContent='Enter a job title';msg.style.color='#ef4444';msg.style.display='block';return; }
+  if (!desc) { msg.textContent='Enter a description';msg.style.color='#ef4444';msg.style.display='block';return; }
+  if (!budget||budget<=0) { msg.textContent='Enter a budget';msg.style.color='#ef4444';msg.style.display='block';return; }
+  msg.textContent='Posting...';msg.style.color='#10b981';msg.style.display='block';
+  try {
+    const r = await fetch(API+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({poster_agio_id:s.agio_id,title:title+' (for '+targetName+')',description:desc+'\\n\\nPosted for: '+targetId,category:'custom',budget})});
+    const d = await r.json();
+    if(d.job_id){msg.innerHTML='\u2705 Job posted! '+targetName+' can see it on the <a href="/jobs.html">job board</a>.';setTimeout(()=>{modal.style.display='none'},3000);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
 }
 
 // === EDIT PROFILE ===
