@@ -11,9 +11,9 @@ from ..core.exceptions import DuplicateAgent
 
 
 TRUST_LEVELS = {
-    "NEW": {"can_pay": True, "can_post": False, "can_post_jobs": False, "can_arena": False},
-    "ACTIVE": {"can_pay": True, "can_post": True, "can_post_jobs": False, "can_arena": False},
-    "TRUSTED": {"can_pay": True, "can_post": True, "can_post_jobs": True, "can_arena": True},
+    "NEW": {"can_pay": True, "can_post": False, "can_post_jobs": False, "can_challenge": False},
+    "ACTIVE": {"can_pay": True, "can_post": True, "can_post_jobs": False, "can_challenge": False},
+    "TRUSTED": {"can_pay": True, "can_post": True, "can_post_jobs": True, "can_challenge": True},
 }
 
 

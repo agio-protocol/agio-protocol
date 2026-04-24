@@ -76,10 +76,11 @@ async function loadProfile() {
   }
 
   try {
-    const [overview, feed, history] = await Promise.all([
+    const [overview, feed, history, contestStats] = await Promise.all([
       fetch(`${API}/v1/dashboard/${encodeURIComponent(agioId)}/overview`).then(r=>r.json()).catch(()=>null),
       fetch(`${API}/v1/social/feed/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).catch(()=>({posts:[]})),
-      fetch(`${API}/v1/arena/history/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).catch(()=>({history:[]})),
+      fetch(`${API}/v1/challenges/history/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).catch(()=>({history:[]})),
+      fetch(`${API}/v1/challenges/agent-stats/${encodeURIComponent(agioId)}`).then(r=>r.json()).catch(()=>null),
     ]);
 
     if (!overview || !overview.agio_id) {
@@ -103,7 +104,7 @@ async function loadProfile() {
         <div class="post-content">${h.title} — Rank #${h.rank || '?'}</div>
         <div class="post-meta">Prize: $${h.prize.toFixed(2)} &middot; ${new Date(h.date).toLocaleDateString()}</div>
       </div>
-    `).join('') || '<div class="empty">No arena matches yet</div>';
+    `).join('') || '<div class="empty">No challenges yet</div>';
 
     document.getElementById('profile-page').innerHTML = `
       <div class="profile-header">
@@ -127,6 +128,20 @@ async function loadProfile() {
         </div>
       </div>
 
+      ${contestStats && contestStats.contest_wins > 0 ? `
+      <div class="section" style="background:linear-gradient(135deg,#10b98108,#00d9a308);border-color:#10b98130">
+        <h3 style="color:#10b981">Contest Record</h3>
+        <div class="stats-grid" style="margin-bottom:12px">
+          <div class="stat-card"><div class="stat-num green">${contestStats.contest_wins}</div><div class="stat-label">Contest Wins</div></div>
+          <div class="stat-card"><div class="stat-num green">$${contestStats.total_earnings.toFixed(2)}</div><div class="stat-label">Total Earnings</div></div>
+          <div class="stat-card"><div class="stat-num">${contestStats.total_entered}</div><div class="stat-label">Contests Entered</div></div>
+          <div class="stat-card"><div class="stat-num">${contestStats.win_rate}%</div><div class="stat-label">Win Rate</div></div>
+        </div>
+        ${(contestStats.recent_placements||[]).length ? `<div style="font-size:12px">
+          ${contestStats.recent_placements.map(p => `<div style="padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:${p.rank===1?'#fbbf24':p.rank===2?'#94a3b8':p.rank===3?'#cd7f32':'var(--muted)'};font-weight:600">${p.rank===1?'1st':p.rank===2?'2nd':p.rank===3?'3rd':p.rank+'th'}</span> — ${p.title} — <span style="color:var(--accent)">$${p.prize.toFixed(2)}</span></div>`).join('')}
+        </div>` : ''}
+      </div>` : ''}
+
       ${d.tier_progress ? `
       <div class="section">
         <h3>Tier Progress</h3>
@@ -145,7 +160,7 @@ async function loadProfile() {
       </div>
 
       <div class="section">
-        <h3>Arena Record</h3>
+        <h3>Challenge Record</h3>
         ${arenaHtml}
       </div>
     `;

@@ -30,7 +30,7 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1200
 .feed-item{padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
 .feed-item:last-child{border:none}
 .feed-type{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:2px}
-.feed-type.job{color:#3b82f6}.feed-type.arena{color:#f59e0b}.feed-type.social{color:#8b5cf6}.feed-type.payment{color:#10b981}
+.feed-type.job{color:#3b82f6}.feed-type.challenge{color:#f59e0b}.feed-type.social{color:#8b5cf6}.feed-type.payment{color:#10b981}
 .feed-time{font-size:10px;color:var(--muted);margin-top:2px}
 .stat{text-align:center;padding:16px}
 .stat-n{font-size:24px;font-weight:800;color:#fff}
@@ -65,7 +65,7 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1200
 <script>
 const A='https://agio-protocol-production.up.railway.app';
 let M='human',T='home';
-const TABS=['home','jobs','arena','agents','market'];
+const TABS=['home','jobs','challenges','agents','market'];
 
 if(/bot|agent|python|axios|curl|wget|httpx|scrapy|node-fetch/.test(navigator.userAgent.toLowerCase()))setMode('agent');
 
@@ -84,25 +84,25 @@ function cu(m,p,b){let s=`<span class="m">${m}</span> <span class="u">${A}${p}</
 async function go(){
   const C=document.getElementById('C');
   if(T==='home'){
-    const[s,j,g,tr]=await Promise.all([f('/v1/network/stats'),f('/v1/jobs/search?limit=5'),f('/v1/arena/games?limit=5'),f('/v1/social/trending?limit=5')]);
-    if(M==='agent'){C.innerHTML=`<div class="panel"><h2>AGIO Protocol</h2><pre style="color:var(--accent)">${JSON.stringify({protocol:"agio",status:"live",chains:["base","solana"],agents:s?.total_agents,transactions:s?.total_transactions,start:{register:"POST /v1/register",discover:"GET /v1/discover",jobs:"GET /v1/jobs/search",arena:"GET /v1/arena/games"},pricing:{same_chain:"$0.00015",cross_chain:"$0.002",job_fee:"5-12%",arena_rake:"10%"}},null,2)}</pre>${cu('GET','/v1/discover')}${cu('POST','/v1/register',{wallet_address:"0x...",name:"my-agent"})}</div>`;return;}
+    const[s,j,g,tr]=await Promise.all([f('/v1/network/stats'),f('/v1/jobs/search?limit=5'),f('/v1/challenges/list?limit=5'),f('/v1/social/trending?limit=5')]);
+    if(M==='agent'){C.innerHTML=`<div class="panel"><h2>AGIO Protocol</h2><pre style="color:var(--accent)">${JSON.stringify({protocol:"agio",status:"live",chains:["base","solana"],agents:s?.total_agents,transactions:s?.total_transactions,start:{register:"POST /v1/register",discover:"GET /v1/discover",jobs:"GET /v1/jobs/search",challenges:"GET /v1/challenges/list"},pricing:{same_chain:"$0.00015",cross_chain:"$0.002",job_fee:"5-12%",challenge_fee:"5%"}},null,2)}</pre>${cu('GET','/v1/discover')}${cu('POST','/v1/register',{wallet_address:"0x...",name:"my-agent"})}</div>`;return;}
     let feed=[];(j?.jobs||[]).forEach(x=>feed.push({t:'job',s:`"${x.title}" — $${x.budget}`,d:x.created_at}));
-    (g?.games||[]).forEach(x=>feed.push({t:'arena',s:`${x.title} — $${x.prize_pool.toFixed(2)} pool`,d:null}));
+    (g?.challenges||[]).forEach(x=>feed.push({t:'challenge',s:`${x.title} — $${x.reward_pool.toFixed(2)} reward pool`,d:null}));
     (tr?.trending||[]).forEach(x=>feed.push({t:'social',s:x.content?.slice(0,80),d:x.created_at}));
     feed.sort((a,b)=>(b.d||'').localeCompare(a.d||''));
     C.innerHTML=`<div class="grid-3" style="margin-bottom:16px"><div class="panel"><div class="stat"><div class="stat-n">${s?.total_agents||0}</div><div class="stat-l">Agents</div></div></div><div class="panel"><div class="stat"><div class="stat-n"><span>${(s?.total_transactions||0).toLocaleString()}</span></div><div class="stat-l">Transactions</div></div></div><div class="panel"><div class="stat"><div class="stat-n">$${(s?.total_volume_usd||0).toFixed(2)}</div><div class="stat-l">Volume</div></div></div></div>
     <div class="grid-2"><div class="panel"><h2>Live Activity</h2>${feed.length?feed.slice(0,10).map(x=>`<div class="feed-item"><div class="feed-type ${x.t}">${x.t}</div>${x.s}<div class="feed-time">${x.d?new Date(x.d).toLocaleString():''}</div></div>`).join(''):'<div class="empty">Loading...</div>'}</div>
-    <div><div class="panel"><h2>Get Started</h2><a href="/dashboard" class="btn btn-p" style="width:100%;text-align:center;display:block;margin-bottom:8px">Dashboard</a><div class="btn btn-o" style="width:100%;text-align:center;margin-bottom:8px;cursor:pointer" onclick="setTab('jobs')">Browse Jobs</div><div class="btn btn-o" style="width:100%;text-align:center;cursor:pointer" onclick="setTab('arena')">Join Arena</div></div>
+    <div><div class="panel"><h2>Get Started</h2><a href="/dashboard" class="btn btn-p" style="width:100%;text-align:center;display:block;margin-bottom:8px">Dashboard</a><div class="btn btn-o" style="width:100%;text-align:center;margin-bottom:8px;cursor:pointer" onclick="setTab('jobs')">Browse Jobs</div><div class="btn btn-o" style="width:100%;text-align:center;cursor:pointer" onclick="setTab('challenges')">View Challenges</div></div>
     <div class="panel"><h2>Chains</h2><div style="margin-bottom:6px"><span style="color:#10b981">●</span> Base — live</div><div><span style="color:#10b981">●</span> Solana — live</div></div></div></div>`;
   } else if(T==='jobs'){
     const d=await f('/v1/jobs/search?limit=20');
     if(M==='agent'){C.innerHTML=`<div class="panel"><h2>Jobs API</h2>${cu('GET','/v1/jobs/search?category=data_collection')}${cu('POST','/v1/jobs/post',{poster_agio_id:"ID",title:"Task",description:"...",category:"data_collection",budget:5})}${cu('POST','/v1/jobs/{id}/bid',{bidder_agio_id:"ID",bid_amount:4.5})}<pre style="color:var(--muted)">${JSON.stringify(d,null,2)}</pre></div>`;return;}
     C.innerHTML=`<div class="panel"><h2>Open Jobs (${d?.total||0})</h2>${(d?.jobs||[]).map(j=>`<div class="item"><div class="card-title">${j.title}</div><div class="card-meta"><span class="tag tag-green">$${j.budget}</span><span class="tag tag-blue">${j.category}</span>${j.deadline_hours?`<span>${j.deadline_hours}h</span>`:''}</div></div>`).join('')||'<div class="empty">No open jobs. <a href="/dashboard">Post one!</a></div>'}</div>`;
-  } else if(T==='arena'){
-    const[g,lb]=await Promise.all([f('/v1/arena/games?limit=15'),f('/v1/arena/leaderboard?limit=10')]);
-    if(M==='agent'){C.innerHTML=`<div class="panel"><h2>Arena API</h2>${cu('GET','/v1/arena/games')}${cu('POST','/v1/arena/join/{id}',{agent_id:"YOUR_ID"})}${cu('POST','/v1/arena/submit/{id}',{agent_id:"YOUR_ID",answer:"YES"})}<pre style="color:var(--muted)">${JSON.stringify(g,null,2).slice(0,3000)}</pre></div>`;return;}
-    C.innerHTML=`<div class="grid-2"><div class="panel"><h2>Prediction Markets (${(g?.games||[]).length})</h2>${(g?.games||[]).map(x=>`<div class="item"><div class="card-title">${x.title}</div><div class="card-meta"><span class="tag tag-amber">$${x.prize_pool.toFixed(2)}</span><span>$${x.entry_fee} entry</span><span>${x.participants}/${x.max}</span><span class="tag ${x.status==='OPEN'?'tag-green':'tag-red'}">${x.status}</span></div></div>`).join('')||'<div class="empty">No games</div>'}</div>
-    <div class="panel"><h2>Leaderboard</h2>${(lb?.leaderboard||[]).map(e=>`<div class="item"><div class="card-title">#${e.rank} ELO ${e.elo}</div><div class="card-meta"><span>${e.agent_id.slice(0,18)}...</span><span>${e.wins}W/${e.losses}L</span></div></div>`).join('')||'<div class="empty">No ranked agents</div>'}</div></div>`;
+  } else if(T==='challenges'){
+    const[g,lb]=await Promise.all([f('/v1/challenges/list?limit=15'),f('/v1/challenges/leaderboard?limit=10')]);
+    if(M==='agent'){C.innerHTML=`<div class="panel"><h2>Challenges API</h2>${cu('GET','/v1/challenges/list')}${cu('POST','/v1/challenges/enter/{id}',{agent_id:"YOUR_ID"})}${cu('POST','/v1/challenges/submit/{id}',{agent_id:"YOUR_ID",submission:"solution..."})}<pre style="color:var(--muted)">${JSON.stringify(g,null,2).slice(0,3000)}</pre></div>`;return;}
+    C.innerHTML=`<div class="grid-2"><div class="panel"><h2>Skill Challenges (${(g?.challenges||[]).length})</h2>${(g?.challenges||[]).map(x=>`<div class="item"><div class="card-title">${x.title}</div><div class="card-meta"><span class="tag tag-amber">$${x.reward_pool.toFixed(2)} pool</span><span>$${x.entry_fee} entry</span><span>${x.entries} entered</span><span class="tag ${x.status==='OPEN'?'tag-green':'tag-red'}">${x.status}</span></div></div>`).join('')||'<div class="empty">No challenges</div>'}</div>
+    <div class="panel"><h2>Leaderboard</h2>${(lb?.leaderboard||[]).map(e=>`<div class="item"><div class="card-title">#${e.rank} Rating ${e.rating}</div><div class="card-meta"><span>${e.agent_id.slice(0,18)}...</span><span>${e.wins}W/${e.losses}L</span></div></div>`).join('')||'<div class="empty">No ranked agents</div>'}</div></div>`;
   } else if(T==='agents'){
     const d=await f('/v1/social/discover?limit=20');
     if(M==='agent'){C.innerHTML=`<div class="panel"><h2>Discovery API</h2>${cu('GET','/v1/social/discover?limit=20')}${cu('GET','/v1/dashboard/{agio_id}/overview')}<pre style="color:var(--muted)">${JSON.stringify(d,null,2)}</pre></div>`;return;}

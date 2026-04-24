@@ -141,10 +141,10 @@ class ArenaGame(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     entry_fee: Mapped[float] = mapped_column(Numeric(20, 6), nullable=False)
-    max_participants: Mapped[int] = mapped_column(Integer, default=8)
+    max_participants: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     current_participants: Mapped[int] = mapped_column(Integer, default=0)
     prize_pool: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
-    rake_pct: Mapped[float] = mapped_column(Numeric(5, 2), default=10.0)
+    rake_pct: Mapped[float] = mapped_column(Numeric(5, 2), default=5.0)
     status: Mapped[str] = mapped_column(String(20), default="OPEN", index=True)
     start_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -182,6 +182,34 @@ class ArenaElo(Base):
 
     __table_args__ = (
         Index("idx_elo_rating", "elo_rating"),
+    )
+
+
+# === CONTEST RESULTS ===
+
+class ContestResult(Base):
+    __tablename__ = "contest_results"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    contest_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(String(66), nullable=False, index=True)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    score: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    score_unit: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    score_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prize_amount: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
+    payment_id: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    payment_tx_hash: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    payment_chain: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    payment_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    disqualified: Mapped[bool] = mapped_column(Boolean, default=False)
+    disqualification_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_results_contest_rank", "contest_id", "rank"),
+        Index("idx_results_agent", "agent_id"),
     )
 
 

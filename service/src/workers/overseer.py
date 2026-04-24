@@ -68,13 +68,13 @@ async def check_all():
         except Exception as e:
             failed.append(f"Jobs: {e}")
 
-        # Arena
+        # Challenges
         try:
-            r = await c.get(f"{API}/v1/arena/games?limit=1")
-            games = r.json().get("games", [])
-            passed.append(f"Arena: {len(games)} active")
+            r = await c.get(f"{API}/v1/challenges/list?limit=1")
+            challenges = r.json().get("challenges", [])
+            passed.append(f"Challenges: {len(challenges)} active")
         except Exception as e:
-            failed.append(f"Arena: {e}")
+            failed.append(f"Challenges: {e}")
 
         # Marketplace
         try:
@@ -96,7 +96,7 @@ async def check_all():
             failed.append(f"Reconciliation: {e}")
 
         # Site pages
-        for page in ["/", "/chat.html", "/jobs.html", "/arena.html"]:
+        for page in ["/", "/chat.html", "/jobs.html", "/challenges.html"]:
             try:
                 r = await c.get(f"{SITE}{page}")
                 if r.status_code == 200:

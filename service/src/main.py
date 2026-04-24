@@ -10,7 +10,8 @@ from .api.admin_routes import router as admin_router
 from .api.dashboard_routes import router as dashboard_router
 from .api.jobs_routes import router as jobs_router
 from .api.social_routes import router as social_router
-from .api.arena_routes import router as arena_router
+from .api.challenges_routes import router as challenges_router
+from .api.challenges_routes import arena_compat as arena_compat_router
 from .api.market_routes import router as market_router
 from .api.notification_routes import router as notif_router
 from .api.chat_routes import router as chat_router
@@ -53,7 +54,8 @@ app.include_router(admin_router)
 app.include_router(dashboard_router)
 app.include_router(jobs_router)
 app.include_router(social_router)
-app.include_router(arena_router)
+app.include_router(challenges_router)
+app.include_router(arena_compat_router)
 app.include_router(market_router)
 app.include_router(notif_router)
 app.include_router(chat_router)
