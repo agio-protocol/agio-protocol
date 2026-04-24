@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Blockchain interaction layer — submits multi-token batches to Base."""
 import json
 import logging

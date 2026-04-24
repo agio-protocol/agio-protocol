@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """
 Growth Agent — Autonomously discovers, qualifies, and pitches prospects.
 

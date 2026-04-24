@@ -1,3 +1,5 @@
+// Copyright (c) 2026 AGIO Protocol. All rights reserved.
+// Licensed under BUSL-1.1. See IP_NOTICE.md.
 use anchor_lang::prelude::*;
 use crate::state::*;
 use crate::constants::*;

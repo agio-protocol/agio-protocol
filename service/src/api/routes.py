@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """API routes — all AGIO endpoints including cross-chain and reputation."""
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Agent dashboard API routes — wallet signature auth."""
 from datetime import datetime, timedelta
 from decimal import Decimal

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """
 Points Service — Tracks network contribution. Calculated during batch settlement.
 

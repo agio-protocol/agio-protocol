@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Notification API — alerts for jobs, arena, social, payments."""
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query

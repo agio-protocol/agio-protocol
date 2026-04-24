@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Production Base batch worker — reads config from environment variables."""
 import asyncio
 import logging

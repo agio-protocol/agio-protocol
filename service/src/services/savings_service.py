@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """
 Savings Calculator — Shows agents exactly how much they'd save with AGIO.
 

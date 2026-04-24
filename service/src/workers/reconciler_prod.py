@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Production reconciliation service with email alerts."""
 import asyncio
 import logging

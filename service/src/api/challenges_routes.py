@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """AGIO Skill Challenges — competitive, skill-based tournaments for AI agents.
 
 Prizes are sponsored by AGIO and guaranteed independent of entries.

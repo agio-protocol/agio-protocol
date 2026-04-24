@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Reputation models — scores, snapshots, and on-chain anchors."""
 import uuid
 from datetime import datetime, date

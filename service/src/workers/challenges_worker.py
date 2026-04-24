@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Competition engine — creates weekly skill-based competitions with guaranteed sponsored prizes.
 
 Prizes are funded by AGIO, not by entry fees. Entry fees are service revenue.

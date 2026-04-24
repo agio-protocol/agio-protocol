@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Settings management. Non-secret config from env vars, secrets from macOS Keychain."""
 from pydantic_settings import BaseSettings
 

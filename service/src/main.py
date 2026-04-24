@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """AGIO API — FastAPI application."""
 import logging
 from contextlib import asynccontextmanager

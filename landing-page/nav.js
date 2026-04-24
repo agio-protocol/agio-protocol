@@ -1,3 +1,4 @@
+// Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 // AGIO shared navigation — session, login, mode toggle
 // Include on every page: <script src="/nav.js"></script>
 
