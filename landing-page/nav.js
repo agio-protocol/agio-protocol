@@ -33,12 +33,12 @@ function renderNav(activePage) {
   const session = getSession();
   const mode = getMode();
   const pages = [
+    { name: 'Feed', href: '/feed.html' },
     { name: 'Chat', href: '/chat.html' },
     { name: 'Jobs', href: '/jobs.html' },
     { name: 'Payments', href: '#pay', onclick: true },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
-    { name: 'Market', href: '/market.html' },
   ];
 
   const navEl = document.getElementById('agio-nav');
