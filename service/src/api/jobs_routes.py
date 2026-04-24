@@ -205,6 +205,11 @@ async def bid_on_job(job_id: int, req: BidRequest, db: AsyncSession = Depends(ge
     db.add(bid)
     if job.status == "OPEN":
         job.status = "BIDDING"
+    # Notify poster someone bid
+    try:
+        from .notification_routes import notify
+        await notify(db, job.poster_agent, "job", f"New bid on \"{job.title}\"", f"${float(req.bid_amount)} bid received", f"/jobs.html")
+    except Exception: pass
     await db.commit()
     await db.refresh(bid)
 
@@ -258,6 +263,11 @@ async def accept_bid(
     await _sync_agent_balance(db, poster, job.budget_token, Decimal("0"), bid.bid_amount)
 
     job.status = "IN_PROGRESS"
+    # Notify worker their bid was accepted
+    try:
+        from .notification_routes import notify
+        await notify(db, bid.bidder_agent, "job", f"Your bid on \"{job.title}\" was accepted!", f"${float(bid.bid_amount)} escrowed. Start working!", f"/jobs.html")
+    except Exception: pass
     job.accepted_bid_id = bid.id
     bid.status = "ACCEPTED"
 
@@ -340,6 +350,12 @@ async def approve_work(job_id: int, agio_id: str = Query(...), db: AsyncSession 
     job.status = "COMPLETED"
     job.completed_at = datetime.utcnow()
 
+    # Notify worker they got paid
+    try:
+        from .notification_routes import notify
+        await notify(db, bid.bidder_agent, "payment", f"Payment received for \"{job.title}\"", f"${float(worker_payout)} credited to your balance", f"/dashboard/")
+    except Exception: pass
+
     await db.commit()
 
     return {
@@ -397,6 +413,59 @@ async def dispute_job(
     await db.refresh(dispute)
 
     return {"dispute_id": dispute.id, "job_id": job_id, "status": "DISPUTED"}
+
+
+@router.post("/{job_id}/rate")
+async def rate_job(job_id: int, agio_id: str = Query(...), rating: int = Query(..., ge=1, le=5), review: str = Query(""), db: AsyncSession = Depends(get_db)):
+    """Rate a completed job. Poster rates worker or worker rates poster."""
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job or job.status != "COMPLETED":
+        raise HTTPException(400, "Can only rate completed jobs")
+    if agio_id not in (job.poster_agent,):
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
+        if not bid or agio_id != bid.bidder_agent:
+            raise HTTPException(403, "Only poster or worker can rate")
+    from sqlalchemy import text
+    try:
+        await db.execute(text(
+            "INSERT INTO job_ratings (job_id, rater_id, rating, review, created_at) VALUES (:jid, :rid, :rat, :rev, NOW())"
+        ), {"jid": job_id, "rid": agio_id, "rat": rating, "rev": review[:500]})
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await db.execute(text(
+            "CREATE TABLE IF NOT EXISTS job_ratings (id SERIAL PRIMARY KEY, job_id INTEGER, rater_id VARCHAR(66), rating INTEGER, review TEXT, created_at TIMESTAMP DEFAULT NOW())"
+        ))
+        await db.commit()
+        await db.execute(text(
+            "INSERT INTO job_ratings (job_id, rater_id, rating, review, created_at) VALUES (:jid, :rid, :rat, :rev, NOW())"
+        ), {"jid": job_id, "rid": agio_id, "rat": rating, "rev": review[:500]})
+        await db.commit()
+    return {"job_id": job_id, "rating": rating, "status": "rated"}
+
+
+@router.get("/recommended/{agio_id}")
+async def recommended_jobs(agio_id: str, limit: int = Query(5), db: AsyncSession = Depends(get_db)):
+    """Recommend jobs matching agent's skills."""
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    if not agent:
+        raise HTTPException(404, "Agent not found")
+    meta = agent.metadata_json or {}
+    skills = meta.get("skills", [])
+    query = select(Job).where(Job.status.in_(("OPEN", "BIDDING")))
+    if skills:
+        from sqlalchemy import or_
+        skill_filters = [Job.category.ilike(f"%{s.replace('-','_')}%") for s in skills[:3]]
+        if skill_filters:
+            query = query.where(or_(*skill_filters))
+    query = query.order_by(Job.created_at.desc()).limit(limit)
+    jobs = (await db.execute(query)).scalars().all()
+    return {
+        "recommended": [
+            {"id": j.id, "title": j.title, "budget": float(j.budget), "category": j.category, "status": j.status}
+            for j in jobs
+        ],
+    }
 
 
 @router.get("/my/{agio_id}")

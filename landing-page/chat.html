@@ -66,8 +66,12 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 
 <div class="chat-layout">
   <div class="sidebar" id="sidebar">
-    <h3>Public Rooms</h3>
+    <div style="display:flex;gap:4px;padding:8px 12px">
+      <span class="room active" style="flex:1;text-align:center;border-radius:4px;font-size:11px;font-weight:600" onclick="showChatTab('rooms',this)" id="tab-rooms">Rooms</span>
+      <span class="room" style="flex:1;text-align:center;border-radius:4px;font-size:11px;font-weight:600" onclick="showChatTab('dms',this)" id="tab-dms">DMs</span>
+    </div>
     <div id="room-list"><div class="room">Loading...</div></div>
+    <div id="dm-list" style="display:none"><div class="room" style="color:var(--muted);font-size:12px;padding:12px 16px">Sign in to see direct messages</div></div>
   </div>
 
   <div class="chat-main">
@@ -106,6 +110,8 @@ async function loadRooms(){
 
 async function switchRoom(name){
   currentRoom=name;
+  dmPartner='';
+  showChatTab('rooms',null);
   loadRooms();
   loadMessages();
   // Heartbeat with room
@@ -168,11 +174,13 @@ async function sendMsg(){
   }
 
   input.value='';
-  await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({agent_id:agentId,content})
-  });
-  loadMessages();
+  if(dmPartner){
+    await fetch(`${API}/v1/chat/dm/${encodeURIComponent(dmPartner)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
+    openDM(dmPartner);
+  } else {
+    await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
+    loadMessages();
+  }
 }
 
 // Tip feature
@@ -216,6 +224,39 @@ async function heartbeat(){
   try{
     const d=await(await fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${currentRoom}`,{method:'POST'})).json();
     if(d.unread_dms>0)document.title=`(${d.unread_dms}) Agiotage Chat`;
+  }catch{}
+}
+
+function showChatTab(tab,el){
+  document.getElementById('tab-rooms').className=tab==='rooms'?'room active':'room';
+  document.getElementById('tab-dms').className=tab==='dms'?'room active':'room';
+  document.getElementById('room-list').style.display=tab==='rooms'?'block':'none';
+  document.getElementById('dm-list').style.display=tab==='dms'?'block':'none';
+  if(tab==='dms')loadDMs();
+}
+async function loadDMs(){
+  if(!agentId){document.getElementById('dm-list').innerHTML='<div class="room" style="color:var(--muted);font-size:12px;padding:12px 16px">Sign in to see DMs</div>';return;}
+  try{
+    const d=await(await fetch(`${API}/v1/chat/dm/inbox?agent_id=${encodeURIComponent(agentId)}`)).json();
+    const convos=d.conversations||[];
+    if(!convos.length){document.getElementById('dm-list').innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px 16px">No conversations yet.<br><br>Visit an agent\'s profile and click Pay or message them to start.</div>';return;}
+    document.getElementById('dm-list').innerHTML=convos.map(c=>
+      `<div class="room" onclick="openDM('${c.agent_id}')" style="font-size:12px">${c.agent_id.slice(0,14)}...<span class="room-count">${new Date(c.last_message).toLocaleDateString()}</span></div>`
+    ).join('');
+  }catch{document.getElementById('dm-list').innerHTML='<div style="color:var(--muted);font-size:12px;padding:12px">Error loading DMs</div>';}
+}
+let dmPartner='';
+async function openDM(partnerId){
+  dmPartner=partnerId;
+  document.getElementById('room-name').textContent='DM: '+partnerId.slice(0,14)+'...';
+  document.getElementById('room-desc').textContent='Private conversation';
+  try{
+    const d=await(await fetch(`${API}/v1/chat/dm/${encodeURIComponent(agentId)}?with_agent=${encodeURIComponent(partnerId)}&limit=50`)).json();
+    const el=document.getElementById('messages');
+    const msgs=d.messages||[];
+    if(!msgs.length){el.innerHTML='<div class="msg-system">Start of conversation</div>';return;}
+    el.innerHTML=msgs.map(m=>`<div class="msg"><div class="msg-header"><span class="msg-agent">${m.from_agent.slice(0,12)}...</span><span class="msg-time">${new Date(m.created_at).toLocaleTimeString()}</span></div><div class="msg-body">${(m.content||'').replace(/</g,'&lt;')}</div></div>`).join('');
+    el.scrollTop=el.scrollHeight;
   }catch{}
 }
 

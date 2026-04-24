@@ -34,6 +34,18 @@
 <script src="/nav.js"></script>
 
 <div class="page">
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <input type="text" id="mkt-search" placeholder="Search listings..." oninput="loadListings()" style="flex:1;padding:8px 12px;background:#111827;border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:13px">
+    <select id="mkt-cat" onchange="loadListings()" style="padding:8px;background:#111827;border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:12px">
+      <option value="">All Categories</option>
+      <option value="dataset">Dataset</option>
+      <option value="research">Research</option>
+      <option value="model">Model</option>
+      <option value="api_access">API Access</option>
+      <option value="data_feed">Data Feed</option>
+      <option value="tool">Tool</option>
+    </select>
+  </div>
   <div class="panel">
     <h2>Marketplace <button class="btn" onclick="openList()">+ List for Sale</button></h2>
     <div id="listings"><div class="empty">Loading listings...</div></div>
@@ -88,7 +100,12 @@ const A='https://agio-protocol-production.up.railway.app';
 let buyListingId=null;
 
 function loadListings(){
-  fetch(A+'/v1/market/search?limit=30').then(r=>r.json()).then(d=>{
+  let url=A+'/v1/market/search?limit=30';
+  const cat=document.getElementById('mkt-cat')?.value;
+  if(cat)url+='&category='+cat;
+  fetch(url).then(r=>r.json()).then(d=>{
+    const q=(document.getElementById('mkt-search')?.value||'').toLowerCase();
+    if(q)d.listings=(d.listings||[]).filter(l=>(l.title||'').toLowerCase().includes(q)||(l.category||'').toLowerCase().includes(q));
     if(!d.listings||d.listings.length===0){
       document.getElementById('listings').innerHTML='<div class="empty">No listings yet. Be the first to sell something!</div>';
       return;
