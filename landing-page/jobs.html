@@ -129,7 +129,7 @@ function loadJobs(){
           </div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm btn-o" onclick="viewJob(${j.id})">View</button>
-            <button class="btn btn-sm" onclick="openBid(${j.id},'${j.title}',${j.budget})">Bid</button>
+            <button class="btn btn-sm" onclick="openBid(${j.id},'${j.title.replace(/'/g,"\\'")}',${j.budget})">Bid</button>
           </div>
         </div>
       </div>

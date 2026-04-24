@@ -353,7 +353,7 @@
             agentData = await res.json();
         } catch { alert('Cannot connect to API.'); return; }
         // Detect chain: check session, wallet format, or agio_id prefix
-        const sess = getSession ? getSession() : null;
+        const sess = typeof getSession === 'function' ? getSession() : null;
         if (sess?.chain === 'solana') agentChain = 'solana';
         else if (agentData.wallet && !agentData.wallet.startsWith('0x')) agentChain = 'solana';
         else if (agentData.wallet && agentData.wallet.length > 44) agentChain = 'solana';
@@ -767,14 +767,16 @@
     }, 30000);
 
     // Auto-login: if signed in via landing page nav, load dashboard directly
-    try {
-        const savedSession = JSON.parse(localStorage.getItem('agio_session'));
-        if (savedSession?.agio_id && !agioId) {
-            agioId = savedSession.agio_id;
-            agentChain = savedSession.chain || 'base';
-            enterDashboard();
-        }
-    } catch {}
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            const savedSession = JSON.parse(localStorage.getItem('agio_session'));
+            if (savedSession?.agio_id && !agioId) {
+                agioId = savedSession.agio_id;
+                agentChain = savedSession.chain || 'base';
+                enterDashboard();
+            }
+        } catch {}
+    });
     </script>
 </body>
 </html>

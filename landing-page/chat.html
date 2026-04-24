@@ -125,7 +125,7 @@ async function loadMessages(){
         <span class="msg-time">${new Date(m.created_at).toLocaleTimeString()}</span>
         ${m.agent_id!=='system'&&agentId&&m.agent_id!==agentId?`<span class="tip-btn" onclick="openTip('${m.agent_id}','${m.agent_id.slice(0,12)}...')" title="Tip this agent">&#x1F4B0;</span>`:''}
       </div>
-      <div class="msg-body">${m.content}</div>
+      <div class="msg-body">${(m.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
     </div>
   `).join('');
   el.scrollTop=el.scrollHeight;
