@@ -1,10 +1,15 @@
-"""Challenges API — skill-based competitions for AI agents."""
+"""AGIO Skill Challenges — competitive, skill-based tournaments for AI agents.
+
+Prizes are sponsored by AGIO and guaranteed independent of entries.
+Entry fees compensate AGIO for compute, scoring, and settlement infrastructure.
+Entry fees are NOT pooled into prizes. This is NOT gambling.
+"""
 from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy import select, func, update, desc
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
@@ -15,74 +20,79 @@ from ..models.platform import ArenaGame, ArenaParticipant, ArenaElo, ContestResu
 
 router = APIRouter(prefix="/v1/challenges")
 
-SERVICE_FEE_PCT = Decimal("5.0")
-
-PAYOUT_SPLITS = {
-    "winner_take_all": [Decimal("95")],
-    "top_3": [Decimal("60"), Decimal("25"), Decimal("15")],
-    "top_5": [Decimal("40"), Decimal("25"), Decimal("15"), Decimal("12"), Decimal("8")],
-    "top_10": [Decimal("30"), Decimal("20"), Decimal("12"), Decimal("10"),
-               Decimal("8"), Decimal("6"), Decimal("5"), Decimal("4"),
-               Decimal("3"), Decimal("2")],
-}
-
-CONTEST_TYPES = {
-    "code_golf": {
-        "name": "Code Golf",
-        "scoring": "Fewest characters that pass 100% of test suite. Tiebreaker: execution time, then submission time.",
-        "score_unit": "characters",
+# Guaranteed prizes per tier — sponsored by AGIO, not funded by entry fees
+TIER_CONFIG = {
+    "open": {
+        "entry_fee": Decimal("1"),
+        "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")},
+        "min_tier": "SPARK",
+        "label": "Open",
     },
-    "speed_race": {
-        "name": "Speed Race",
-        "scoring": "First correct submission wins. Verified against ground truth. Timestamped to millisecond.",
-        "score_unit": "seconds",
+    "professional": {
+        "entry_fee": Decimal("5"),
+        "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")},
+        "min_tier": "ARC",
+        "label": "Professional",
     },
-    "optimization": {
-        "name": "Optimization",
-        "scoring": "Best score on defined objective metric (e.g., lowest RMSE, highest accuracy). Tiebreaker: submission time.",
-        "score_unit": "score",
+    "expert": {
+        "entry_fee": Decimal("25"),
+        "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")},
+        "min_tier": "PULSE",
+        "label": "Expert",
     },
-    "data_hunt": {
-        "name": "Data Hunt",
-        "scoring": "Most accurate answer verified against public data sources. Tiebreaker: submission time.",
-        "score_unit": "accuracy",
-    },
-    "stress_test": {
-        "name": "Stress Test",
-        "scoring": "Most records processed correctly within time limit. Score = total_processed x accuracy_rate.",
-        "score_unit": "records",
-    },
-    "cost_efficiency": {
-        "name": "Cost Efficiency",
-        "scoring": "Cheapest correct solution. Total AGIO spend tracked. Must meet all success criteria. Tiebreaker: completion time.",
-        "score_unit": "USDC",
+    "elite": {
+        "entry_fee": Decimal("100"),
+        "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")},
+        "min_tier": "CORE",
+        "label": "Elite",
     },
 }
 
+COMPETITION_TYPES = {
+    "code_challenge": {
+        "name": "Code Challenge",
+        "scoring": "Tests passed (must be 100%), then code efficiency (execution time or character count). Test suite published after close.",
+    },
+    "data_challenge": {
+        "name": "Data Challenge",
+        "scoring": "Objective metric (RMSE, accuracy, F1, etc.) against held-out evaluation set. Evaluation set published after close.",
+    },
+    "speed_challenge": {
+        "name": "Speed Challenge",
+        "scoring": "Correctness (pass/fail), then submission timestamp (earliest correct wins). Ground truth published after close.",
+    },
+    "efficiency_challenge": {
+        "name": "Efficiency Challenge",
+        "scoring": "Correctness (pass/fail), then resource usage (compute time, API calls, tokens). Usage tracked automatically.",
+    },
+}
 
-def get_payout_structure(num_entries: int) -> tuple[str, list[Decimal]]:
-    if num_entries <= 5:
-        return "winner_take_all", PAYOUT_SPLITS["winner_take_all"]
-    elif num_entries <= 15:
-        return "top_3", PAYOUT_SPLITS["top_3"]
-    elif num_entries <= 50:
-        return "top_5", PAYOUT_SPLITS["top_5"]
-    else:
-        return "top_10", PAYOUT_SPLITS["top_10"]
+
+def get_tier_from_fee(entry_fee: float) -> Optional[str]:
+    for tier_key, cfg in TIER_CONFIG.items():
+        if float(cfg["entry_fee"]) == entry_fee:
+            return tier_key
+    return None
 
 
-class CreateChallengeRequest(BaseModel):
+def get_guaranteed_prizes(entry_fee: float) -> dict:
+    tier = get_tier_from_fee(entry_fee)
+    if tier:
+        return {k: float(v) for k, v in TIER_CONFIG[tier]["prizes"].items()}
+    return {1: float(entry_fee) * 25}
+
+
+class CreateCompetitionRequest(BaseModel):
     creator_id: str
     title: str
     description: str
-    challenge_type: str = "code_golf"
-    entry_fee: float = 1.0
-    min_entries: int = 3
+    competition_type: str = "code_challenge"
+    tier: str = "open"
     duration_hours: int = 24
     task_description: str = ""
 
 
-class JoinRequest(BaseModel):
+class EntryRequest(BaseModel):
     agent_id: str
     rules_acknowledged: bool = False
 
@@ -92,122 +102,128 @@ class SubmitRequest(BaseModel):
     submission: str
 
 
-class JudgeRequest(BaseModel):
-    judge_id: str
+class ScoreRequest(BaseModel):
+    scorer_id: str
     rankings: list[dict]
 
 
 @router.get("/types")
-async def list_contest_types():
-    return {"types": CONTEST_TYPES}
+async def list_competition_types():
+    return {"types": COMPETITION_TYPES, "tiers": {k: {"entry_fee": float(v["entry_fee"]), "prizes": {str(r): float(p) for r, p in v["prizes"].items()}, "label": v["label"]} for k, v in TIER_CONFIG.items()}}
 
 
 @router.get("/list")
-async def list_challenges(
-    challenge_type: str = Query(None),
+async def list_competitions(
+    competition_type: str = Query(None),
     status: str = Query("OPEN"),
     tier: str = Query(None),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(ArenaGame).where(ArenaGame.status == status)
-    if challenge_type:
-        query = query.where(ArenaGame.game_type == challenge_type)
-    if tier:
-        fee_map = {"starter": 1, "pro": 5, "elite": 25, "champion": 100}
-        if tier.lower() in fee_map:
-            query = query.where(ArenaGame.entry_fee == fee_map[tier.lower()])
+    if competition_type:
+        query = query.where(ArenaGame.game_type == competition_type)
+    if tier and tier.lower() in TIER_CONFIG:
+        query = query.where(ArenaGame.entry_fee == TIER_CONFIG[tier.lower()]["entry_fee"])
     query = query.order_by(ArenaGame.created_at.desc()).limit(limit)
-    challenges = (await db.execute(query)).scalars().all()
+    competitions = (await db.execute(query)).scalars().all()
 
     return {
-        "challenges": [
-            {
-                "id": c.id,
-                "type": c.game_type,
-                "type_name": CONTEST_TYPES.get(c.game_type, {}).get("name", c.game_type),
-                "scoring_method": CONTEST_TYPES.get(c.game_type, {}).get("scoring", "Automated"),
-                "title": c.title,
-                "description": c.description or "",
-                "entry_fee": float(c.entry_fee),
-                "entries": c.current_participants,
-                "min_entries": 3,
-                "reward_pool": float(c.prize_pool),
-                "service_fee_pct": float(c.rake_pct),
-                "status": c.status,
-                "end_time": c.end_time.isoformat() if c.end_time else None,
-                "payout_type": get_payout_structure(c.current_participants)[0],
-            }
-            for c in challenges
+        "competitions": [
+            _format_competition(c) for c in competitions
         ],
     }
 
 
+def _format_competition(c):
+    tier = get_tier_from_fee(float(c.entry_fee))
+    prizes = get_guaranteed_prizes(float(c.entry_fee))
+    ctype = COMPETITION_TYPES.get(c.game_type, {})
+    return {
+        "id": c.id,
+        "type": c.game_type,
+        "type_name": ctype.get("name", c.game_type),
+        "scoring_method": ctype.get("scoring", "Automated objective scoring"),
+        "title": c.title,
+        "description": c.description or "",
+        "tier": TIER_CONFIG.get(tier, {}).get("label", "Open") if tier else "Open",
+        "entry_fee": float(c.entry_fee),
+        "entry_fee_covers": "Sandboxed compute, automated scoring, result verification, settlement processing",
+        "entries": c.current_participants,
+        "min_entries": 3,
+        "guaranteed_prizes": prizes,
+        "prize_sponsor": "AGIO Protocol",
+        "status": c.status,
+        "end_time": c.end_time.isoformat() if c.end_time else None,
+    }
+
+
 @router.post("/create")
-async def create_challenge(req: CreateChallengeRequest, db: AsyncSession = Depends(get_db)):
+async def create_competition(req: CreateCompetitionRequest, db: AsyncSession = Depends(get_db)):
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == req.creator_id)
     )).scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
 
-    if req.entry_fee < 0.01:
-        raise HTTPException(400, "Minimum entry fee is $0.01")
-    if req.min_entries < 2:
-        raise HTTPException(400, "Minimum 2 entries required")
-    if req.challenge_type not in CONTEST_TYPES:
-        raise HTTPException(400, f"Invalid contest type. Valid: {', '.join(CONTEST_TYPES.keys())}")
+    if req.competition_type not in COMPETITION_TYPES:
+        raise HTTPException(400, f"Invalid type. Valid: {', '.join(COMPETITION_TYPES.keys())}")
+    if req.tier not in TIER_CONFIG:
+        raise HTTPException(400, f"Invalid tier. Valid: {', '.join(TIER_CONFIG.keys())}")
 
+    tier_cfg = TIER_CONFIG[req.tier]
     end_time = datetime.utcnow() + timedelta(hours=req.duration_hours)
+    total_prize = sum(tier_cfg["prizes"].values())
 
-    challenge = ArenaGame(
-        game_type=req.challenge_type,
+    competition = ArenaGame(
+        game_type=req.competition_type,
         title=req.title,
         description=f"{req.description}\n\n{req.task_description}".strip(),
-        entry_fee=Decimal(str(req.entry_fee)),
+        entry_fee=tier_cfg["entry_fee"],
         max_participants=None,
         current_participants=0,
-        prize_pool=Decimal("0"),
-        rake_pct=SERVICE_FEE_PCT,
+        prize_pool=total_prize,
+        rake_pct=Decimal("0"),
         status="OPEN",
         end_time=end_time,
     )
-    db.add(challenge)
+    db.add(competition)
     await db.commit()
-    await db.refresh(challenge)
+    await db.refresh(competition)
 
     return {
-        "challenge_id": challenge.id,
-        "title": challenge.title,
-        "type": challenge.game_type,
-        "scoring_method": CONTEST_TYPES[req.challenge_type]["scoring"],
-        "entry_fee": float(challenge.entry_fee),
+        "competition_id": competition.id,
+        "title": competition.title,
+        "type": competition.game_type,
+        "tier": tier_cfg["label"],
+        "entry_fee": float(tier_cfg["entry_fee"]),
+        "guaranteed_prizes": {str(k): float(v) for k, v in tier_cfg["prizes"].items()},
         "end_time": end_time.isoformat(),
         "status": "OPEN",
     }
 
 
-@router.post("/enter/{challenge_id}")
-async def enter_challenge(challenge_id: int, req: JoinRequest, db: AsyncSession = Depends(get_db)):
+@router.post("/enter/{competition_id}")
+async def enter_competition(competition_id: int, req: EntryRequest, db: AsyncSession = Depends(get_db)):
     if not req.rules_acknowledged:
-        raise HTTPException(400, "You must acknowledge the contest rules before entering. Set rules_acknowledged=true.")
+        raise HTTPException(400, "You must acknowledge the competition rules. Set rules_acknowledged=true.")
 
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Challenge not found")
-    if challenge.status != "OPEN":
-        raise HTTPException(400, f"Challenge is {challenge.status}")
+    if not competition:
+        raise HTTPException(404, "Competition not found")
+    if competition.status != "OPEN":
+        raise HTTPException(400, f"Competition is {competition.status}")
 
     existing = (await db.execute(
         select(ArenaParticipant).where(
-            ArenaParticipant.game_id == challenge_id,
+            ArenaParticipant.game_id == competition_id,
             ArenaParticipant.agent_id == req.agent_id,
         )
     )).scalar_one_or_none()
     if existing:
-        raise HTTPException(400, "Already entered")
+        raise HTTPException(400, "Already entered this competition")
 
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == req.agent_id).with_for_update()
@@ -223,92 +239,88 @@ async def enter_challenge(challenge_id: int, req: JoinRequest, db: AsyncSession 
     )).scalar_one_or_none()
 
     available = float(bal.balance) - float(bal.locked_balance) if bal else 0
-    if available < float(challenge.entry_fee):
-        raise HTTPException(400, f"Insufficient balance: ${available:.2f}")
+    if available < float(competition.entry_fee):
+        raise HTTPException(400, f"Insufficient balance: ${available:.2f}. Entry fee: ${float(competition.entry_fee):.2f}")
 
+    # Lock entry fee (refundable only if competition cancelled)
     if bal:
-        bal.locked_balance = Decimal(str(bal.locked_balance)) + challenge.entry_fee
+        bal.locked_balance = Decimal(str(bal.locked_balance)) + competition.entry_fee
 
     participant = ArenaParticipant(
-        game_id=challenge_id, agent_id=req.agent_id,
+        game_id=competition_id, agent_id=req.agent_id,
     )
     db.add(participant)
-    challenge.current_participants += 1
-    challenge.prize_pool = Decimal(str(challenge.prize_pool)) + challenge.entry_fee
+    competition.current_participants += 1
 
     await db.commit()
 
-    payout_type, _ = get_payout_structure(challenge.current_participants)
+    prizes = get_guaranteed_prizes(float(competition.entry_fee))
     return {
-        "challenge_id": challenge_id,
-        "status": challenge.status,
-        "entries": challenge.current_participants,
-        "reward_pool": float(challenge.prize_pool),
-        "payout_type": payout_type,
+        "competition_id": competition_id,
+        "status": competition.status,
+        "entries": competition.current_participants,
+        "guaranteed_prizes": prizes,
+        "entry_fee_collected": float(competition.entry_fee),
+        "refund_policy": "Full refund if competition cancelled (fewer than 3 entries). Non-refundable once competition begins.",
     }
 
 
-@router.post("/submit/{challenge_id}")
-async def submit_entry(challenge_id: int, req: SubmitRequest, db: AsyncSession = Depends(get_db)):
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+@router.post("/submit/{competition_id}")
+async def submit_entry(competition_id: int, req: SubmitRequest, db: AsyncSession = Depends(get_db)):
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Challenge not found")
-    if challenge.status not in ("OPEN", "IN_PROGRESS"):
-        raise HTTPException(400, f"Challenge is {challenge.status}")
-    if challenge.end_time and datetime.utcnow() > challenge.end_time:
+    if not competition:
+        raise HTTPException(404, "Competition not found")
+    if competition.status not in ("OPEN", "IN_PROGRESS"):
+        raise HTTPException(400, f"Competition is {competition.status}")
+    if competition.end_time and datetime.utcnow() > competition.end_time:
         raise HTTPException(400, "Submission deadline has passed")
 
     participant = (await db.execute(
         select(ArenaParticipant).where(
-            ArenaParticipant.game_id == challenge_id,
+            ArenaParticipant.game_id == competition_id,
             ArenaParticipant.agent_id == req.agent_id,
         )
     )).scalar_one_or_none()
     if not participant:
-        raise HTTPException(400, "Not entered in this challenge")
+        raise HTTPException(400, "Not entered in this competition")
     if participant.submission:
         raise HTTPException(400, "Already submitted. All submissions are final.")
 
     participant.submission = req.submission[:10000]
     participant.submitted_at = datetime.utcnow()
     await db.commit()
-    return {"challenge_id": challenge_id, "submitted": True, "submitted_at": participant.submitted_at.isoformat()}
+    return {"competition_id": competition_id, "submitted": True, "submitted_at": participant.submitted_at.isoformat()}
 
 
-@router.post("/judge/{challenge_id}")
-async def judge_challenge(challenge_id: int, req: JudgeRequest, db: AsyncSession = Depends(get_db)):
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+@router.post("/score/{competition_id}")
+async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSession = Depends(get_db)):
+    """Score a competition and distribute guaranteed prizes."""
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Challenge not found")
-    if challenge.status not in ("IN_PROGRESS", "OPEN"):
-        raise HTTPException(400, f"Challenge is {challenge.status}")
+    if not competition:
+        raise HTTPException(404, "Competition not found")
+    if competition.status not in ("IN_PROGRESS", "OPEN"):
+        raise HTTPException(400, f"Competition is {competition.status}")
 
     participants = (await db.execute(
-        select(ArenaParticipant).where(ArenaParticipant.game_id == challenge_id)
+        select(ArenaParticipant).where(ArenaParticipant.game_id == competition_id)
     )).scalars().all()
 
     if len(participants) < 2:
-        raise HTTPException(400, "Not enough participants to judge")
+        raise HTTPException(400, "Not enough participants")
 
-    pool = float(challenge.prize_pool)
-    fee = pool * float(challenge.rake_pct) / 100
-    payout_pool = pool - fee
-
-    _, splits = get_payout_structure(len(participants))
-
+    prizes = get_guaranteed_prizes(float(competition.entry_fee))
     ranked = sorted(req.rankings, key=lambda r: r.get("rank", 999))
-
-    contest_results = []
+    score_unit = COMPETITION_TYPES.get(competition.game_type, {}).get("scoring", "score")
 
     for ranking in ranked:
         agent_id = ranking["agent_id"]
         rank = ranking["rank"]
         score = ranking.get("score", 0)
-        score_unit = CONTEST_TYPES.get(challenge.game_type, {}).get("score_unit", "score")
+        disqualified = ranking.get("disqualified", False)
 
         p = next((pp for pp in participants if pp.agent_id == agent_id), None)
         if not p:
@@ -317,10 +329,10 @@ async def judge_challenge(challenge_id: int, req: JudgeRequest, db: AsyncSession
         p.rank = rank
         p.score = Decimal(str(score))
 
-        prize = Decimal("0")
-        if rank <= len(splits):
-            prize = Decimal(str(payout_pool)) * splits[rank - 1] / Decimal("100")
-        p.prize_amount = prize
+        prize_amount = Decimal("0")
+        if not disqualified and rank in prizes:
+            prize_amount = Decimal(str(prizes[rank]))
+        p.prize_amount = prize_amount
 
         agent = (await db.execute(
             select(Agent).where(Agent.agio_id == agent_id).with_for_update()
@@ -333,27 +345,30 @@ async def judge_challenge(challenge_id: int, req: JudgeRequest, db: AsyncSession
                 ).with_for_update()
             )).scalar_one_or_none()
             if bal:
-                bal.locked_balance = Decimal(str(bal.locked_balance)) - challenge.entry_fee
-                bal.balance = Decimal(str(bal.balance)) - challenge.entry_fee + prize
+                # Finalize entry fee (AGIO revenue — non-refundable now)
+                bal.locked_balance = Decimal(str(bal.locked_balance)) - competition.entry_fee
+                bal.balance = Decimal(str(bal.balance)) - competition.entry_fee
+                # Award sponsored prize
+                if float(prize_amount) > 0:
+                    bal.balance = Decimal(str(bal.balance)) + prize_amount
 
             await _update_elo(db, agent_id, won=(rank == 1))
 
-        result = ContestResult(
-            contest_id=challenge_id,
+        db.add(ContestResult(
+            contest_id=competition_id,
             agent_id=agent_id,
             rank=rank,
             score=Decimal(str(score)),
-            score_unit=score_unit,
+            score_unit=score_unit[:30] if len(score_unit) > 30 else score_unit,
             score_details=json.dumps(ranking.get("details", {})),
-            prize_amount=prize,
-            payment_status="PAID" if float(prize) > 0 else "N/A",
-            paid_at=datetime.utcnow() if float(prize) > 0 else None,
-            disqualified=ranking.get("disqualified", False),
+            prize_amount=prize_amount,
+            payment_status="AWARDED" if float(prize_amount) > 0 else "N/A",
+            paid_at=datetime.utcnow() if float(prize_amount) > 0 else None,
+            disqualified=disqualified,
             disqualification_reason=ranking.get("dq_reason"),
-        )
-        db.add(result)
-        contest_results.append(result)
+        ))
 
+    # Handle unranked participants
     for p in participants:
         if p.rank is None:
             p.rank = len(ranked) + 1
@@ -368,65 +383,62 @@ async def judge_challenge(challenge_id: int, req: JudgeRequest, db: AsyncSession
                     ).with_for_update()
                 )).scalar_one_or_none()
                 if bal:
-                    bal.locked_balance = Decimal(str(bal.locked_balance)) - challenge.entry_fee
-                    bal.balance = Decimal(str(bal.balance)) - challenge.entry_fee
+                    bal.locked_balance = Decimal(str(bal.locked_balance)) - competition.entry_fee
+                    bal.balance = Decimal(str(bal.balance)) - competition.entry_fee
 
             db.add(ContestResult(
-                contest_id=challenge_id, agent_id=p.agent_id,
+                contest_id=competition_id, agent_id=p.agent_id,
                 rank=len(ranked) + 1, prize_amount=Decimal("0"),
                 payment_status="N/A",
             ))
 
-    challenge.status = "COMPLETED"
+    competition.status = "COMPLETED"
     await db.commit()
 
-    # Post results in #general chat
+    # Announce in #general
     try:
         from ..models.chat import ChatRoom, ChatMessage
-        async with db.begin_nested():
-            room = (await db.execute(
-                select(ChatRoom).where(ChatRoom.name == "general")
-            )).scalar_one_or_none()
-            if room and ranked:
-                winner = ranked[0]
-                winner_name = winner["agent_id"][:20] + "..."
-                msg = f"CONTEST RESULTS: {challenge.title}\nWinner: {winner_name} (score: {winner.get('score', 'N/A')})\n{len(participants)} agents competed. ${payout_pool:.2f} prize pool.\nFull results: /contest/{challenge_id}/results"
-                db.add(ChatMessage(room_id=room.id, agent_id="system", content=msg))
-                room.message_count += 1
-                await db.commit()
+        room = (await db.execute(select(ChatRoom).where(ChatRoom.name == "general"))).scalar_one_or_none()
+        if room and ranked:
+            w = ranked[0]
+            msg = f"COMPETITION RESULTS: {competition.title}\nWinner: {w['agent_id'][:20]}... (score: {w.get('score', 'N/A')})\n{len(participants)} competitors. Prizes sponsored by AGIO.\nResults: /competition/{competition_id}/results"
+            db.add(ChatMessage(room_id=room.id, agent_id="system", content=msg))
+            room.message_count += 1
+            await db.commit()
     except Exception:
         pass
 
+    total_entry_revenue = float(competition.entry_fee) * len(participants)
+    total_prizes = sum(float(prizes.get(r["rank"], 0)) for r in ranked if not r.get("disqualified"))
+
     return {
-        "challenge_id": challenge_id,
+        "competition_id": competition_id,
         "status": "COMPLETED",
         "total_entries": len(participants),
-        "entry_fee": float(challenge.entry_fee),
-        "gross_pool": pool,
-        "service_fee": fee,
-        "net_prize_pool": payout_pool,
-        "payout_type": get_payout_structure(len(participants))[0],
-        "winners": [
-            {"agent_id": r["agent_id"], "rank": r["rank"], "prize": float(
-                Decimal(str(payout_pool)) * splits[r["rank"] - 1] / Decimal("100")
-            ) if r["rank"] <= len(splits) else 0}
-            for r in ranked[:len(splits)]
+        "entry_fee": float(competition.entry_fee),
+        "entry_fee_revenue": total_entry_revenue,
+        "total_prizes_awarded": total_prizes,
+        "prize_source": "Sponsored by AGIO Protocol",
+        "results": [
+            {"agent_id": r["agent_id"], "rank": r["rank"], "score": r.get("score"),
+             "prize": float(prizes.get(r["rank"], 0)) if not r.get("disqualified") else 0}
+            for r in ranked
         ],
     }
 
 
-@router.post("/cancel/{challenge_id}")
-async def cancel_challenge(challenge_id: int, db: AsyncSession = Depends(get_db)):
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+@router.post("/cancel/{competition_id}")
+async def cancel_competition(competition_id: int, db: AsyncSession = Depends(get_db)):
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Challenge not found")
-    if challenge.status not in ("OPEN",):
-        raise HTTPException(400, "Can only cancel OPEN challenges")
+    if not competition:
+        raise HTTPException(404, "Competition not found")
+    if competition.status not in ("OPEN",):
+        raise HTTPException(400, "Can only cancel OPEN competitions")
 
     participants = (await db.execute(
-        select(ArenaParticipant).where(ArenaParticipant.game_id == challenge_id)
+        select(ArenaParticipant).where(ArenaParticipant.game_id == competition_id)
     )).scalars().all()
 
     for p in participants:
@@ -441,17 +453,11 @@ async def cancel_challenge(challenge_id: int, db: AsyncSession = Depends(get_db)
                 ).with_for_update()
             )).scalar_one_or_none()
             if bal:
-                bal.locked_balance = Decimal(str(bal.locked_balance)) - challenge.entry_fee
-            p.prize_amount = challenge.entry_fee
+                bal.locked_balance = Decimal(str(bal.locked_balance)) - competition.entry_fee
 
-    challenge.status = "CANCELLED"
+    competition.status = "CANCELLED"
     await db.commit()
-
-    return {
-        "challenge_id": challenge_id,
-        "status": "CANCELLED",
-        "refunded": len(participants),
-    }
+    return {"competition_id": competition_id, "status": "CANCELLED", "refunded": len(participants)}
 
 
 @router.get("/leaderboard")
@@ -467,11 +473,8 @@ async def leaderboard(limit: int = Query(25, ge=1, le=100), db: AsyncSession = D
 
     result = {
         "leaderboard": [
-            {
-                "rank": i + 1, "agent_id": e.agent_id,
-                "rating": e.elo_rating, "challenges": e.games_played,
-                "wins": e.wins, "losses": e.losses,
-            }
+            {"rank": i + 1, "agent_id": e.agent_id, "rating": e.elo_rating,
+             "competitions": e.games_played, "wins": e.wins, "losses": e.losses}
             for i, e in enumerate(elos)
         ],
     }
@@ -479,141 +482,102 @@ async def leaderboard(limit: int = Query(25, ge=1, le=100), db: AsyncSession = D
     return result
 
 
-@router.get("/detail/{challenge_id}")
-async def get_challenge(challenge_id: int, db: AsyncSession = Depends(get_db)):
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+@router.get("/detail/{competition_id}")
+async def get_competition(competition_id: int, db: AsyncSession = Depends(get_db)):
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Challenge not found")
+    if not competition:
+        raise HTTPException(404, "Competition not found")
 
     participants = (await db.execute(
-        select(ArenaParticipant).where(ArenaParticipant.game_id == challenge_id)
+        select(ArenaParticipant).where(ArenaParticipant.game_id == competition_id)
         .order_by(ArenaParticipant.rank.asc().nullslast())
     )).scalars().all()
 
-    payout_type, splits = get_payout_structure(len(participants))
-    ctype = CONTEST_TYPES.get(challenge.game_type, {})
-
-    return {
-        "id": challenge.id,
-        "type": challenge.game_type,
-        "type_name": ctype.get("name", challenge.game_type),
-        "scoring_method": ctype.get("scoring", "Automated"),
-        "title": challenge.title,
-        "description": challenge.description,
-        "status": challenge.status,
-        "reward_pool": float(challenge.prize_pool),
-        "entry_fee": float(challenge.entry_fee),
-        "entries": len(participants),
-        "service_fee_pct": float(challenge.rake_pct),
-        "payout_type": payout_type,
-        "payout_splits": [float(s) for s in splits],
-        "end_time": challenge.end_time.isoformat() if challenge.end_time else None,
-        "participants": [
-            {
-                "agent_id": p.agent_id[:25] + "...",
-                "rank": p.rank,
-                "score": float(p.score) if p.score else None,
-                "prize": float(p.prize_amount),
-                "submitted": p.submitted_at is not None,
-            }
-            for p in participants
-        ],
-    }
+    base = _format_competition(competition)
+    base["participants"] = [
+        {"agent_id": p.agent_id[:25] + "...", "rank": p.rank,
+         "score": float(p.score) if p.score else None,
+         "prize": float(p.prize_amount), "submitted": p.submitted_at is not None}
+        for p in participants
+    ]
+    return base
 
 
-@router.get("/results/{challenge_id}")
-async def get_results(challenge_id: int, db: AsyncSession = Depends(get_db)):
-    challenge = (await db.execute(
-        select(ArenaGame).where(ArenaGame.id == challenge_id)
+@router.get("/results/{competition_id}")
+async def get_results(competition_id: int, db: AsyncSession = Depends(get_db)):
+    competition = (await db.execute(
+        select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
-    if not challenge:
-        raise HTTPException(404, "Contest not found")
+    if not competition:
+        raise HTTPException(404, "Competition not found")
 
     results = (await db.execute(
-        select(ContestResult).where(ContestResult.contest_id == challenge_id)
+        select(ContestResult).where(ContestResult.contest_id == competition_id)
         .order_by(ContestResult.rank.asc())
     )).scalars().all()
 
     participants = (await db.execute(
-        select(ArenaParticipant).where(ArenaParticipant.game_id == challenge_id)
+        select(ArenaParticipant).where(ArenaParticipant.game_id == competition_id)
         .order_by(ArenaParticipant.rank.asc().nullslast())
     )).scalars().all()
 
-    gross_pool = float(challenge.prize_pool)
-    service_fee = gross_pool * float(challenge.rake_pct) / 100
-    net_pool = gross_pool - service_fee
-
-    payout_type, splits = get_payout_structure(len(participants))
-    ctype = CONTEST_TYPES.get(challenge.game_type, {})
-
-    total_paid = sum(float(r.prize_amount) for r in results)
-
-    dispute_deadline = None
-    if challenge.status == "COMPLETED" and challenge.end_time:
-        dispute_deadline = (challenge.end_time + timedelta(hours=2)).isoformat()
+    prizes = get_guaranteed_prizes(float(competition.entry_fee))
+    total_prizes = sum(float(r.prize_amount) for r in results)
+    total_entry_revenue = float(competition.entry_fee) * len(participants)
+    ctype = COMPETITION_TYPES.get(competition.game_type, {})
+    tier = get_tier_from_fee(float(competition.entry_fee))
 
     return {
-        "contest_id": challenge.id,
-        "title": challenge.title,
-        "type": challenge.game_type,
-        "type_name": ctype.get("name", challenge.game_type),
-        "scoring_method": ctype.get("scoring", "Automated"),
-        "status": challenge.status,
-        "completed_at": challenge.end_time.isoformat() if challenge.end_time else None,
+        "competition_id": competition.id,
+        "title": competition.title,
+        "type": competition.game_type,
+        "type_name": ctype.get("name", competition.game_type),
+        "scoring_method": ctype.get("scoring", "Automated objective scoring"),
+        "status": competition.status,
+        "completed_at": competition.end_time.isoformat() if competition.end_time else None,
+        "tier": TIER_CONFIG.get(tier, {}).get("label", "Open") if tier else "Open",
         "total_entries": len(participants),
-        "entry_fee": float(challenge.entry_fee),
-        "gross_pool": gross_pool,
-        "service_fee": service_fee,
-        "service_fee_pct": float(challenge.rake_pct),
-        "net_prize_pool": net_pool,
-        "total_paid": total_paid,
-        "payout_structure": payout_type,
-        "payout_splits": [float(s) for s in splits],
-        "dispute_deadline": dispute_deadline,
+        "entry_fee": float(competition.entry_fee),
+        "entry_fee_revenue": total_entry_revenue,
+        "entry_fee_covers": "Sandboxed compute, automated scoring, result verification, settlement",
+        "guaranteed_prizes": prizes,
+        "total_prizes_awarded": total_prizes,
+        "prize_source": "Sponsored by AGIO Protocol",
+        "dispute_deadline": (competition.end_time + timedelta(hours=2)).isoformat() if competition.end_time else None,
         "results": [
-            {
-                "rank": r.rank,
-                "agent_id": r.agent_id,
-                "score": float(r.score) if r.score else None,
-                "score_unit": r.score_unit,
-                "score_details": json.loads(r.score_details) if r.score_details else {},
-                "prize": float(r.prize_amount),
-                "payment_tx": r.payment_tx_hash,
-                "payment_chain": r.payment_chain,
-                "payment_status": r.payment_status,
-                "paid_at": r.paid_at.isoformat() if r.paid_at else None,
-                "disqualified": r.disqualified,
-                "dq_reason": r.disqualification_reason,
-            }
+            {"rank": r.rank, "agent_id": r.agent_id,
+             "score": float(r.score) if r.score else None,
+             "score_unit": r.score_unit,
+             "score_details": json.loads(r.score_details) if r.score_details else {},
+             "prize": float(r.prize_amount),
+             "payment_tx": r.payment_tx_hash, "payment_chain": r.payment_chain,
+             "payment_status": r.payment_status,
+             "paid_at": r.paid_at.isoformat() if r.paid_at else None,
+             "disqualified": r.disqualified, "dq_reason": r.disqualification_reason}
             for r in results
         ],
         "all_participants": [
-            {
-                "agent_id": p.agent_id,
-                "rank": p.rank,
-                "score": float(p.score) if p.score else None,
-                "prize": float(p.prize_amount),
-                "submitted": p.submitted_at is not None,
-                "submission_visible": challenge.status == "COMPLETED",
-                "submission": p.submission[:500] if challenge.status == "COMPLETED" and p.submission else None,
-            }
+            {"agent_id": p.agent_id, "rank": p.rank,
+             "score": float(p.score) if p.score else None,
+             "prize": float(p.prize_amount),
+             "submitted": p.submitted_at is not None,
+             "submission": p.submission[:500] if competition.status == "COMPLETED" and p.submission else None}
             for p in participants
         ],
     }
 
 
 @router.get("/history-all")
-async def contest_history(
+async def competition_history(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    total_q = await db.execute(
+    total = (await db.execute(
         select(func.count()).select_from(ArenaGame).where(ArenaGame.status == "COMPLETED")
-    )
-    total = total_q.scalar() or 0
+    )).scalar() or 0
 
     contests = (await db.execute(
         select(ArenaGame).where(ArenaGame.status == "COMPLETED")
@@ -623,85 +587,66 @@ async def contest_history(
 
     history = []
     for c in contests:
-        winner_result = (await db.execute(
+        winner = (await db.execute(
             select(ContestResult).where(
-                ContestResult.contest_id == c.id,
-                ContestResult.rank == 1,
+                ContestResult.contest_id == c.id, ContestResult.rank == 1,
                 ContestResult.disqualified == False,
             )
         )).scalar_one_or_none()
 
-        gross = float(c.prize_pool)
-        fee = gross * float(c.rake_pct) / 100
+        prizes = get_guaranteed_prizes(float(c.entry_fee))
+        tier = get_tier_from_fee(float(c.entry_fee))
 
         history.append({
-            "id": c.id,
-            "title": c.title,
-            "type": c.game_type,
-            "type_name": CONTEST_TYPES.get(c.game_type, {}).get("name", c.game_type),
+            "id": c.id, "title": c.title, "type": c.game_type,
+            "type_name": COMPETITION_TYPES.get(c.game_type, {}).get("name", c.game_type),
+            "tier": TIER_CONFIG.get(tier, {}).get("label", "Open") if tier else "Open",
             "date": c.end_time.isoformat() if c.end_time else c.created_at.isoformat(),
             "entries": c.current_participants,
             "entry_fee": float(c.entry_fee),
-            "gross_pool": gross,
-            "net_pool": gross - fee,
-            "winner_agent": winner_result.agent_id if winner_result else None,
-            "winner_score": float(winner_result.score) if winner_result and winner_result.score else None,
-            "winner_prize": float(winner_result.prize_amount) if winner_result else None,
-            "winner_tx": winner_result.payment_tx_hash if winner_result else None,
+            "guaranteed_prizes": prizes,
+            "winner_agent": winner.agent_id if winner else None,
+            "winner_score": float(winner.score) if winner and winner.score else None,
+            "winner_prize": float(winner.prize_amount) if winner else None,
+            "winner_tx": winner.payment_tx_hash if winner else None,
         })
 
     return {"total": total, "history": history}
 
 
 @router.get("/agent-stats/{agent_id}")
-async def agent_contest_stats(agent_id: str, db: AsyncSession = Depends(get_db)):
+async def agent_competition_stats(agent_id: str, db: AsyncSession = Depends(get_db)):
     wins = (await db.execute(
         select(func.count()).select_from(ContestResult).where(
-            ContestResult.agent_id == agent_id,
-            ContestResult.rank == 1,
+            ContestResult.agent_id == agent_id, ContestResult.rank == 1,
             ContestResult.disqualified == False,
         )
     )).scalar() or 0
 
     total_entered = (await db.execute(
-        select(func.count()).select_from(ArenaParticipant).where(
-            ArenaParticipant.agent_id == agent_id,
-        )
+        select(func.count()).select_from(ArenaParticipant).where(ArenaParticipant.agent_id == agent_id)
     )).scalar() or 0
 
     total_earnings = (await db.execute(
-        select(func.coalesce(func.sum(ContestResult.prize_amount), 0)).where(
-            ContestResult.agent_id == agent_id,
-        )
+        select(func.coalesce(func.sum(ContestResult.prize_amount), 0)).where(ContestResult.agent_id == agent_id)
     )).scalar() or 0
 
-    recent_wins = (await db.execute(
+    recent = (await db.execute(
         select(ContestResult, ArenaGame)
         .join(ArenaGame, ContestResult.contest_id == ArenaGame.id)
-        .where(
-            ContestResult.agent_id == agent_id,
-            ContestResult.rank <= 3,
-            ContestResult.disqualified == False,
-        )
-        .order_by(ContestResult.created_at.desc())
-        .limit(10)
+        .where(ContestResult.agent_id == agent_id, ContestResult.rank <= 3, ContestResult.disqualified == False)
+        .order_by(ContestResult.created_at.desc()).limit(10)
     )).all()
 
     return {
-        "agent_id": agent_id,
-        "contest_wins": wins,
+        "agent_id": agent_id, "competition_wins": wins,
         "total_entered": total_entered,
         "win_rate": round(wins / total_entered * 100, 1) if total_entered > 0 else 0,
-        "total_earnings": float(total_earnings),
+        "total_prize_earnings": float(total_earnings),
         "recent_placements": [
-            {
-                "contest_id": g.id,
-                "title": g.title,
-                "rank": r.rank,
-                "prize": float(r.prize_amount),
-                "date": r.created_at.isoformat(),
-            }
-            for r, g in recent_wins
+            {"competition_id": g.id, "title": g.title, "rank": r.rank,
+             "prize": float(r.prize_amount), "date": r.created_at.isoformat()}
+            for r, g in recent
         ],
     }
 
@@ -712,21 +657,14 @@ async def agent_history(agent_id: str, limit: int = Query(20), db: AsyncSession 
         select(ArenaParticipant, ArenaGame)
         .join(ArenaGame, ArenaParticipant.game_id == ArenaGame.id)
         .where(ArenaParticipant.agent_id == agent_id)
-        .order_by(ArenaParticipant.joined_at.desc())
-        .limit(limit)
+        .order_by(ArenaParticipant.joined_at.desc()).limit(limit)
     )).all()
 
     return {
         "history": [
-            {
-                "challenge_id": g.id,
-                "type": g.game_type,
-                "title": g.title,
-                "rank": p.rank,
-                "prize": float(p.prize_amount),
-                "entry_fee": float(g.entry_fee),
-                "date": p.joined_at.isoformat(),
-            }
+            {"competition_id": g.id, "type": g.game_type, "title": g.title,
+             "rank": p.rank, "prize": float(p.prize_amount),
+             "entry_fee": float(g.entry_fee), "date": p.joined_at.isoformat()}
             for p, g in participations
         ],
     }
@@ -735,39 +673,16 @@ async def agent_history(agent_id: str, limit: int = Query(20), db: AsyncSession 
 # Backward-compatible /v1/arena aliases
 arena_compat = APIRouter(prefix="/v1/arena")
 
-
 @arena_compat.get("/games")
-async def compat_games(
-    game_type: str = Query(None),
-    status: str = Query("OPEN"),
-    limit: int = Query(20, ge=1, le=50),
-    db: AsyncSession = Depends(get_db),
-):
-    query = select(ArenaGame).where(ArenaGame.status == status)
-    if game_type:
-        query = query.where(ArenaGame.game_type == game_type)
-    query = query.order_by(ArenaGame.created_at.desc()).limit(limit)
-    games = (await db.execute(query)).scalars().all()
-    return {
-        "games": [
-            {
-                "id": g.id, "type": g.game_type, "title": g.title,
-                "entry_fee": float(g.entry_fee),
-                "participants": g.current_participants,
-                "max": None,
-                "prize_pool": float(g.prize_pool),
-                "status": g.status,
-                "end_time": g.end_time.isoformat() if g.end_time else None,
-            }
-            for g in games
-        ],
-    }
-
+async def compat_games(status: str = Query("OPEN"), limit: int = Query(20), db: AsyncSession = Depends(get_db)):
+    result = await list_competitions(status=status, limit=limit, db=db)
+    return {"games": [{"id": c["id"], "type": c["type"], "title": c["title"], "entry_fee": c["entry_fee"],
+                       "participants": c["entries"], "max": None, "prize_pool": sum(c["guaranteed_prizes"].values()),
+                       "status": c["status"], "end_time": c.get("end_time")} for c in result["competitions"]]}
 
 @arena_compat.get("/leaderboard")
 async def compat_leaderboard(limit: int = Query(25), db: AsyncSession = Depends(get_db)):
     return await leaderboard(limit=limit, db=db)
-
 
 @arena_compat.get("/history/{agent_id}")
 async def compat_history(agent_id: str, limit: int = Query(20), db: AsyncSession = Depends(get_db)):
@@ -779,10 +694,7 @@ async def _update_elo(db, agent_id, won):
     if not elo:
         elo = ArenaElo(agent_id=agent_id)
         db.add(elo)
-
-    k = 32
-    delta = k if won else -k
-    elo.elo_rating = max(100, elo.elo_rating + delta)
+    elo.elo_rating = max(100, elo.elo_rating + (32 if won else -32))
     elo.games_played += 1
     if won:
         elo.wins += 1

@@ -128,13 +128,13 @@ async function loadProfile() {
         </div>
       </div>
 
-      ${contestStats && contestStats.contest_wins > 0 ? `
+      ${contestStats && contestStats.competition_wins > 0 ? `
       <div class="section" style="background:linear-gradient(135deg,#10b98108,#00d9a308);border-color:#10b98130">
-        <h3 style="color:#10b981">Contest Record</h3>
+        <h3 style="color:#10b981">Competition Record</h3>
         <div class="stats-grid" style="margin-bottom:12px">
-          <div class="stat-card"><div class="stat-num green">${contestStats.contest_wins}</div><div class="stat-label">Contest Wins</div></div>
-          <div class="stat-card"><div class="stat-num green">$${contestStats.total_earnings.toFixed(2)}</div><div class="stat-label">Total Earnings</div></div>
-          <div class="stat-card"><div class="stat-num">${contestStats.total_entered}</div><div class="stat-label">Contests Entered</div></div>
+          <div class="stat-card"><div class="stat-num green">${contestStats.competition_wins}</div><div class="stat-label">Competition Wins</div></div>
+          <div class="stat-card"><div class="stat-num green">$${contestStats.total_prize_earnings.toFixed(2)}</div><div class="stat-label">Prize Earnings</div></div>
+          <div class="stat-card"><div class="stat-num">${contestStats.total_entered}</div><div class="stat-label">Competitions Entered</div></div>
           <div class="stat-card"><div class="stat-num">${contestStats.win_rate}%</div><div class="stat-label">Win Rate</div></div>
         </div>
         ${(contestStats.recent_placements||[]).length ? `<div style="font-size:12px">
