@@ -15,9 +15,18 @@ from ..models.batch import Batch
 from ..models.chain import SupportedChain
 from ..models.loyalty import FeeTier
 
+from pydantic import BaseModel
+from typing import Optional
+import logging
+import smtplib
+import os
+from email.mime.text import MIMEText
+
 router = APIRouter(prefix="/v1/admin")
 
 ADMIN_KEY = "agio-admin-2026"
+FEEDBACK_EMAIL = "jeffrey_wylie@yahoo.com"
+_feedback_log = logging.getLogger("feedback")
 
 
 async def verify_admin(x_admin_key: str = Header(None)):
@@ -412,3 +421,94 @@ async def admin_reconciliation(_=Depends(verify_admin)):
         }
     except Exception as e:
         return {"status": "UNKNOWN", "error": str(e)}
+
+
+# === FEEDBACK ===
+
+class FeedbackRequest(BaseModel):
+    agent_id: Optional[str] = None
+    page: Optional[str] = None
+    category: str = "general"
+    message: str
+
+
+@router.post("/feedback", dependencies=[])
+async def submit_feedback(req: FeedbackRequest, db: AsyncSession = Depends(get_db)):
+    """Public endpoint — agents submit feedback. Stored in DB and emailed to admin."""
+    if not req.message or len(req.message.strip()) < 5:
+        raise HTTPException(400, "Feedback message too short")
+    if len(req.message) > 2000:
+        raise HTTPException(400, "Feedback too long (max 2000 chars)")
+    if req.category not in ("bug", "feature", "complaint", "praise", "question", "general"):
+        req.category = "general"
+
+    # Store in DB (auto-create table if needed)
+    try:
+        await db.execute(text(
+            "INSERT INTO feedback (agent_id, page, category, message, created_at) "
+            "VALUES (:agent_id, :page, :category, :message, NOW())"
+        ), {"agent_id": req.agent_id, "page": req.page, "category": req.category, "message": req.message.strip()[:2000]})
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await db.execute(text(
+            "CREATE TABLE IF NOT EXISTS feedback ("
+            "id SERIAL PRIMARY KEY, agent_id VARCHAR(66), page VARCHAR(100), "
+            "category VARCHAR(20) DEFAULT 'general', message TEXT NOT NULL, "
+            "created_at TIMESTAMP DEFAULT NOW())"
+        ))
+        await db.commit()
+        await db.execute(text(
+            "INSERT INTO feedback (agent_id, page, category, message, created_at) "
+            "VALUES (:agent_id, :page, :category, :message, NOW())"
+        ), {"agent_id": req.agent_id, "page": req.page, "category": req.category, "message": req.message.strip()[:2000]})
+        await db.commit()
+
+    _feedback_log.info(f"Feedback [{req.category}] from {req.agent_id or 'anonymous'}: {req.message[:80]}")
+
+    # Email to admin
+    try:
+        subject = f"[Agiotage Feedback] [{req.category}] from {req.agent_id or 'anonymous'}"
+        body = f"Category: {req.category}\nAgent: {req.agent_id or 'anonymous'}\nPage: {req.page or 'unknown'}\n\n{req.message}\n\n---\nSent from agiotage.finance feedback widget"
+        smtp_host = os.getenv("SMTP_HOST", "")
+        if smtp_host:
+            msg = MIMEText(body)
+            msg["Subject"] = subject
+            msg["From"] = os.getenv("SMTP_USER", "")
+            msg["To"] = FEEDBACK_EMAIL
+            with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
+                s.starttls()
+                s.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASS", ""))
+                s.send_message(msg)
+            _feedback_log.info(f"Feedback emailed to {FEEDBACK_EMAIL}")
+        else:
+            _feedback_log.warning(f"No SMTP configured — feedback not emailed: {subject}")
+    except Exception as e:
+        _feedback_log.error(f"Feedback email failed: {e}")
+
+    return {"status": "received", "message": "Thank you for your feedback!"}
+
+
+@router.get("/feedback/list")
+async def list_feedback(limit: int = Query(50), db: AsyncSession = Depends(get_db), _=Depends(verify_admin)):
+    """Admin: view all feedback."""
+    try:
+        rows = (await db.execute(text(
+            "SELECT id, agent_id, page, category, message, created_at FROM feedback ORDER BY created_at DESC LIMIT :limit"
+        ), {"limit": limit})).fetchall()
+        return {
+            "feedback": [
+                {"id": r[0], "agent_id": r[1], "page": r[2], "category": r[3], "message": r[4], "created_at": r[5].isoformat() if r[5] else None}
+                for r in rows
+            ]
+        }
+    except Exception:
+        # Table might not exist yet — create it
+        await db.execute(text(
+            "CREATE TABLE IF NOT EXISTS feedback ("
+            "id SERIAL PRIMARY KEY, agent_id VARCHAR(66), page VARCHAR(100), "
+            "category VARCHAR(20) DEFAULT 'general', message TEXT NOT NULL, "
+            "created_at TIMESTAMP DEFAULT NOW())"
+        ))
+        await db.commit()
+        return {"feedback": []}
