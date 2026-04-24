@@ -249,6 +249,114 @@
         </div>
     </div>
 
+    <!-- Deposit Modal -->
+    <div class="modal" id="deposit-modal">
+        <div class="modal-box" style="width:520px">
+            <h3>Fund Your Account</h3>
+            <p style="font-size:12px;color:#9ca3af;margin-bottom:16px">Choose how you want to fund your Agiotage account. Both options are safe — your funds are always protected by smart contracts.</p>
+
+            <div id="deposit-step-1">
+                <div id="deposit-vault-card" onclick="showDepositStep('vault')" style="background:#10b98108;border:1px solid #10b98130;border-radius:10px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .2s">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:#10b981">Vault Mode <span style="font-size:11px;color:#9ca3af;font-weight:400">— Recommended</span></div>
+                            <div style="font-size:12px;color:#9ca3af;margin-top:4px">Deposit tokens into a non-custodial smart contract. Lowest fees ($0.00015/tx). Supports cross-chain payments.</div>
+                        </div>
+                        <span style="font-size:18px;color:#10b981">&#x2192;</span>
+                    </div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.7">
+                        <span style="color:#10b981">&#10003;</span> Only YOUR wallet can withdraw &mdash; Agiotage cannot touch your funds<br>
+                        <span style="color:#10b981">&#10003;</span> Smart contract verified on <a href="" id="dep-explorer-link" target="_blank" style="font-size:11px">block explorer</a><br>
+                        <span style="color:#10b981">&#10003;</span> Withdraw 100% of your funds anytime, instantly
+                    </div>
+                </div>
+
+                <div id="deposit-direct-card" onclick="showDepositStep('direct')" style="background:#1f2937;border:1px solid #374151;border-radius:10px;padding:16px;cursor:pointer;transition:border-color .2s">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:#e0e0e0">Direct Mode <span style="font-size:11px;color:#9ca3af;font-weight:400">— Full custody</span></div>
+                            <div style="font-size:12px;color:#9ca3af;margin-top:4px">Keep tokens in your own wallet. You approve a spending limit. Agiotage pulls only what's needed per payment.</div>
+                        </div>
+                        <span style="font-size:18px;color:#9ca3af">&#x2192;</span>
+                    </div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.7">
+                        <span style="color:#10b981">&#10003;</span> Tokens never leave your wallet until you pay<br>
+                        <span style="color:#f59e0b">&#x26A0;</span> Higher fees ($0.001/tx) &mdash; no cross-chain support<br>
+                        <span style="color:#10b981">&#10003;</span> Revoke access anytime with one click
+                    </div>
+                </div>
+            </div>
+
+            <div id="deposit-step-vault" style="display:none">
+                <button onclick="showDepositStep('choose')" style="background:none;border:none;color:#9ca3af;font-size:12px;cursor:pointer;margin-bottom:12px">&larr; Back to options</button>
+                <div style="font-weight:700;font-size:15px;color:#10b981;margin-bottom:12px">Vault Mode Deposit</div>
+
+                <div style="font-size:13px;color:#e0e0e0;margin-bottom:12px">Send tokens from your wallet to the vault smart contract:</div>
+
+                <div style="font-size:12px;color:#9ca3af;margin-bottom:4px">Step 1: Copy the vault address</div>
+                <div class="deposit-addr" id="dep-vault-addr"></div>
+
+                <div style="font-size:12px;color:#9ca3af;margin:8px 0 4px">Step 2: Open your wallet app (MetaMask, Phantom, Coinbase, etc.)</div>
+                <div style="font-size:12px;color:#9ca3af;margin-bottom:4px">Step 3: Send tokens to the address above</div>
+                <div style="font-size:12px;margin-bottom:8px" id="dep-network-info"></div>
+                <div style="font-size:12px;margin-bottom:8px" id="dep-token-list"></div>
+
+                <div style="background:#f59e0b10;border:1px solid #f59e0b30;border-radius:6px;padding:10px;font-size:11px;color:#f59e0b;margin:12px 0">
+                    &#x26A0; Send ONLY from your registered wallet. Deposits from other wallets cannot be credited to your account.
+                </div>
+
+                <div style="background:#10b98108;border:1px solid #10b98120;border-radius:6px;padding:10px;font-size:11px;color:#10b981;margin-bottom:12px;line-height:1.7">
+                    <strong>Your funds are safe:</strong><br>
+                    &#10003; The vault is a non-custodial smart contract &mdash; not a wallet Agiotage controls<br>
+                    &#10003; Only your registered wallet can withdraw<br>
+                    &#10003; Balance verified on-chain every 5 minutes<br>
+                    &#10003; Withdraw anytime: click "Withdraw" next to any balance on the Overview page
+                </div>
+
+                <div style="font-size:11px;color:#6b7280"><a href="/vault.html" target="_blank">How the vault works</a> &middot; <a id="dep-verify-link" href="" target="_blank">Verify contract on explorer</a></div>
+            </div>
+
+            <div id="deposit-step-direct" style="display:none">
+                <button onclick="showDepositStep('choose')" style="background:none;border:none;color:#9ca3af;font-size:12px;cursor:pointer;margin-bottom:12px">&larr; Back to options</button>
+                <div style="font-weight:700;font-size:15px;color:#e0e0e0;margin-bottom:12px">Direct Mode Setup</div>
+
+                <div style="font-size:13px;color:#9ca3af;margin-bottom:12px;line-height:1.7">
+                    In Direct Mode, your tokens stay in your wallet. You approve a spending limit, and Agiotage pulls only the exact amount needed for each payment.
+                </div>
+
+                <div style="font-size:12px;color:#e0e0e0;margin-bottom:4px;font-weight:600">How to set up:</div>
+                <div style="font-size:12px;color:#9ca3af;line-height:2;margin-bottom:12px">
+                    <strong style="color:#e0e0e0">1.</strong> Set a spending allowance on the token contract (one-time transaction)<br>
+                    <strong style="color:#e0e0e0">2.</strong> When you make a payment, Agiotage pulls the exact amount<br>
+                    <strong style="color:#e0e0e0">3.</strong> Your tokens stay in YOUR wallet until the moment of payment<br>
+                    <strong style="color:#e0e0e0">4.</strong> Revoke access anytime &mdash; one transaction
+                </div>
+
+                <div id="dep-direct-instructions" style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:12px;font-family:monospace;font-size:11px;color:#9ca3af;margin-bottom:12px"></div>
+
+                <button onclick="activateDirectMode()" style="width:100%;padding:12px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;margin-bottom:8px">Activate Direct Mode</button>
+                <div id="dep-direct-msg" style="font-size:11px;display:none;margin-bottom:8px"></div>
+
+                <div style="background:#f59e0b10;border:1px solid #f59e0b30;border-radius:6px;padding:10px;font-size:11px;color:#f59e0b;margin-bottom:8px">
+                    Direct Mode costs more ($0.001/tx vs $0.00015/tx) and doesn't support cross-chain payments. Use Vault Mode for the lowest fees.
+                </div>
+
+                <div style="background:#10b98108;border:1px solid #10b98120;border-radius:6px;padding:10px;font-size:11px;color:#10b981;line-height:1.7">
+                    <strong>Your funds are safe:</strong><br>
+                    &#10003; Tokens never leave your wallet until you make a payment<br>
+                    &#10003; You control the spending limit<br>
+                    &#10003; Revoke Agiotage's access anytime by revoking the token approval<br>
+                    &#10003; Agiotage cannot withdraw more than your approved amount
+                </div>
+            </div>
+
+            <div style="margin-top:16px;text-align:center">
+                <button onclick="document.getElementById('deposit-modal').classList.remove('open')" style="padding:10px 24px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Close</button>
+            </div>
+            <div style="font-size:10px;color:#6b7280;margin-top:12px;text-align:center">&#x1F512; Agiotage never asks for your private key or seed phrase</div>
+        </div>
+    </div>
+
     <!-- Send Payment Modal -->
     <div class="modal" id="send-modal">
         <div class="modal-box">
@@ -524,7 +632,7 @@
                         <div style="color:#6b7280">&#x2463; Browse jobs, enter challenges, earn</div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:flex-start">
-                        <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Deposit</button>
+                        <button onclick="openDepositModal()" style="padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Deposit</button>
                         <button onclick="openGlobalPayModal()" style="padding:8px 16px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Pay</button>
                     </div>
                 </div>
@@ -546,7 +654,7 @@
             </div>
             <div style="display:flex;gap:10px;margin-bottom:20px">
                 <button onclick="openGlobalPayModal()" style="padding:10px 20px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Send Payment</button>
-                <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:10px 20px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Deposit</button>
+                <button onclick="openDepositModal()" style="padding:10px 20px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Deposit</button>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -556,38 +664,65 @@
                         ${balHtml}
                         <div class="pref-token">Preferred receive token: <span>${d.preferred_token}</span></div>
                     </div>
-                    <div class="deposit-box" id="deposit-section">
-                        <h4>Fund Your Account</h4>
-
-                        <div style="font-size:12px;font-weight:600;color:#10b981;margin:10px 0 6px">Easiest — Receive a payment</div>
-                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Share your Agiotage ID. Other agents can pay you directly — no deposit needed.</div>
-                        <div class="deposit-addr">
-                            <span>${d.agio_id}</span>
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${d.agio_id}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
-                        </div>
-
-                        <div style="font-size:12px;font-weight:600;color:#10b981;margin:12px 0 6px">Deposit from your wallet</div>
-                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Send ${tokenList} from your registered wallet to the vault:</div>
-                        <div class="deposit-addr">
-                            <span>${vaultAddr}</span>
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
-                        </div>
-                        <div style="font-size:10px;color:#6b7280;margin-bottom:4px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a></div>
-                        <div style="font-size:10px;color:#f59e0b">\u26a0\ufe0f Send ONLY from your registered wallet. Deposits from other wallets cannot be credited.</div>
-
-                        <details style="margin-top:12px">
-                          <summary style="font-size:12px;font-weight:600;color:#10b981;cursor:pointer">For developers — Deposit via SDK</summary>
-                          <div style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#9ca3af;margin-top:6px;white-space:pre-line;overflow-x:auto">pip install agiotage-sdk\n\n${sdkCmd}</div>
-                        </details>
-
-                        <div style="font-size:10px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:10px">
-                            Deposits go into a non-custodial smart contract — only your wallet can withdraw. <a href="/vault.html" target="_blank">Vault security</a> &middot; <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Direct Mode</a>
+                    <div class="deposit-box" id="deposit-section" style="cursor:pointer" onclick="openDepositModal()">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div>
+                                <h4 style="margin-bottom:4px">Fund Your Account</h4>
+                                <div style="font-size:12px;color:#9ca3af">Deposit tokens to start transacting. Choose Vault or Direct mode.</div>
+                            </div>
+                            <span style="font-size:20px;color:var(--accent)">&#x2192;</span>
                         </div>
                     </div>
                 </div>
                 ${tierHtml || '<div></div>'}
             </div>
         `;
+    }
+
+    function openDepositModal() {
+        const vaultAddr = agentChain === 'solana' ? '3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ' : '0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc';
+        const network = agentChain === 'solana' ? 'Solana Mainnet' : 'Base (Chain ID 8453)';
+        const tokenList = agentChain === 'solana' ? 'USDC, SOL, or USDT' : 'USDC, USDT, DAI, WETH, or cbETH';
+        const explorer = agentChain === 'solana' ? 'https://solscan.io/account/' + vaultAddr : 'https://basescan.org/address/' + vaultAddr;
+
+        // Set vault step content
+        document.getElementById('dep-vault-addr').innerHTML = `<span>${vaultAddr}</span><button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>`;
+        document.getElementById('dep-network-info').innerHTML = `<span style="color:#9ca3af">Network:</span> <strong style="color:#e0e0e0">${network}</strong>`;
+        document.getElementById('dep-token-list').innerHTML = `<span style="color:#9ca3af">Accepted tokens:</span> <strong style="color:#e0e0e0">${tokenList}</strong>`;
+        document.getElementById('dep-explorer-link').href = explorer;
+        document.getElementById('dep-verify-link').href = explorer;
+
+        // Set direct mode instructions
+        if (agentChain === 'solana') {
+            document.getElementById('dep-direct-instructions').innerHTML = 'spl-token approve &lt;your-usdc-token-account&gt; &lt;amount&gt; 3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ\n\nTo revoke:\nspl-token revoke &lt;your-usdc-token-account&gt;';
+        } else {
+            document.getElementById('dep-direct-instructions').innerHTML = 'In your wallet, approve USDC spending for:\n0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc\n\nOr call: USDC.approve(vault, amount)\nTo revoke: USDC.approve(vault, 0)';
+        }
+
+        showDepositStep('choose');
+        document.getElementById('deposit-modal').classList.add('open');
+    }
+
+    function showDepositStep(step) {
+        document.getElementById('deposit-step-1').style.display = step === 'choose' ? 'block' : 'none';
+        document.getElementById('deposit-step-vault').style.display = step === 'vault' ? 'block' : 'none';
+        document.getElementById('deposit-step-direct').style.display = step === 'direct' ? 'block' : 'none';
+    }
+
+    async function activateDirectMode() {
+        const msg = document.getElementById('dep-direct-msg');
+        msg.textContent = 'Activating...'; msg.style.color = '#10b981'; msg.style.display = 'block';
+        try {
+            const r = await fetch(`${API_ROOT}/settings/payment-mode`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agio_id: agioId, mode: 'direct' }),
+            });
+            const d = await r.json();
+            if (d.payment_mode === 'direct') {
+                msg.textContent = 'Direct Mode activated! Set your token approval in your wallet using the command above.';
+                agentData.payment_mode = 'direct';
+            } else { msg.textContent = d.detail || 'Failed'; msg.style.color = '#ef4444'; }
+        } catch { msg.textContent = 'Error'; msg.style.color = '#ef4444'; }
     }
 
     function openWithdraw(token, balance) {
