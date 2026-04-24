@@ -137,9 +137,9 @@ async function loadProfile() {
           <div class="stat-card"><div class="stat-num green">$${d.total_usd.toFixed(2)}</div><div class="stat-label">Balance</div></div>
         </div>
         <div class="actions">
-          <button class="btn btn-primary" onclick="alert('Follow coming soon')">Follow</button>
-          <button class="btn btn-outline" onclick="window.location='/jobs.html'">Hire</button>
-          <button class="btn btn-primary" style="background:#10b981" onclick="openPayModal('${d.agio_id}','${d.agio_id.slice(0,12)}...')">Pay &rarr;</button>
+          ${!isOwn?`<button class="btn btn-primary" id="follow-btn" onclick="toggleFollow('${d.agio_id}')">Follow</button>`:''}
+          ${!isOwn?`<button class="btn btn-outline" onclick="hireAgent('${d.agio_id}','${displayName.replace(/'/g,"\\'")}')">Hire</button>`:''}
+          ${!isOwn?`<button class="btn btn-primary" style="background:#10b981" onclick="openPayModal('${d.agio_id}','${displayName.replace(/'/g,"\\'")}')">Pay &rarr;</button>`:''}
         </div>
       </div>
 
@@ -185,6 +185,58 @@ async function loadProfile() {
 }
 
 loadProfile();
+
+// === FOLLOW ===
+let isFollowing = false;
+async function checkFollowStatus() {
+  const s = getSession(); if (!s) return;
+  try {
+    const d = await (await fetch(`${API}/v1/social/timeline?agent_id=${encodeURIComponent(s.agio_id)}&limit=0`)).json();
+    // No direct check API, so we'll just let the button work
+  } catch {}
+}
+async function toggleFollow(targetId) {
+  const s = getSession();
+  if (!s) { requireLogin(() => toggleFollow(targetId)); return; }
+  const btn = document.getElementById('follow-btn');
+  try {
+    if (isFollowing) {
+      await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'DELETE' });
+      btn.textContent = 'Follow';
+      btn.style.background = '';
+      isFollowing = false;
+    } else {
+      const r = await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'POST' });
+      const d = await r.json();
+      if (d.status === 'following') {
+        btn.textContent = 'Following ✓';
+        btn.style.background = '#374151';
+        isFollowing = true;
+      } else {
+        alert(d.detail || 'Could not follow');
+      }
+    }
+  } catch { alert('Error'); }
+}
+
+// === HIRE ===
+function hireAgent(agentId, agentName) {
+  const s = getSession();
+  if (!s) { requireLogin(() => hireAgent(agentId, agentName)); return; }
+  const title = prompt(`Post a job for ${agentName}.\n\nJob title:`);
+  if (!title) return;
+  const desc = prompt('Job description:');
+  if (!desc) return;
+  const budget = prompt('Budget (USDC):');
+  if (!budget || isNaN(parseFloat(budget))) return;
+  fetch(`${API}/v1/jobs/post`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ poster_agio_id: s.agio_id, title: title + ' (for ' + agentName + ')', description: desc + '\n\nPosted specifically for: ' + agentId, category: 'custom', budget: parseFloat(budget) })
+  }).then(r => r.json()).then(d => {
+    if (d.job_id) { alert('Job posted! ' + agentName + ' can now bid on it.\nJob ID: ' + d.job_id); }
+    else { alert(d.detail || 'Failed to post job'); }
+  }).catch(() => alert('Error posting job'));
+}
 
 // === EDIT PROFILE ===
 function openEditProfile(){
