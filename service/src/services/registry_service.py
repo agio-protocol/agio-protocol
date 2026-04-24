@@ -62,13 +62,25 @@ async def register_agent(
     await db.commit()
     await db.refresh(agent)
 
-    return {
+    # Generate API key
+    api_key = None
+    try:
+        from ..api.auth_routes import generate_key_for_agent
+        api_key = await generate_key_for_agent(db, agent)
+    except Exception:
+        pass
+
+    result = {
         "agio_id": agent.agio_id,
         "wallet_address": agent.wallet_address,
         "tier": agent.tier,
         "balance": float(agent.balance),
         "trust": "NEW",
     }
+    if api_key:
+        result["api_key"] = api_key
+        result["api_key_warning"] = "Save this key securely. It will not be shown again."
+    return result
 
 
 async def get_agent(db: AsyncSession, agio_id: str) -> dict | None:

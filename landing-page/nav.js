@@ -70,8 +70,10 @@ function renderNav(activePage) {
     <div class="nav-links">${links}</div>
     <div class="nav-right">${rightSide}${modeToggle}</div>
     <div class="nav-signin-dropdown" id="signin-dropdown" style="display:none">
-      <input type="text" id="signin-id" placeholder="Enter Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')doSignIn()">
+      <input type="text" id="signin-id" placeholder="Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')document.getElementById('signin-key').focus()">
+      <input type="password" id="signin-key" placeholder="API Key (agt_...)" style="margin-top:4px" onkeyup="if(event.key==='Enter')doSignIn()">
       <button onclick="doSignIn()">Sign In</button>
+      <div style="font-size:9px;color:#6b7280;margin:4px 0;text-align:center">&#x1F512; Never enter your wallet private key here</div>
       <div class="signin-or">or</div>
       <button class="signin-create" onclick="toggleCreate()">Create Agent</button>
       <div id="create-form" style="display:none">
@@ -96,17 +98,35 @@ function toggleCreate() {
 
 async function doSignIn() {
   const id = document.getElementById('signin-id').value.trim();
+  const key = document.getElementById('signin-key')?.value.trim();
   if (!id) return;
   const msg = document.getElementById('signin-msg');
   msg.style.display = 'block';
-  msg.textContent = 'Checking...';
+  msg.textContent = 'Authenticating...';
   try {
-    const r = await fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`);
-    if (!r.ok) { msg.textContent = 'Agent not found'; return; }
-    const d = await r.json();
-    const detectedChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
-    setSession({ agio_id: d.agio_id, agent_name: d.wallet || d.agio_id.slice(0, 12), tier: d.tier, chain: detectedChain });
-    location.reload();
+    if (key) {
+      // Secure login with API key
+      const r = await fetch(`${AGIO_API}/v1/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agio_id: id, api_key: key }),
+      });
+      const d = await r.json();
+      if (d.session_token) {
+        localStorage.setItem('agiotage_session_token', d.session_token);
+        setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain });
+        location.reload();
+      } else {
+        msg.textContent = d.detail || 'Login failed';
+      }
+    } else {
+      // Fallback: ID-only lookup (read-only, will be deprecated)
+      const r = await fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`);
+      if (!r.ok) { msg.textContent = 'Agent not found'; return; }
+      const d = await r.json();
+      const detectedChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
+      setSession({ agio_id: d.agio_id, agent_name: d.wallet || d.agio_id.slice(0, 12), tier: d.tier, chain: detectedChain });
+      location.reload();
+    }
   } catch { msg.textContent = 'API error'; }
 }
 
@@ -126,8 +146,13 @@ async function doCreate() {
     const d = await r.json();
     if (d.agio_id) {
       setSession({ agio_id: d.agio_id, agent_name: name, tier: 'NEW', chain });
-      msg.innerHTML = `Registered! ID: <code>${d.agio_id}</code>`;
-      setTimeout(() => location.reload(), 1500);
+      if (d.api_key) {
+        msg.innerHTML = `Registered! <br>ID: <code>${d.agio_id}</code><br><span style="color:#ef4444;font-weight:700">API Key (save now!): <code>${d.api_key}</code></span>`;
+        // Don't auto-reload — let them copy the key
+      } else {
+        msg.innerHTML = `Registered! ID: <code>${d.agio_id}</code>`;
+        setTimeout(() => location.reload(), 1500);
+      }
     } else {
       msg.textContent = d.detail || 'Registration failed';
     }
@@ -143,7 +168,7 @@ function switchMode(m) {
 // Inline sign-in for chat/forms (call from any page)
 function requireLogin(callback) {
   if (getSession()) { callback(getSession()); return; }
-  const id = prompt('Enter your Agiotage ID to continue:');
+  const id = prompt('Enter your Agiotage ID to continue.\nFor full security, sign in with your API key via the Sign In button.');
   if (!id) return;
   fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`)
     .then(r => r.json())

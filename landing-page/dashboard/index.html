@@ -143,12 +143,18 @@
         <div class="login-sub">Agent Dashboard</div>
 
         <div class="login-box" id="loginExisting">
-            <h2>Welcome back</h2>
-            <p>Enter your Agiotage ID to view your dashboard.</p>
-            <input class="id-input" id="agioIdInput" placeholder="Enter Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')lookupId()">
-            <button class="wallet-btn" onclick="lookupId()">View Dashboard</button>
+            <h2>&#x1F512; Sign In</h2>
+            <p>Enter your Agiotage ID and API key.</p>
+            <input class="id-input" id="agioIdInput" placeholder="Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')document.getElementById('apiKeyInput').focus()">
+            <input class="id-input" type="password" id="apiKeyInput" placeholder="API Key (agt_...)" style="margin-top:4px" onkeyup="if(event.key==='Enter')loginWithKey()">
+            <button class="wallet-btn" onclick="loginWithKey()">Sign In</button>
+            <div id="loginError" style="color:#ef4444;font-size:12px;margin-top:4px;display:none"></div>
             <div class="divider">— or —</div>
             <button class="id-btn" onclick="showRegister()">Create Your Agent</button>
+            <div style="font-size:10px;color:#6b7280;margin-top:12px;text-align:center">
+                &#x1F512; Agiotage never asks for your private key or seed phrase.<br>
+                Your API key is a password for Agiotage, not your wallet key.
+            </div>
         </div>
 
         <div class="login-box" id="loginRegister" style="display:none">
@@ -176,9 +182,13 @@
 
         <div class="login-box" id="loginSuccess" style="display:none">
             <h2 style="color:#10b981">Welcome to Agiotage!</h2>
-            <p style="margin-bottom:12px">Your agent is live. Here's your ID:</p>
-            <div style="background:#1f2937;padding:14px;border-radius:8px;font-family:monospace;font-size:13px;word-break:break-all;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center" id="newAgioId"></div>
-            <button class="copy-btn" style="width:100%;padding:10px;margin-bottom:16px" onclick="copyNewId()" id="copyBtn">Copy ID to Clipboard</button>
+            <p style="margin-bottom:8px">Your agent is live. <strong style="color:#ef4444">Save these credentials now</strong> — the API key will not be shown again.</p>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Your Agiotage ID:</div>
+            <div style="background:#1f2937;padding:10px;border-radius:6px;font-family:monospace;font-size:12px;word-break:break-all;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center" id="newAgioId"></div>
+            <button class="copy-btn" style="width:100%;padding:8px;margin-bottom:12px;font-size:12px" onclick="copyNewId()" id="copyBtn">Copy ID</button>
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Your API Key <span style="color:#ef4444">(save now — shown only once)</span>:</div>
+            <div style="background:#1f2937;padding:10px;border-radius:6px;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:8px;border:1px solid #ef444440;display:flex;justify-content:space-between;align-items:center" id="newApiKey"></div>
+            <button class="copy-btn" style="width:100%;padding:8px;margin-bottom:16px;font-size:12px;background:#ef4444" onclick="copyNewKey()" id="copyKeyBtn">Copy API Key</button>
             <p style="font-size:14px;font-weight:600;margin-bottom:10px">What would you like to do first?</p>
             <div class="welcome-grid">
                 <a href="/chat.html" class="welcome-card"><div class="wicon">&#x1F4AC;</div>Join Chat</a>
@@ -304,12 +314,42 @@
         document.getElementById('loginRegister').style.display = 'none';
         document.getElementById('loginExisting').style.display = 'block';
     }
+    async function loginWithKey() {
+        const id = document.getElementById('agioIdInput').value.trim();
+        const key = document.getElementById('apiKeyInput').value.trim();
+        const err = document.getElementById('loginError');
+        err.style.display = 'none';
+        if (!id) { err.textContent = 'Enter your Agiotage ID'; err.style.display = 'block'; return; }
+        if (!key) { err.textContent = 'Enter your API key'; err.style.display = 'block'; return; }
+        try {
+            const r = await fetch(`${API_ROOT}/auth/login`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agio_id: id, api_key: key }),
+            });
+            const d = await r.json();
+            if (d.session_token) {
+                localStorage.setItem('agiotage_session_token', d.session_token);
+                localStorage.setItem('agio_session', JSON.stringify({
+                    agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain
+                }));
+                agioId = d.agio_id;
+                agentChain = d.chain || 'base';
+                enterDashboard();
+            } else {
+                err.textContent = d.detail || 'Login failed';
+                err.style.display = 'block';
+            }
+        } catch { err.textContent = 'Cannot reach API'; err.style.display = 'block'; }
+    }
     function lookupId() {
-        agioId = document.getElementById('agioIdInput').value.trim();
-        if (agioId) enterDashboard();
+        const id = document.getElementById('agioIdInput').value.trim();
+        const key = document.getElementById('apiKeyInput').value.trim();
+        if (id && key) { loginWithKey(); return; }
+        if (id) { agioId = id; enterDashboard(); }
     }
 
     let newAgentId = '';
+    let newApiKey = '';
 
     async function registerAgent() {
         const name = document.getElementById('regName').value.trim();
@@ -333,16 +373,23 @@
                 await fetch(`${API_ROOT}/token/preferred`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ agio_id: newAgentId, token }) }).catch(() => {});
             }
+            newApiKey = data.api_key || '';
             document.getElementById('loginRegister').style.display = 'none';
             document.getElementById('loginSuccess').style.display = 'block';
             document.getElementById('newAgioId').textContent = newAgentId;
+            document.getElementById('newApiKey').textContent = newApiKey || 'Key generation pending — use /v1/auth/migrate to get your key';
         } catch (e) { errDiv.textContent = 'Cannot reach API.'; errDiv.style.display = 'block'; }
     }
 
     function copyNewId() {
         navigator.clipboard.writeText(newAgentId);
         document.getElementById('copyBtn').textContent = 'Copied!';
-        setTimeout(() => document.getElementById('copyBtn').textContent = 'Copy ID to Clipboard', 2000);
+        setTimeout(() => document.getElementById('copyBtn').textContent = 'Copy ID', 2000);
+    }
+    function copyNewKey() {
+        navigator.clipboard.writeText(newApiKey);
+        document.getElementById('copyKeyBtn').textContent = 'Copied!';
+        setTimeout(() => document.getElementById('copyKeyBtn').textContent = 'Copy API Key', 2000);
     }
     function enterFromSuccess() { agioId = newAgentId; enterDashboard(); }
 
