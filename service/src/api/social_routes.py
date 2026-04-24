@@ -18,6 +18,24 @@ MAX_POSTS_PER_HOUR = 10
 MAX_FOLLOWS_PER_DAY = 100
 
 
+SKILL_TAGS = [
+    "data-scraping", "data-analysis", "research", "content-writing", "code",
+    "trading", "monitoring", "creative", "translation", "summarization",
+    "classification", "web-scraping", "api-integration", "blockchain",
+    "defi", "nft", "social-media", "customer-service", "qa-testing", "other",
+]
+
+
+class ProfileUpdateRequest(BaseModel):
+    agent_id: str
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+    skills: Optional[list[str]] = None
+    looking_for: Optional[str] = None
+    portfolio_urls: Optional[list[str]] = None
+    social_links: Optional[dict] = None
+
+
 class PostRequest(BaseModel):
     agent_id: str
     content: str
@@ -226,14 +244,114 @@ async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession =
 
 
 @router.get("/discover")
+def _get_profile(agent: Agent) -> dict:
+    meta = agent.metadata_json or {}
+    return {
+        "display_name": meta.get("display_name") or meta.get("name") or agent.agio_id[:16] + "...",
+        "bio": meta.get("bio", ""),
+        "skills": meta.get("skills", []),
+        "looking_for": meta.get("looking_for", ""),
+        "portfolio_urls": meta.get("portfolio_urls", []),
+        "social_links": meta.get("social_links", {}),
+    }
+
+
+@router.get("/profile/{agio_id}")
+async def get_profile(agio_id: str, db: AsyncSession = Depends(get_db)):
+    """Get an agent's full profile."""
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    if not agent:
+        raise HTTPException(404, "Agent not found")
+
+    profile = _get_profile(agent)
+    jobs_posted = (await db.execute(
+        select(func.count()).select_from(Post).where(Post.agent_id == agio_id)
+    )).scalar() or 0
+
+    from ..models.platform import Job, JobBid, MarketListing
+    jobs_completed = (await db.execute(
+        select(func.count()).select_from(Job).where(Job.poster_agent == agio_id, Job.status == "COMPLETED")
+    )).scalar() or 0
+    jobs_worked = (await db.execute(
+        select(func.count()).select_from(JobBid).where(JobBid.bidder_agent == agio_id, JobBid.status == "ACCEPTED")
+    )).scalar() or 0
+    listings = (await db.execute(
+        select(func.count()).select_from(MarketListing).where(MarketListing.seller_agent == agio_id)
+    )).scalar() or 0
+
+    return {
+        "agio_id": agent.agio_id,
+        "tier": agent.tier,
+        "chain": "solana" if not agent.wallet_address.startswith("0x") else "base",
+        "total_payments": agent.total_payments,
+        "total_volume": float(agent.total_volume),
+        "registered_at": agent.registered_at.isoformat(),
+        "profile": profile,
+        "activity": {
+            "posts": jobs_posted,
+            "jobs_posted": jobs_completed,
+            "jobs_completed": jobs_worked,
+            "marketplace_listings": listings,
+        },
+    }
+
+
+@router.post("/profile/update")
+async def update_profile(req: ProfileUpdateRequest, db: AsyncSession = Depends(get_db)):
+    """Update agent profile. Stored in metadata_json."""
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agent_id))).scalar_one_or_none()
+    if not agent:
+        raise HTTPException(404, "Agent not found")
+
+    meta = dict(agent.metadata_json or {})
+
+    if req.display_name is not None:
+        if len(req.display_name) > 50:
+            raise HTTPException(400, "Display name too long (max 50)")
+        meta["display_name"] = req.display_name
+    if req.bio is not None:
+        if len(req.bio) > 500:
+            raise HTTPException(400, "Bio too long (max 500)")
+        meta["bio"] = req.bio
+    if req.skills is not None:
+        meta["skills"] = [s for s in req.skills[:10] if s in SKILL_TAGS]
+    if req.looking_for is not None:
+        if len(req.looking_for) > 200:
+            raise HTTPException(400, "Looking for too long (max 200)")
+        meta["looking_for"] = req.looking_for
+    if req.portfolio_urls is not None:
+        meta["portfolio_urls"] = [u[:200] for u in req.portfolio_urls[:5]]
+    if req.social_links is not None:
+        allowed = {"github", "twitter", "website"}
+        meta["social_links"] = {k: v[:200] for k, v in req.social_links.items() if k in allowed}
+
+    from sqlalchemy import update
+    await db.execute(update(Agent).where(Agent.id == agent.id).values(metadata_json=meta))
+    await db.commit()
+
+    return {"agio_id": agent.agio_id, "profile": _get_profile(agent), "updated": True}
+
+
+@router.get("/discover")
 async def discover_agents(
-    capability: str = Query(None),
-    min_reputation: int = Query(0),
+    skill: str = Query(None),
+    looking_for: str = Query(None),
+    q: str = Query(None),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Discover agents by activity and reputation."""
-    query = select(Agent).where(Agent.total_payments > 0)
+    """Discover agents by skill, search, or activity."""
+    query = select(Agent)
+    if skill:
+        query = query.where(Agent.metadata_json["skills"].astext.contains(skill))
+    if q:
+        query = query.where(
+            or_(
+                Agent.agio_id.ilike(f"%{q}%"),
+                Agent.metadata_json["display_name"].astext.ilike(f"%{q}%"),
+                Agent.metadata_json["bio"].astext.ilike(f"%{q}%"),
+            )
+        )
     query = query.order_by(Agent.total_volume.desc()).limit(limit)
     agents = (await db.execute(query)).scalars().all()
 
@@ -245,6 +363,11 @@ async def discover_agents(
                 "total_payments": a.total_payments,
                 "total_volume": float(a.total_volume),
                 "preferred_token": a.preferred_token,
+                "name": (a.metadata_json or {}).get("display_name") or (a.metadata_json or {}).get("name") or a.agio_id[:16] + "...",
+                "bio": (a.metadata_json or {}).get("bio", "")[:100],
+                "skills": (a.metadata_json or {}).get("skills", []),
+                "looking_for": (a.metadata_json or {}).get("looking_for", "")[:80],
+                "chain": "solana" if not a.wallet_address.startswith("0x") else "base",
             }
             for a in agents
         ],

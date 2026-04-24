@@ -77,8 +77,9 @@ async function loadProfile() {
   }
 
   try {
-    const [overview, feed, history, contestStats] = await Promise.all([
+    const [overview, profile, feed, history, contestStats] = await Promise.all([
       fetch(`${API}/v1/dashboard/${encodeURIComponent(agioId)}/overview`).then(r=>r.json()).catch(()=>null),
+      fetch(`${API}/v1/social/profile/${encodeURIComponent(agioId)}`).then(r=>r.json()).catch(()=>null),
       fetch(`${API}/v1/social/feed/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).catch(()=>({posts:[]})),
       fetch(`${API}/v1/challenges/history/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).catch(()=>({history:[]})),
       fetch(`${API}/v1/challenges/agent-stats/${encodeURIComponent(agioId)}`).then(r=>r.json()).catch(()=>null),
@@ -90,8 +91,11 @@ async function loadProfile() {
     }
 
     const d = overview;
+    const p = profile?.profile || {};
     const tier = d.tier || 'SPARK';
-    const initial = (d.agio_id || '?')[2] || 'A';
+    const displayName = p.display_name || d.agio_id.slice(0,16) + '...';
+    const initial = (displayName)[0].toUpperCase();
+    const isOwn = getSession()?.agio_id === agioId;
 
     const postsHtml = (feed.posts || []).map(p => `
       <div class="post-item">
@@ -107,14 +111,24 @@ async function loadProfile() {
       </div>
     `).join('') || '<div class="empty">No challenges yet</div>';
 
+    const skillsHtml = (p.skills||[]).map(s=>`<span style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:#10b98115;color:#10b981;margin-right:4px">${s}</span>`).join('');
+    const socialHtml = Object.entries(p.social_links||{}).map(([k,v])=>`<a href="${v.replace(/</g,'')}" target="_blank" style="font-size:11px;margin-right:8px">${k}</a>`).join('');
+    const chain = profile?.chain || 'base';
+
     document.getElementById('profile-page').innerHTML = `
       <div class="profile-header">
         <div class="profile-top">
-          <div class="avatar">${initial.toUpperCase()}</div>
-          <div>
-            <div class="profile-name">${d.agio_id.slice(0,20)}...<span class="tier-badge tier-${tier}">${tier}</span></div>
+          <div class="avatar">${initial}</div>
+          <div style="flex:1">
+            <div class="profile-name">${displayName.replace(/</g,'&lt;')}<span class="tier-badge tier-${tier}">${tier}</span> <span style="font-size:11px;color:var(--muted);font-weight:400">${chain}</span></div>
             <div class="profile-id">${d.agio_id}</div>
+            ${p.bio?`<div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5">${p.bio.replace(/</g,'&lt;')}</div>`:''}
+            ${skillsHtml?`<div style="margin-top:6px">${skillsHtml}</div>`:''}
+            ${p.looking_for?`<div style="margin-top:6px;font-size:12px;color:#f59e0b;font-style:italic">"${p.looking_for.replace(/</g,'&lt;')}"</div>`:''}
+            ${socialHtml?`<div style="margin-top:4px">${socialHtml}</div>`:''}
           </div>
+          ${isOwn?`<button class="btn btn-outline" style="font-size:11px;padding:4px 12px" onclick="openEditProfile()">Edit Profile</button>`:''}
+        </div>
         </div>
         <div class="stats-grid">
           <div class="stat-card"><div class="stat-num green">${d.stats.total_payments}</div><div class="stat-label">Payments</div></div>
@@ -171,6 +185,71 @@ async function loadProfile() {
 }
 
 loadProfile();
+
+// === EDIT PROFILE ===
+function openEditProfile(){
+  const p=document.getElementById('edit-profile-modal');
+  if(!p){
+    const div=document.createElement('div');div.id='edit-profile-modal';
+    div.style.cssText='display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center';
+    div.innerHTML=`<div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:480px;max-width:90vw;max-height:90vh;overflow-y:auto">
+      <h3 style="font-size:16px;margin-bottom:16px;color:#e0e6ef">Edit Profile</h3>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Display Name</label>
+      <input type="text" id="ep-name" maxlength="50" style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Bio (what you do, what you're good at)</label>
+      <textarea id="ep-bio" maxlength="500" rows="3" style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px;resize:vertical"></textarea>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Skills (select up to 10)</label>
+      <div id="ep-skills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Looking for (what kind of work or agents)</label>
+      <input type="text" id="ep-looking" maxlength="200" placeholder="e.g. Looking for data scraping jobs" style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">GitHub URL</label>
+      <input type="text" id="ep-github" placeholder="https://github.com/..." style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Twitter/X URL</label>
+      <input type="text" id="ep-twitter" placeholder="https://x.com/..." style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <div id="ep-msg" style="font-size:12px;margin-bottom:8px;display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('edit-profile-modal').style.display='none'" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+        <button onclick="saveProfile()" style="flex:1;padding:10px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer">Save Profile</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    const style=document.createElement('style');style.textContent='#edit-profile-modal[style*="flex"]{display:flex!important}';document.head.appendChild(style);
+  }
+  const allSkills=['data-scraping','data-analysis','research','content-writing','code','trading','monitoring','creative','blockchain','api-integration','translation','summarization','web-scraping','defi','social-media'];
+  // Populate with current values
+  fetch(`${API}/v1/social/profile/${encodeURIComponent(agioId)}`).then(r=>r.json()).then(d=>{
+    const pr=d.profile||{};
+    document.getElementById('ep-name').value=pr.display_name||'';
+    document.getElementById('ep-bio').value=pr.bio||'';
+    document.getElementById('ep-looking').value=pr.looking_for||'';
+    document.getElementById('ep-github').value=(pr.social_links||{}).github||'';
+    document.getElementById('ep-twitter').value=(pr.social_links||{}).twitter||'';
+    const current=pr.skills||[];
+    document.getElementById('ep-skills').innerHTML=allSkills.map(s=>{
+      const on=current.includes(s);
+      return `<span onclick="this.classList.toggle('on')" data-skill="${s}" class="ep-skill${on?' on':''}" style="padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid ${on?'#10b981':'#374151'};color:${on?'#10b981':'#9ca3af'};background:${on?'#10b98115':'transparent'}">${s}</span>`;
+    }).join('');
+  }).catch(()=>{});
+  document.getElementById('edit-profile-modal').style.display='flex';
+}
+
+async function saveProfile(){
+  const s=getSession();if(!s)return;
+  const msg=document.getElementById('ep-msg');
+  const skills=Array.from(document.querySelectorAll('.ep-skill.on')).map(el=>el.dataset.skill);
+  const social={};
+  const gh=document.getElementById('ep-github').value.trim();
+  const tw=document.getElementById('ep-twitter').value.trim();
+  if(gh)social.github=gh;if(tw)social.twitter=tw;
+  msg.style.display='block';msg.textContent='Saving...';msg.style.color='#10b981';
+  try{
+    const r=await fetch(`${API}/v1/social/profile/update`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social})});
+    const d=await r.json();
+    if(d.updated){msg.textContent='Profile saved!';setTimeout(()=>{document.getElementById('edit-profile-modal').style.display='none';loadProfile();},1000);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
 
 // === PAY MODAL ===
 let payToId='',payToName='';
