@@ -29,7 +29,7 @@ import logging
 _log = logging.getLogger("jobs")
 
 
-async def _sync_agent_balance(db, agent: Agent, token: str, delta: Decimal, delta_locked: Decimal = Decimal("0")):
+async def _sync_agent_balance(db, agent, token: str, delta: Decimal, delta_locked: Decimal = Decimal("0")):
     """Sync AgentBalance per-token table whenever Agent.balance changes."""
     bal = (await db.execute(
         select(AgentBalance).where(AgentBalance.agent_id == agent.id, AgentBalance.token == token).with_for_update()

@@ -75,13 +75,13 @@ class RegenerateRequest(BaseModel):
     current_api_key: str
 
 
-async def _check_lockout(agent: Agent) -> None:
+async def _check_lockout(agent) -> None:
     if agent.locked_until and datetime.utcnow() < agent.locked_until:
         remaining = int((agent.locked_until - datetime.utcnow()).total_seconds())
         raise HTTPException(429, f"Account locked. Try again in {remaining} seconds.")
 
 
-async def _record_failure(db: AsyncSession, agent: Agent) -> None:
+async def _record_failure(db: AsyncSession, agent) -> None:
     failures = (agent.auth_failures or 0) + 1
     lock_until = None
     if failures >= MAX_AUTH_FAILURES:
@@ -100,7 +100,7 @@ async def _record_failure(db: AsyncSession, agent: Agent) -> None:
         await db.rollback()
 
 
-async def _create_session(agent: Agent, auth_method: str) -> dict:
+async def _create_session(agent, auth_method: str) -> dict:
     token = generate_session_token()
     session_data = {
         "agio_id": agent.agio_id,
@@ -123,7 +123,7 @@ async def _create_session(agent: Agent, auth_method: str) -> dict:
 
 # === Public: Registration returns API key ===
 
-async def generate_key_for_agent(db: AsyncSession, agent: Agent) -> str:
+async def generate_key_for_agent(db: AsyncSession, agent) -> str:
     """Generate and store a new API key for an agent. Returns plaintext key (store nowhere)."""
     plaintext = generate_api_key()
     hashed = hash_api_key(plaintext)

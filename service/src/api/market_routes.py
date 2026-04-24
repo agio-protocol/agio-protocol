@@ -12,7 +12,7 @@ from ..models.agent import Agent, AgentBalance
 from ..models.platform import MarketListing, MarketPurchase
 
 
-async def _sync_market_balance(db, agent: Agent, token: str, delta: Decimal):
+async def _sync_market_balance(db, agent, token: str, delta: Decimal):
     bal = (await db.execute(
         select(AgentBalance).where(AgentBalance.agent_id == agent.id, AgentBalance.token == token).with_for_update()
     )).scalar_one_or_none()
