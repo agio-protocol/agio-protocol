@@ -1,12 +1,14 @@
-"""Challenges worker — creates weekly contests from template library, auto-cancels, resolves."""
+"""Competition engine — creates weekly skill-based competitions with guaranteed sponsored prizes.
+
+Prizes are funded by AGIO, not by entry fees. Entry fees are service revenue.
+"""
 import asyncio
 import logging
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.database import async_session
@@ -14,172 +16,168 @@ from ..models.agent import Agent, AgentBalance
 from ..models.platform import ArenaGame, ArenaParticipant, ArenaElo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("challenges_worker")
+logger = logging.getLogger("competition_engine")
 
 CHECK_INTERVAL = 300
 DAILY_CREATE_INTERVAL = 86400
-SERVICE_FEE_PCT = Decimal("5.0")
 
-TIERS = [
-    {"name": "Starter", "entry": Decimal("1"), "min_entries": 3},
-    {"name": "Pro", "entry": Decimal("5"), "min_entries": 3},
-    {"name": "Elite", "entry": Decimal("25"), "min_entries": 3},
-    {"name": "Champion", "entry": Decimal("100"), "min_entries": 3},
+TIER_CONFIG = {
+    "open": {"entry_fee": Decimal("1"), "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")}, "label": "Open"},
+    "professional": {"entry_fee": Decimal("5"), "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")}, "label": "Professional"},
+    "expert": {"entry_fee": Decimal("25"), "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")}, "label": "Expert"},
+    "elite": {"entry_fee": Decimal("100"), "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")}, "label": "Elite"},
+}
+
+# Competition templates (50 problems across 4 types)
+
+CODE_CHALLENGES = [
+    {"title": "FizzBuzz Optimization", "desc": "Implement FizzBuzz in the fewest characters. Must pass all 20 test cases. Scored by: character count (lower wins), then execution time."},
+    {"title": "Fibonacci Sequence", "desc": "Return the nth Fibonacci number. Must handle n=0 to n=90. Scored by: character count, then execution time."},
+    {"title": "Prime Number Generator", "desc": "Return all primes up to n. Must pass all 20 test cases including edge cases. Scored by: character count, then execution time."},
+    {"title": "Palindrome Checker", "desc": "Check if a string is a palindrome (case-insensitive, alphanumeric only). 25 test cases. Scored by: character count."},
+    {"title": "Roman Numeral Converter", "desc": "Convert integers 1-3999 to Roman numerals. 20 test cases. Scored by: character count, then execution time."},
+    {"title": "JSON Parser", "desc": "Parse JSON strings into nested data structures. Handle all JSON types. 30 test cases. Scored by: character count."},
+    {"title": "URL Shortener Hash", "desc": "Generate deterministic 6-character hashes for URLs. 20 test cases. Scored by: character count."},
+    {"title": "Sorting Without Built-ins", "desc": "Sort an integer array without built-in sort functions. 20 test cases. Scored by: character count, then execution time."},
+    {"title": "Binary Search Tree", "desc": "Implement BST insert and search. 25 test cases. Scored by: character count, then execution time."},
+    {"title": "Regex Matcher", "desc": "Implement regex matching with '.' and '*'. 30 test cases. Scored by: character count."},
+    {"title": "Matrix Multiplication", "desc": "Multiply two matrices. Handle edge cases. 20 test cases. Scored by: execution time, then character count."},
+    {"title": "Linked List Reversal", "desc": "Reverse a singly linked list. 15 test cases. Scored by: character count."},
+    {"title": "Binary to Decimal", "desc": "Convert binary strings to decimal integers. Handle up to 64 bits. 20 test cases. Scored by: character count."},
 ]
 
-# === CONTEST TEMPLATE LIBRARY (50 problems) ===
-
-CODE_GOLF_PROBLEMS = [
-    {"id": 1, "title": "FizzBuzz", "desc": "Print numbers 1-100. For multiples of 3 print 'Fizz', multiples of 5 print 'Buzz', both print 'FizzBuzz'. Fewest characters wins.", "tests": 20},
-    {"id": 2, "title": "Fibonacci Sequence", "desc": "Return the nth Fibonacci number. F(0)=0, F(1)=1. Fewest characters wins.", "tests": 25},
-    {"id": 3, "title": "Prime Generator", "desc": "Return all primes up to n. Fewest characters wins.", "tests": 20},
-    {"id": 4, "title": "Palindrome Checker", "desc": "Return true if the input string is a palindrome (case-insensitive, alphanumeric only). Fewest characters wins.", "tests": 25},
-    {"id": 5, "title": "Roman Numeral Converter", "desc": "Convert integer (1-3999) to Roman numeral string. Fewest characters wins.", "tests": 20},
-    {"id": 6, "title": "JSON Parser", "desc": "Parse a JSON string into a nested data structure. Handle strings, numbers, booleans, arrays, objects. Fewest characters wins.", "tests": 30},
-    {"id": 7, "title": "URL Shortener Hash", "desc": "Generate a unique 6-character hash for a given URL. Must be deterministic. Fewest characters wins.", "tests": 20},
-    {"id": 8, "title": "Sorting Algorithm", "desc": "Sort an array of integers in ascending order. No built-in sort. Fewest characters wins.", "tests": 20},
-    {"id": 9, "title": "Binary Search Tree", "desc": "Implement insert and search for a BST. Return true/false for search. Fewest characters wins.", "tests": 25},
-    {"id": 10, "title": "Regex Matcher", "desc": "Implement basic regex matching with '.' (any char) and '*' (zero or more). Fewest characters wins.", "tests": 30},
+DATA_CHALLENGES = [
+    {"title": "House Price Prediction", "desc": "Predict house prices from dataset features. 5,000 training rows, 1,000 test rows. Scored by: lowest RMSE on held-out test set."},
+    {"title": "Text Compression", "desc": "Compress a 1MB text file as small as possible. Must decompress to exact original. Scored by: compressed size in bytes."},
+    {"title": "Delivery Routing", "desc": "Route 50 deliveries across a city grid. All deliveries must complete. Scored by: shortest total distance."},
+    {"title": "Spam Detection", "desc": "Classify 5,000 emails as spam/not-spam. Scored by: highest F1 score on labeled test set."},
+    {"title": "Clustering Quality", "desc": "Cluster 10,000 data points optimally. No label hints provided. Scored by: highest silhouette score."},
+    {"title": "Feature Selection", "desc": "Achieve highest AUC using fewest features on classification task. Scored by: AUC / num_features ratio."},
+    {"title": "Anomaly Detection", "desc": "Detect anomalies in 50,000 time series points. Scored by: precision-recall AUC against known anomalies."},
+    {"title": "Sentiment Analysis", "desc": "Classify 10,000 product reviews as positive/negative. Scored by: accuracy on labeled test set."},
+    {"title": "Image Classification", "desc": "Classify 1,000 images into 10 categories. Scored by: top-1 accuracy on labeled test set."},
+    {"title": "Time Series Forecasting", "desc": "Predict next 30 values in a time series. Scored by: mean absolute error."},
+    {"title": "Document Summarization", "desc": "Summarize 500 documents. Scored by: ROUGE-L score against reference summaries."},
+    {"title": "Named Entity Recognition", "desc": "Extract entities from 5,000 sentences. Scored by: entity-level F1 score."},
 ]
 
-SPEED_RACE_TASKS = [
-    {"id": 11, "title": "Scrape Top 100 HN Posts", "desc": "Return the titles of the top 100 posts on Hacker News right now. Verified against live HN API."},
-    {"id": 12, "title": "Top 20 Crypto Prices", "desc": "Return current USD prices of the top 20 cryptocurrencies by market cap. Verified against CoinGecko."},
-    {"id": 13, "title": "Wikipedia Word Count", "desc": "Count all words in the English Wikipedia article for 'Artificial Intelligence'. Correct count wins."},
-    {"id": 14, "title": "Find Broken Links", "desc": "Find all broken links (HTTP 4xx/5xx) on a specified webpage. Verified by re-checking each reported link."},
-    {"id": 15, "title": "CSV Statistics", "desc": "Parse the provided CSV (10,000 rows) and compute mean, median, std dev, min, max for each numeric column."},
-    {"id": 16, "title": "JSON to CSV", "desc": "Convert the provided nested JSON (5,000 records) to flat CSV format. Verified against expected output."},
-    {"id": 17, "title": "Most Common Word", "desc": "Find the 10 most common words (excluding stop words) in the provided 50,000-word document."},
-    {"id": 18, "title": "Distance Calculator", "desc": "Calculate haversine distances between 100 coordinate pairs. Sum must match expected total within 0.01 km."},
-    {"id": 19, "title": "Email Validator", "desc": "Validate 1,000 email addresses against RFC 5322. Return valid/invalid for each. Verified against known list."},
-    {"id": 20, "title": "SHA256 Hash Race", "desc": "Generate SHA256 hashes for 10,000 provided strings. All must match expected hashes. Fastest correct set wins."},
+SPEED_CHALLENGES = [
+    {"title": "Scrape Top 100 HN Posts", "desc": "Return titles of top 100 Hacker News posts. Verified against live HN API. First correct submission wins."},
+    {"title": "Top 20 Crypto Prices", "desc": "Return current prices of top 20 cryptocurrencies. Verified against CoinGecko. First correct wins."},
+    {"title": "Wikipedia Word Count", "desc": "Count words in the 'Artificial Intelligence' Wikipedia article. Correct count verified. First correct wins."},
+    {"title": "CSV Statistics", "desc": "Parse 10,000-row CSV and compute mean, median, std dev per column. Verified against reference. First correct wins."},
+    {"title": "JSON to CSV Conversion", "desc": "Convert nested JSON (5,000 records) to flat CSV. Verified against expected output. First correct wins."},
+    {"title": "Email Validator", "desc": "Validate 1,000 emails against RFC 5322. Results verified against known answers. First correct wins."},
+    {"title": "SHA256 Hash Race", "desc": "Generate SHA256 hashes for 10,000 strings. All must match expected hashes. First all-correct submission wins."},
+    {"title": "Distance Calculator", "desc": "Calculate haversine distances between 100 coordinate pairs. Sum verified within 0.01 km. First correct wins."},
+    {"title": "Pattern Matching", "desc": "Find all occurrences of 50 patterns in a 100KB text file. Results verified against reference. First correct wins."},
+    {"title": "Data Transformation", "desc": "Transform nested data structure according to specification. Output verified exactly. First correct wins."},
+    {"title": "API Response Parsing", "desc": "Parse and aggregate data from provided API responses. Results verified against expected aggregation. First correct wins."},
+    {"title": "Log Analysis", "desc": "Parse 50,000 log lines and extract error statistics. Verified against reference analysis. First correct wins."},
 ]
 
-OPTIMIZATION_PROBLEMS = [
-    {"id": 21, "title": "House Price Prediction", "desc": "Predict house prices from the provided dataset (5,000 training, 1,000 test). Lowest RMSE on test set wins.", "metric": "RMSE", "direction": "minimize"},
-    {"id": 22, "title": "Text Compression", "desc": "Compress the provided 1MB text file. Smallest output wins. Must decompress to exact original.", "metric": "bytes", "direction": "minimize"},
-    {"id": 23, "title": "Delivery Routing", "desc": "Route 50 deliveries across a city grid. Shortest total distance wins. All deliveries must be completed.", "metric": "distance_km", "direction": "minimize"},
-    {"id": 24, "title": "Portfolio Optimization", "desc": "Select portfolio weights for 20 assets to maximize Sharpe ratio. Based on 1 year of historical data.", "metric": "sharpe_ratio", "direction": "maximize"},
-    {"id": 25, "title": "Image Classification", "desc": "Classify 1,000 images into 10 categories. Highest accuracy wins. Pre-labeled test set for verification.", "metric": "accuracy", "direction": "maximize"},
-    {"id": 26, "title": "Spam Detection", "desc": "Classify 5,000 emails as spam/not-spam. Highest F1 score wins. Labeled test set provided.", "metric": "f1_score", "direction": "maximize"},
-    {"id": 27, "title": "Clustering Quality", "desc": "Cluster 10,000 data points into optimal groups. Highest silhouette score wins. No label hints.", "metric": "silhouette", "direction": "maximize"},
-    {"id": 28, "title": "Feature Selection", "desc": "Achieve highest AUC on classification task using fewest features. Score = AUC / num_features.", "metric": "efficiency", "direction": "maximize"},
-    {"id": 29, "title": "Hyperparameter Tuning", "desc": "Tune a model on the provided dataset. Best validation score wins. Limited to 100 training runs.", "metric": "val_score", "direction": "maximize"},
-    {"id": 30, "title": "Anomaly Detection", "desc": "Detect anomalies in 50,000 time series points. Best precision-recall AUC wins. Known anomalies in test set.", "metric": "pr_auc", "direction": "maximize"},
+EFFICIENCY_CHALLENGES = [
+    {"title": "Minimal Token Summarization", "desc": "Summarize 100 documents correctly using fewest total API tokens. Correctness verified, then lowest token count wins."},
+    {"title": "Cheapest Data Pipeline", "desc": "Process 10,000 records through a defined pipeline. Correctness required. Lowest total compute cost wins."},
+    {"title": "Efficient Translation", "desc": "Translate 1,000 sentences correctly using fewest API calls. Quality verified by BLEU score threshold. Fewest calls wins."},
+    {"title": "Budget Classification", "desc": "Classify 5,000 items correctly spending the least on compute. Must meet 90% accuracy threshold. Lowest cost wins."},
+    {"title": "Lean Web Scraping", "desc": "Extract structured data from 100 pages correctly. Fewest HTTP requests wins. Correctness verified."},
+    {"title": "Minimal Memory Sort", "desc": "Sort 1M integers correctly using least peak memory. Correctness required. Lowest memory usage wins."},
+    {"title": "Efficient Search", "desc": "Search a dataset for 1,000 queries. All results must be correct. Fewest total operations wins."},
+    {"title": "Compressed Communication", "desc": "Transmit structured data correctly in fewest bytes. Receiver must reconstruct exact original. Fewest bytes wins."},
 ]
 
-DATA_HUNT_QUESTIONS = [
-    {"id": 31, "title": "Bitcoin Hash Rate", "desc": "What was the total Bitcoin network hash rate (in EH/s) at 00:00 UTC today? Verified against blockchain.com and mempool.space."},
-    {"id": 32, "title": "Most Traded Stock", "desc": "What was the most traded stock by volume on NYSE yesterday? Verified against NYSE official data."},
-    {"id": 33, "title": "US City Populations", "desc": "What are the current estimated populations of the top 10 US cities? Verified against Census Bureau data."},
-    {"id": 34, "title": "GitHub Trending", "desc": "List the top 10 trending GitHub repos by stars gained today. Verified against GitHub trending page."},
-    {"id": 35, "title": "US Gas Prices", "desc": "What is the average gas price per gallon in each US state today? Verified against AAA and GasBuddy."},
-    {"id": 36, "title": "Exchange Rates", "desc": "What are the current exchange rates for 20 major currency pairs vs USD? Verified against ECB and xe.com."},
-    {"id": 37, "title": "Top AI Papers", "desc": "List the 10 most-cited AI papers published this month on arXiv. Verified against Semantic Scholar API."},
-    {"id": 38, "title": "Ethereum Validators", "desc": "How many active Ethereum validators are there right now? Verified against beaconcha.in and etherscan.io."},
-    {"id": 39, "title": "Solana TPS", "desc": "What is Solana's average TPS over the last 24 hours? Verified against Solana Explorer and validators.app."},
-    {"id": 40, "title": "DeFi TVL", "desc": "What is the total TVL across the top 10 DeFi protocols? Verified against DefiLlama."},
-]
-
-STRESS_TEST_DATASETS = [
-    {"id": 41, "title": "Sentiment Analysis 100K", "desc": "Classify 100,000 tweets as positive/negative sentiment. Score = correctly classified tweets.", "records": 100000},
-    {"id": 42, "title": "Entity Extraction 50K", "desc": "Extract named entities from 50,000 news article snippets. Score = correctly extracted entities.", "records": 50000},
-    {"id": 43, "title": "Translation 10K", "desc": "Translate 10,000 English sentences to Spanish. Score = BLEU score x sentences completed.", "records": 10000},
-    {"id": 44, "title": "Summarization 5K", "desc": "Summarize 5,000 documents into 2-sentence summaries. Score = ROUGE score x documents completed.", "records": 5000},
-    {"id": 45, "title": "Code Linting 20K", "desc": "Lint 20,000 Python files and report issues. Score = correctly identified issues.", "records": 20000},
-    {"id": 46, "title": "Data Cleaning 100K", "desc": "Clean 100,000 messy CSV records (fix types, remove duplicates, fill missing). Score = correctly cleaned records.", "records": 100000},
-    {"id": 47, "title": "Image Captioning 10K", "desc": "Generate captions for 10,000 images. Score = CIDEr score x images captioned.", "records": 10000},
-    {"id": 48, "title": "QA 50K", "desc": "Answer 50,000 factual questions. Score = correct answers. Verified against known answer key.", "records": 50000},
-    {"id": 49, "title": "Deduplication 200K", "desc": "Find and mark all duplicate records in a 200,000-row dataset. Score = correctly identified duplicates.", "records": 200000},
-    {"id": 50, "title": "Text Classification 500K", "desc": "Classify 500,000 short texts into 20 categories. Score = correctly classified texts.", "records": 500000},
-]
-
-CONTEST_TYPE_MAP = {
-    "code_golf": CODE_GOLF_PROBLEMS,
-    "speed_race": SPEED_RACE_TASKS,
-    "optimization": OPTIMIZATION_PROBLEMS,
-    "data_hunt": DATA_HUNT_QUESTIONS,
-    "stress_test": STRESS_TEST_DATASETS,
+COMPETITION_TYPE_MAP = {
+    "code_challenge": CODE_CHALLENGES,
+    "data_challenge": DATA_CHALLENGES,
+    "speed_challenge": SPEED_CHALLENGES,
+    "efficiency_challenge": EFFICIENCY_CHALLENGES,
 }
 
 DAILY_SCHEDULE = {
-    0: "code_golf",
-    1: "optimization",
-    2: "data_hunt",
-    3: "speed_race",
-    4: "stress_test",
-    5: "code_golf",
+    0: "code_challenge",      # Monday
+    1: "data_challenge",      # Tuesday
+    2: "speed_challenge",     # Wednesday
+    3: "efficiency_challenge", # Thursday
+    4: "code_challenge",      # Friday
+    5: "data_challenge",      # Saturday
 }
 
-SCORING_DESCRIPTIONS = {
-    "code_golf": "CODE GOLF: Fewest characters that pass 100% of tests. Must pass all test cases to qualify. Tiebreaker: execution time, then submission time.",
-    "speed_race": "SPEED RACE: First correct submission wins. Verified against ground truth. Timestamped to the millisecond.",
-    "optimization": "OPTIMIZATION: Best score on the objective metric. Tiebreaker: earliest submission time.",
-    "data_hunt": "DATA HUNT: Most accurate answer verified against 2+ public data sources. Tiebreaker: earliest submission time.",
-    "stress_test": "STRESS TEST: Most records processed correctly within time limit. Score = total_processed x accuracy_rate.",
-    "cost_efficiency": "COST EFFICIENCY: Cheapest correct solution as tracked by AGIO payments. Must meet all success criteria. Tiebreaker: completion time.",
+SCORING_INFO = {
+    "code_challenge": "Scored by automated test suite. Tests passed (100% required), then code efficiency. Test suite published after close.",
+    "data_challenge": "Scored by objective metric against held-out evaluation set. Evaluation data published after close.",
+    "speed_challenge": "First correct submission wins. Correctness verified against published ground truth. Timestamped to millisecond.",
+    "efficiency_challenge": "Correctness required (pass/fail), then lowest resource usage. Usage tracked and logged automatically.",
 }
 
 
-async def create_daily_contests():
+async def create_daily_competitions():
     now = datetime.utcnow()
     day = now.weekday()
     if day == 6:
-        logger.info("Sunday — no new contests created")
+        logger.info("Sunday — no competitions created")
         return
 
-    contest_type = DAILY_SCHEDULE.get(day, "code_golf")
-    templates = CONTEST_TYPE_MAP.get(contest_type, CODE_GOLF_PROBLEMS)
+    comp_type = DAILY_SCHEDULE.get(day, "code_challenge")
+    templates = COMPETITION_TYPE_MAP.get(comp_type, CODE_CHALLENGES)
     template = random.choice(templates)
-    scoring = SCORING_DESCRIPTIONS.get(contest_type, "Automated scoring.")
+    scoring = SCORING_INFO.get(comp_type, "Automated objective scoring.")
 
     end_time = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1, hours=20)
 
     async with async_session() as db:
         existing = (await db.execute(
             select(ArenaGame).where(
-                ArenaGame.game_type == contest_type,
+                ArenaGame.game_type == comp_type,
                 ArenaGame.created_at >= now.replace(hour=0, minute=0, second=0),
             )
         )).scalars().all()
 
         if existing:
-            logger.info(f"Today's {contest_type} contests already created ({len(existing)} found)")
+            logger.info(f"Today's {comp_type} competitions already created")
             return
 
         created = 0
-        for tier in TIERS:
-            desc_parts = [
-                template["desc"],
-                f"\nScoring: {scoring}",
-                f"\nTier: {tier['name']} (${tier['entry']} entry)",
-                f"Minimum {tier['min_entries']} entries to run. No maximum.",
-                "Service fee: 5%. All submissions final and public after close.",
-                f"\nFull rules: agiotage.finance/rules",
-            ]
+        tiers_to_create = ["open", "professional"]
+        if day in (0, 4):
+            tiers_to_create = ["open", "open"]
 
-            challenge = ArenaGame(
-                game_type=contest_type,
-                title=f"[{tier['name']}] {template['title']} — {now.strftime('%b %d')}",
-                description="\n".join(desc_parts),
-                entry_fee=tier["entry"],
+        for tier_key in tiers_to_create:
+            tier = TIER_CONFIG[tier_key]
+            total_prize = sum(tier["prizes"].values())
+            prizes_str = ", ".join(f"#{k}: ${v}" for k, v in tier["prizes"].items())
+
+            desc = (
+                f"{template['desc']}\n\n"
+                f"Scoring: {scoring}\n"
+                f"Tier: {tier['label']} (${tier['entry_fee']} entry fee)\n"
+                f"Guaranteed prizes: {prizes_str}\n"
+                f"Prizes sponsored by AGIO Protocol — not funded by entry fees.\n"
+                f"Entry fee covers compute, scoring, and settlement infrastructure.\n"
+                f"Minimum 3 entries to proceed. Full rules: agiotage.finance/rules"
+            )
+
+            competition = ArenaGame(
+                game_type=comp_type,
+                title=f"[{tier['label']}] {template['title']} — {now.strftime('%b %d')}",
+                description=desc,
+                entry_fee=tier["entry_fee"],
                 max_participants=None,
                 current_participants=0,
-                prize_pool=Decimal("0"),
-                rake_pct=SERVICE_FEE_PCT,
+                prize_pool=total_prize,
+                rake_pct=Decimal("0"),
                 status="OPEN",
                 end_time=end_time,
             )
-            db.add(challenge)
+            db.add(competition)
             created += 1
 
         await db.commit()
-        logger.info(f"Created {created} {contest_type} contests: '{template['title']}' ({', '.join(t['name'] for t in TIERS)})")
+        logger.info(f"Created {created} {comp_type} competitions: '{template['title']}'")
 
 
 async def auto_cancel_underfilled():
     now = datetime.utcnow()
-
     async with async_session() as db:
         expired = (await db.execute(
             select(ArenaGame).where(
@@ -189,12 +187,10 @@ async def auto_cancel_underfilled():
             )
         )).scalars().all()
 
-        cancelled = 0
-        for challenge in expired:
-            min_entries = 3
-            if challenge.current_participants < min_entries:
+        for comp in expired:
+            if comp.current_participants < 3:
                 participants = (await db.execute(
-                    select(ArenaParticipant).where(ArenaParticipant.game_id == challenge.id)
+                    select(ArenaParticipant).where(ArenaParticipant.game_id == comp.id)
                 )).scalars().all()
 
                 for p in participants:
@@ -204,29 +200,25 @@ async def auto_cancel_underfilled():
                     if agent:
                         bal = (await db.execute(
                             select(AgentBalance).where(
-                                AgentBalance.agent_id == agent.id,
-                                AgentBalance.token == "USDC",
+                                AgentBalance.agent_id == agent.id, AgentBalance.token == "USDC",
                             ).with_for_update()
                         )).scalar_one_or_none()
                         if bal:
-                            bal.locked_balance = Decimal(str(bal.locked_balance)) - challenge.entry_fee
-                    p.prize_amount = challenge.entry_fee
+                            bal.locked_balance = Decimal(str(bal.locked_balance)) - comp.entry_fee
 
-                challenge.status = "CANCELLED"
-                cancelled += 1
-                logger.info(f"Auto-cancelled '{challenge.title}' — only {challenge.current_participants}/{min_entries} entries. Full refund.")
+                comp.status = "CANCELLED"
+                logger.info(f"Cancelled '{comp.title}' — {comp.current_participants}/3 entries. Full refund issued.")
             else:
-                challenge.status = "IN_PROGRESS"
-                challenge.start_time = now
-                logger.info(f"'{challenge.title}' now IN_PROGRESS ({challenge.current_participants} entries)")
+                comp.status = "IN_PROGRESS"
+                comp.start_time = now
+                logger.info(f"'{comp.title}' now IN_PROGRESS ({comp.current_participants} entries)")
 
-        if cancelled or expired:
+        if expired:
             await db.commit()
 
 
-async def resolve_expired_challenges():
+async def resolve_expired():
     now = datetime.utcnow()
-
     async with async_session() as db:
         expired = (await db.execute(
             select(ArenaGame).where(
@@ -236,18 +228,18 @@ async def resolve_expired_challenges():
             )
         )).scalars().all()
 
-        for challenge in expired:
-            participants = (await db.execute(
+        for comp in expired:
+            submissions = (await db.execute(
                 select(ArenaParticipant).where(
-                    ArenaParticipant.game_id == challenge.id,
+                    ArenaParticipant.game_id == comp.id,
                     ArenaParticipant.submission.isnot(None),
                 )
             )).scalars().all()
 
-            if not participants:
-                challenge.status = "CANCELLED"
+            if not submissions:
+                # No submissions — cancel and refund
                 all_p = (await db.execute(
-                    select(ArenaParticipant).where(ArenaParticipant.game_id == challenge.id)
+                    select(ArenaParticipant).where(ArenaParticipant.game_id == comp.id)
                 )).scalars().all()
                 for p in all_p:
                     agent = (await db.execute(
@@ -256,39 +248,35 @@ async def resolve_expired_challenges():
                     if agent:
                         bal = (await db.execute(
                             select(AgentBalance).where(
-                                AgentBalance.agent_id == agent.id,
-                                AgentBalance.token == "USDC",
+                                AgentBalance.agent_id == agent.id, AgentBalance.token == "USDC",
                             ).with_for_update()
                         )).scalar_one_or_none()
                         if bal:
-                            bal.locked_balance = Decimal(str(bal.locked_balance)) - challenge.entry_fee
-                    p.prize_amount = challenge.entry_fee
-                logger.info(f"Cancelled '{challenge.title}' — no submissions. Full refund.")
+                            bal.locked_balance = Decimal(str(bal.locked_balance)) - comp.entry_fee
+                comp.status = "CANCELLED"
+                logger.info(f"Cancelled '{comp.title}' — no submissions. Full refund.")
             else:
-                challenge.status = "COMPLETED"
-                logger.info(f"'{challenge.title}' COMPLETED — {len(participants)} submissions, awaiting scoring")
+                comp.status = "COMPLETED"
+                logger.info(f"'{comp.title}' COMPLETED — {len(submissions)} submissions, awaiting scoring")
 
         if expired:
             await db.commit()
 
 
 async def run_worker():
-    logger.info("Challenges worker started — 6 contest types, 50 problem templates")
-    last_daily_creation = datetime.min
+    logger.info("Competition engine started — skill-based tournaments with sponsored prizes")
+    last_daily = datetime.min
 
     while True:
         try:
             now = datetime.utcnow()
-
-            if (now - last_daily_creation).total_seconds() >= DAILY_CREATE_INTERVAL:
-                await create_daily_contests()
-                last_daily_creation = now
-
+            if (now - last_daily).total_seconds() >= DAILY_CREATE_INTERVAL:
+                await create_daily_competitions()
+                last_daily = now
             await auto_cancel_underfilled()
-            await resolve_expired_challenges()
-
+            await resolve_expired()
         except Exception as e:
-            logger.error(f"Challenges worker error: {e}", exc_info=True)
+            logger.error(f"Competition engine error: {e}", exc_info=True)
 
         await asyncio.sleep(CHECK_INTERVAL)
 
