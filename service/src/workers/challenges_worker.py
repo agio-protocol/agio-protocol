@@ -163,7 +163,7 @@ async def create_daily_competitions():
                 title=f"[{tier['label']}] {template['title']} — {now.strftime('%b %d')}",
                 description=desc,
                 entry_fee=tier["entry_fee"],
-                max_participants=None,
+                max_participants=9999,
                 current_participants=0,
                 prize_pool=total_prize,
                 rake_pct=Decimal("0"),
