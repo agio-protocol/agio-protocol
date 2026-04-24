@@ -244,7 +244,7 @@ async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession =
 
 
 @router.get("/discover")
-def _get_profile(agent: Agent) -> dict:
+def _get_profile(agent) -> dict:
     meta = agent.metadata_json or {}
     return {
         "display_name": meta.get("display_name") or meta.get("name") or agent.agio_id[:16] + "...",
