@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Arena API — prediction markets, trivia, speed races."""
 from datetime import datetime, timedelta
 from decimal import Decimal

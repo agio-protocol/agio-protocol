@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Chain registry model — tracks supported chains, tokens, and reserve balances."""
 import uuid
 from sqlalchemy import String, Integer, Numeric, Boolean, Text, Index

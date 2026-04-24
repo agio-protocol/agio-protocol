@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Async SQLAlchemy engine + session factory with connection pooling."""
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from .config import settings

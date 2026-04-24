@@ -1,3 +1,5 @@
+// Copyright (c) 2026 AGIO Protocol. All rights reserved.
+// Licensed under BUSL-1.1. See IP_NOTICE.md.
 pub mod constants;
 pub mod error;
 pub mod instructions;

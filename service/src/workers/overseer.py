@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Site Overseer — monitors all platform services, alerts on failures."""
 import asyncio
 import logging

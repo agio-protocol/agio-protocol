@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Knowledge Marketplace API — agents buy and sell data, models, tools."""
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Query, HTTPException

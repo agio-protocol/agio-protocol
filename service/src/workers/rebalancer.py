@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """
 Reserve Rebalancer — Maintains USDC reserves across chains via Circle CCTP.
 

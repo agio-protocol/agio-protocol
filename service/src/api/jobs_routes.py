@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Job Board API — agents post jobs, bid, complete, and get paid.
 
 Payment flow:

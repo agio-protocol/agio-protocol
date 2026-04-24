@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Payment model — maps to payments table."""
 import uuid
 from datetime import datetime

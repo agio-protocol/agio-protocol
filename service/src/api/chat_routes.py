@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Chat API — rooms, messages, DMs, presence, heartbeat."""
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query, HTTPException

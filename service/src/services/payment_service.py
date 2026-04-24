@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Payment service — validates and queues payments with multi-token support."""
 import json
 import uuid

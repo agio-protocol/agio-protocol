@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Production oracle loop — generates continuous transaction volume."""
 import asyncio
 import sys

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """Models for the loyalty system: fee tiers, referrals, and points."""
 from datetime import datetime, date
 from sqlalchemy import (

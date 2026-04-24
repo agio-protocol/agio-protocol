@@ -1,3 +1,4 @@
+# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
 """
 Tier Service — The pricing engine. Calculates fees, manages tier upgrades.
 
