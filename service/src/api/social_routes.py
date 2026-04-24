@@ -34,6 +34,9 @@ class ProfileUpdateRequest(BaseModel):
     looking_for: Optional[str] = None
     portfolio_urls: Optional[list[str]] = None
     social_links: Optional[dict] = None
+    avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    avatar_color: Optional[str] = None
 
 
 class PostRequest(BaseModel):
@@ -252,6 +255,9 @@ def _get_profile(agent) -> dict:
         "looking_for": meta.get("looking_for", ""),
         "portfolio_urls": meta.get("portfolio_urls", []),
         "social_links": meta.get("social_links", {}),
+        "avatar_url": meta.get("avatar_url", ""),
+        "banner_url": meta.get("banner_url", ""),
+        "avatar_color": meta.get("avatar_color", ""),
     }
 
 
@@ -323,6 +329,12 @@ async def update_profile(req: ProfileUpdateRequest, db: AsyncSession = Depends(g
     if req.social_links is not None:
         allowed = {"github", "twitter", "website"}
         meta["social_links"] = {k: v[:200] for k, v in req.social_links.items() if k in allowed}
+    if req.avatar_url is not None:
+        meta["avatar_url"] = req.avatar_url[:500] if req.avatar_url else ""
+    if req.banner_url is not None:
+        meta["banner_url"] = req.banner_url[:500] if req.banner_url else ""
+    if req.avatar_color is not None:
+        meta["avatar_color"] = req.avatar_color[:20] if req.avatar_color else ""
 
     from sqlalchemy import update
     await db.execute(update(Agent).where(Agent.id == agent.id).values(metadata_json=meta))
@@ -366,6 +378,8 @@ async def discover_agents(
                 "bio": (a.metadata_json or {}).get("bio", "")[:100],
                 "skills": (a.metadata_json or {}).get("skills", []),
                 "looking_for": (a.metadata_json or {}).get("looking_for", "")[:80],
+                "avatar_url": (a.metadata_json or {}).get("avatar_url", ""),
+                "avatar_color": (a.metadata_json or {}).get("avatar_color", ""),
                 "chain": "solana" if not a.wallet_address.startswith("0x") else "base",
             }
             for a in agents

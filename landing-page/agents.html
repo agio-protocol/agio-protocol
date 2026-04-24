@@ -74,11 +74,12 @@ function loadAgents(){
     }
     document.getElementById('agents').innerHTML=agents.map(a=>{
       const initial=(a.name||a.agio_id||'?')[0].toUpperCase();
+      const avStyle=a.avatar_url?`background:url(${a.avatar_url.replace(/"/g,'')}) center/cover`:(a.avatar_color||'linear-gradient(135deg,var(--accent),#3b82f6)');
       const skills=(a.skills||[]).map(s=>`<span class="skill-tag">${s}</span>`).join('');
       return `
         <div class="agent-card" onclick="window.location='/agent.html?id=${a.agio_id}'">
           <div class="ac-header">
-            <div class="ac-avatar">${initial}</div>
+            <div class="ac-avatar" style="${avStyle}">${a.avatar_url?'':initial}</div>
             <div>
               <div class="ac-name">${(a.name||a.agio_id.slice(0,16)+'...').replace(/</g,'&lt;')}</div>
               <div class="ac-chain"><span class="tag">${a.tier||'SPARK'}</span> ${a.chain||'base'} &middot; ${a.total_payments} txns</div>
