@@ -236,6 +236,28 @@
         </div>
     </div>
 
+    <!-- Send Payment Modal -->
+    <div class="modal" id="send-modal">
+        <div class="modal-box">
+            <h3>Send Payment</h3>
+            <label>To (Agiotage ID)</label>
+            <input type="text" id="send-to" placeholder="0x... or agio:sol:..." oninput="checkSendRoute()">
+            <label>Amount</label>
+            <div style="display:flex;gap:8px">
+                <input type="number" id="send-amount" placeholder="0.00" step="0.001" min="0.001" style="flex:1">
+                <select id="send-token" style="width:90px"></select>
+            </div>
+            <label>Memo (optional)</label>
+            <input type="text" id="send-memo" placeholder="What's this for?">
+            <div id="send-route-info" style="font-size:12px;color:#6b7280;margin-top:8px"></div>
+            <div id="send-msg" style="font-size:12px;margin-top:8px;display:none"></div>
+            <div class="modal-actions">
+                <button style="background:#374151;color:#9ca3af" onclick="document.getElementById('send-modal').classList.remove('open')">Cancel</button>
+                <button style="background:#10b981;color:#000" onclick="confirmSendPayment()">Send</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Withdraw Modal -->
     <div class="modal" id="withdraw-modal">
         <div class="modal-box">
@@ -421,6 +443,11 @@
                 ${savingsHtml}
                 <div class="card"><div class="label">Days on Agiotage</div><div class="value">${d.stats.days_on_agio}</div><div class="sub">since ${new Date(d.stats.registered_at).toLocaleDateString()}</div></div>
             </div>
+            <div style="display:flex;gap:10px;margin-bottom:20px">
+                <button onclick="openSendPayment()" style="padding:10px 20px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Send Payment</button>
+                <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:10px 20px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Deposit</button>
+            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
                 <div>
                     <div class="section">
@@ -652,6 +679,51 @@
             agentData.payment_mode = mode;
             loadSettings();
         } catch { alert('Failed to update payment mode'); }
+    }
+
+    function openSendPayment() {
+        document.getElementById('send-modal').classList.add('open');
+        document.getElementById('send-msg').style.display = 'none';
+        document.getElementById('send-to').value = '';
+        document.getElementById('send-amount').value = '';
+        document.getElementById('send-memo').value = '';
+        document.getElementById('send-route-info').textContent = '';
+        const sel = document.getElementById('send-token');
+        sel.innerHTML = getTokensForChain().map(t => `<option>${t}</option>`).join('');
+    }
+
+    async function checkSendRoute() {
+        const toId = document.getElementById('send-to').value.trim();
+        if (!toId || toId.length < 10) { document.getElementById('send-route-info').textContent = ''; return; }
+        const isSol = toId.includes('agio:sol:') || toId.length > 50;
+        const senderSol = agentChain === 'solana';
+        const isCross = isSol !== senderSol;
+        document.getElementById('send-route-info').innerHTML = isCross
+            ? '<span style="color:#f59e0b">Cross-chain (' + (senderSol ? 'Solana' : 'Base') + ' \u2192 ' + (isSol ? 'Solana' : 'Base') + ')</span> \u00b7 Fee: $0.002'
+            : 'Same-chain \u00b7 Fee: $0.00015';
+    }
+
+    async function confirmSendPayment() {
+        const toId = document.getElementById('send-to').value.trim();
+        const amt = parseFloat(document.getElementById('send-amount').value);
+        const token = document.getElementById('send-token').value;
+        const memo = document.getElementById('send-memo').value.trim();
+        const msg = document.getElementById('send-msg');
+        if (!toId) { msg.textContent = 'Enter recipient Agiotage ID'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
+        if (!amt || amt <= 0) { msg.textContent = 'Enter amount'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
+        msg.textContent = 'Sending...'; msg.style.color = '#10b981'; msg.style.display = 'block';
+        try {
+            const r = await fetch(`${API_ROOT}/pay`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from_agio_id: agioId, to_agio_id: toId, amount: amt, token, memo: memo || null }),
+            });
+            const d = await r.json();
+            if (d.payment_id) {
+                const isXC = d.routing === 'CROSS_CHAIN';
+                msg.innerHTML = '\u2705 Payment sent!<br>$' + amt.toFixed(4) + ' ' + token + ' \u2192 ' + toId.slice(0, 16) + '...<br>Fee: $' + (d.fee || 0).toFixed(5) + (isXC ? ' (cross-chain \ud83c\udf10)' : '') + '<br>Status: ' + (d.status || 'QUEUED');
+                setTimeout(() => { document.getElementById('send-modal').classList.remove('open'); enterDashboard(); }, 3000);
+            } else { msg.textContent = d.detail || 'Payment failed'; msg.style.color = '#ef4444'; }
+        } catch { msg.textContent = 'Error'; msg.style.color = '#ef4444'; }
     }
 
     setInterval(async () => {

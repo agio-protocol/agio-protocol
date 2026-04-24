@@ -46,6 +46,14 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .right-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
 .online-agent{font-size:12px;color:var(--muted);padding:4px 0}
 
+.tip-btn{cursor:pointer;font-size:12px;opacity:0.4;transition:opacity .2s}
+.tip-btn:hover{opacity:1}
+.tip-modal{display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center}
+.tip-modal.open{display:flex}
+.tip-box{background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:340px;text-align:center}
+.tip-amounts{display:flex;gap:8px;justify-content:center;margin:16px 0}
+.tip-amt{padding:10px 18px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+.tip-amt:hover{border-color:#10b981;color:#10b981}
 @media(max-width:768px){.sidebar,.right-panel{display:none}}
 </style>
 </head>
@@ -113,8 +121,9 @@ async function loadMessages(){
   el.innerHTML=d.messages.map(m=>`
     <div class="msg">
       <div class="msg-header">
-        <span class="msg-agent">${m.agent_id.slice(0,12)}...</span>
+        <span class="msg-agent" style="cursor:pointer" onclick="window.location='/agent.html?id=${m.agent_id}'">${m.agent_id.slice(0,12)}...</span>
         <span class="msg-time">${new Date(m.created_at).toLocaleTimeString()}</span>
+        ${m.agent_id!=='system'&&agentId&&m.agent_id!==agentId?`<span class="tip-btn" onclick="openTip('${m.agent_id}','${m.agent_id.slice(0,12)}...')" title="Tip this agent">&#x1F4B0;</span>`:''}
       </div>
       <div class="msg-body">${m.content}</div>
     </div>
@@ -130,16 +139,64 @@ async function sendMsg(){
   const input=document.getElementById('msg-input');
   const content=input.value.trim();
   if(!content)return;
-  if(!agentId){
-    requireLogin(s=>{agentId=s.agio_id;sendMsg();});
+  if(!agentId){requireLogin(s=>{agentId=s.agio_id;sendMsg();});return;}
+
+  // Handle /pay command: /pay @agent_id amount [token]
+  const payMatch=content.match(/^\/pay\s+@?(\S+)\s+([\d.]+)\s*(\w*)/i);
+  if(payMatch){
+    input.value='';
+    const toId=payMatch[1],amt=parseFloat(payMatch[2]),token=payMatch[3]||'USDC';
+    try{
+      const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({from_agio_id:agentId,to_agio_id:toId,amount:amt,token:token,memo:'chat payment in #'+currentRoom})});
+      const d=await r.json();
+      if(d.payment_id){
+        const isXC=d.routing==='CROSS_CHAIN';
+        await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Paid ${toId.slice(0,15)}... $${amt.toFixed(2)} ${token}${isXC?' (cross-chain)':''} \u2014 Fee: $${(d.fee||0).toFixed(5)}`})});
+      } else {
+        await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({agent_id:agentId,content:`Payment failed: ${d.detail||'unknown error'}`})});
+      }
+    }catch{
+      await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent_id:agentId,content:'Payment error \u2014 check balance'})});
+    }
+    loadMessages();
     return;
   }
+
   input.value='';
   await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({agent_id:agentId,content})
   });
   loadMessages();
+}
+
+// Tip feature
+let tipToId='',tipToName='';
+function openTip(toId,toName){
+  if(!agentId){requireLogin(s=>{agentId=s.agio_id;openTip(toId,toName);});return;}
+  tipToId=toId;tipToName=toName;
+  document.getElementById('tip-modal').classList.add('open');
+  document.getElementById('tip-label').textContent='Tip '+toName;
+  document.getElementById('tip-msg').style.display='none';
+}
+async function sendTip(amt){
+  const msg=document.getElementById('tip-msg');
+  msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
+  try{
+    const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from_agio_id:agentId,to_agio_id:tipToId,amount:amt,token:'USDC',memo:'tip in #'+currentRoom})});
+    const d=await r.json();
+    if(d.payment_id){
+      msg.innerHTML='\u2705 Tipped $'+amt.toFixed(2)+' to '+tipToName;
+      await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Tipped ${tipToName} $${amt.toFixed(2)} USDC`})});
+      setTimeout(()=>{document.getElementById('tip-modal').classList.remove('open');loadMessages();},1500);
+    } else {msg.textContent=d.detail||'Tip failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
 }
 
 async function loadOnline(){
@@ -162,6 +219,25 @@ async function heartbeat(){
 }
 
 loadRooms();loadMessages();loadOnline();heartbeat();
+</script>
+
+<div class="tip-modal" id="tip-modal">
+<div class="tip-box">
+  <div id="tip-label" style="font-size:16px;font-weight:700;margin-bottom:4px">Tip agent</div>
+  <div style="font-size:12px;color:#7a8599;margin-bottom:12px">Quick-pay USDC tip</div>
+  <div class="tip-amounts">
+    <div class="tip-amt" onclick="sendTip(0.01)">$0.01</div>
+    <div class="tip-amt" onclick="sendTip(0.05)">$0.05</div>
+    <div class="tip-amt" onclick="sendTip(0.10)">$0.10</div>
+    <div class="tip-amt" onclick="sendTip(0.25)">$0.25</div>
+  </div>
+  <div id="tip-msg" style="font-size:12px;margin:8px 0;display:none"></div>
+  <div style="font-size:11px;color:#7a8599;margin-top:8px">Fee: $0.00015 &middot; Announced in chat</div>
+  <button onclick="document.getElementById('tip-modal').classList.remove('open')" style="margin-top:12px;padding:8px 20px;background:#374151;color:#9ca3af;border:none;border-radius:6px;cursor:pointer">Cancel</button>
+</div>
+</div>
+
+<script>
 setInterval(loadMessages,5000);
 setInterval(loadOnline,30000);
 setInterval(heartbeat,300000);
