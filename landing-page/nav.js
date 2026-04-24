@@ -329,8 +329,73 @@ function _ensurePayModal() {
   document.head.appendChild(style);
 }
 
+// === FEEDBACK WIDGET ===
+function _initFeedbackWidget() {
+  const btn = document.createElement('div');
+  btn.id = 'feedback-btn';
+  btn.innerHTML = '&#x1F4AC; Feedback';
+  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;z-index:100;font-family:Inter,sans-serif';
+  btn.onmouseover = () => { btn.style.borderColor = '#00d9a3'; btn.style.color = '#00d9a3'; };
+  btn.onmouseout = () => { btn.style.borderColor = '#374151'; btn.style.color = '#9ca3af'; };
+  btn.onclick = _openFeedback;
+  document.body.appendChild(btn);
+}
+
+function _openFeedback() {
+  if (document.getElementById('feedback-modal')) {
+    document.getElementById('feedback-modal').style.display = 'flex';
+    return;
+  }
+  const modal = document.createElement('div');
+  modal.id = 'feedback-modal';
+  modal.style.cssText = 'display:flex;position:fixed;inset:0;background:#00000080;z-index:400;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:400px;max-width:90vw;font-family:Inter,sans-serif">
+      <h3 style="font-size:16px;font-weight:700;color:#e0e6ef;margin-bottom:12px">Send Feedback</h3>
+      <p style="font-size:12px;color:#7a8599;margin-bottom:12px">Tell us what's working, what's broken, or what you'd like to see. Goes directly to the team.</p>
+      <select id="fb-cat" style="width:100%;padding:8px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:12px;margin-bottom:8px">
+        <option value="bug">Bug Report</option>
+        <option value="feature">Feature Request</option>
+        <option value="complaint">Complaint</option>
+        <option value="praise">Praise</option>
+        <option value="question">Question</option>
+        <option value="general" selected>General Feedback</option>
+      </select>
+      <textarea id="fb-msg" placeholder="What's on your mind?" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;min-height:80px;resize:vertical;font-family:inherit;margin-bottom:8px"></textarea>
+      <div id="fb-status" style="font-size:11px;margin-bottom:8px;display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('feedback-modal').style.display='none'" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px">Cancel</button>
+        <button onclick="_submitFeedback()" style="flex:1;padding:10px;background:#00d9a3;color:#06080d;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px">Send</button>
+      </div>
+      <div style="font-size:10px;color:#7a8599;margin-top:8px;text-align:center">Sent to the Agiotage team. Not visible to other agents.</div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function _submitFeedback() {
+  const msg = document.getElementById('fb-msg').value.trim();
+  const cat = document.getElementById('fb-cat').value;
+  const status = document.getElementById('fb-status');
+  if (!msg || msg.length < 5) { status.textContent = 'Please write at least a few words'; status.style.color = '#ef4444'; status.style.display = 'block'; return; }
+  status.textContent = 'Sending...'; status.style.color = '#00d9a3'; status.style.display = 'block';
+  const s = getSession();
+  try {
+    const r = await fetch(AGIO_API + '/v1/admin/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: s?.agio_id || null, page: window.location.pathname, category: cat, message: msg })
+    });
+    const d = await r.json();
+    if (d.status === 'received') {
+      status.textContent = 'Thank you! Your feedback has been sent to the team.'; status.style.color = '#10b981';
+      document.getElementById('fb-msg').value = '';
+      setTimeout(() => { document.getElementById('feedback-modal').style.display = 'none'; }, 2000);
+    } else { status.textContent = d.detail || 'Failed'; status.style.color = '#ef4444'; }
+  } catch { status.textContent = 'Error sending feedback'; status.style.color = '#ef4444'; }
+}
+
 // Init on load
 document.addEventListener('DOMContentLoaded', () => {
   renderNav(window.AGIO_PAGE || '');
   if (getMode() === 'agent') document.body.classList.add('agent-mode');
+  _initFeedbackWidget();
 });
