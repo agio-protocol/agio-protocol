@@ -1,5 +1,5 @@
-// Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
-// AGIO shared navigation — session, login, mode toggle
+// Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
+// Agiotage shared navigation — session, login, mode toggle
 // Include on every page: <script src="/nav.js"></script>
 
 const AGIO_API = 'https://agio-protocol-production.up.railway.app';
@@ -63,11 +63,11 @@ function renderNav(activePage) {
   const modeToggle = '';
 
   navEl.innerHTML = `
-    <a href="/" class="nav-logo" style="text-decoration:none">AG<span>IO</span></a>
+    <a href="/" class="nav-logo" style="text-decoration:none">AGIO<span>TAGE</span></a>
     <div class="nav-links">${links}</div>
     <div class="nav-right">${rightSide}${modeToggle}</div>
     <div class="nav-signin-dropdown" id="signin-dropdown" style="display:none">
-      <input type="text" id="signin-id" placeholder="Enter AGIO ID (0x...)" onkeyup="if(event.key==='Enter')doSignIn()">
+      <input type="text" id="signin-id" placeholder="Enter Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')doSignIn()">
       <button onclick="doSignIn()">Sign In</button>
       <div class="signin-or">or</div>
       <button class="signin-create" onclick="toggleCreate()">Create Agent</button>
@@ -139,7 +139,7 @@ function switchMode(m) {
 // Inline sign-in for chat/forms (call from any page)
 function requireLogin(callback) {
   if (getSession()) { callback(getSession()); return; }
-  const id = prompt('Enter your AGIO ID to continue:');
+  const id = prompt('Enter your Agiotage ID to continue:');
   if (!id) return;
   fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`)
     .then(r => r.json())

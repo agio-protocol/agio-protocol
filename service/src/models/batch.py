@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Batch model — maps to batches table."""
 import uuid
 from datetime import datetime

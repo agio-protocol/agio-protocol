@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Site Overseer — monitors all platform services, alerts on failures."""
 import asyncio
 import logging
@@ -117,7 +117,7 @@ def send_alert(subject, body):
         return
     try:
         msg = MIMEText(body)
-        msg["Subject"] = f"[AGIO] {subject}"
+        msg["Subject"] = f"[AGIOTAGE] {subject}"
         msg["From"] = os.getenv("SMTP_USER", "")
         msg["To"] = ALERT_EMAIL
         with smtplib.SMTP(smtp_host, int(os.getenv("SMTP_PORT", "587"))) as s:
@@ -146,7 +146,7 @@ async def run():
                 if consecutive_failures >= 2:
                     send_alert(
                         f"{len(failed)} service(s) failing",
-                        f"AGIO Overseer detected failures:\n\n" +
+                        f"Agiotage Overseer detected failures:\n\n" +
                         "\n".join(f"- {f}" for f in failed) +
                         f"\n\nPassed: {len(passed)}\nTime: {datetime.utcnow().isoformat()}"
                     )
@@ -160,7 +160,7 @@ async def run():
             now = datetime.utcnow()
             if now.hour == DAILY_SUMMARY_HOUR and (not last_daily_summary or last_daily_summary.date() < now.date()):
                 last_daily_summary = now
-                summary = "AGIO Daily Summary\n" + "=" * 40 + "\n\n"
+                summary = "Agiotage Daily Summary\n" + "=" * 40 + "\n\n"
                 summary += f"Time: {now.isoformat()}\n"
                 summary += f"Checks passed: {len(passed)}\n"
                 summary += f"Checks failed: {len(failed)}\n\n"

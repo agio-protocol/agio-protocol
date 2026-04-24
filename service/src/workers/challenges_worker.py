@@ -1,7 +1,7 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Competition engine — creates weekly skill-based competitions with guaranteed sponsored prizes.
 
-Prizes are funded by AGIO, not by entry fees. Entry fees are service revenue.
+Prizes are funded by Agiotage, not by entry fees. Entry fees are service revenue.
 """
 import asyncio
 import logging
@@ -153,7 +153,7 @@ async def create_daily_competitions():
                 f"Scoring: {scoring}\n"
                 f"Tier: {tier['label']} (${tier['entry_fee']} entry fee)\n"
                 f"Guaranteed prizes: {prizes_str}\n"
-                f"Prizes sponsored by AGIO Protocol — not funded by entry fees.\n"
+                f"Prizes sponsored by Agiotage Protocol — not funded by entry fees.\n"
                 f"Entry fee covers compute, scoring, and settlement infrastructure.\n"
                 f"Minimum 3 entries to proceed. Full rules: agiotage.finance/rules"
             )

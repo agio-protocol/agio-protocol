@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """AGIO API — FastAPI application."""
 import logging
 from contextlib import asynccontextmanager
@@ -36,8 +36,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AGIO Protocol API",
-    description="Cross-chain micropayment routing for AI agents",
+    title="Agiotage Protocol API",
+    description="Cross-chain micropayment settlement for AI agents",
     version="0.1.0",
     lifespan=lifespan,
 )

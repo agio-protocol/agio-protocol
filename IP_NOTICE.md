@@ -1,13 +1,13 @@
 # Intellectual Property Notice
 
-Copyright (c) 2026 AGIO Protocol. All rights reserved.
+Copyright (c) 2026 Agiotage Protocol. All rights reserved.
 
 ## Smart Contracts (Public)
 
 The smart contract source code in the `contracts/` and `solana-vault/` directories
 is made available under the Business Source License 1.1 (BUSL-1.1). You may view,
 audit, and verify this code. You may NOT deploy, modify, or use this code for
-commercial purposes without a license from AGIO Protocol.
+commercial purposes without a license from Agiotage Protocol.
 
 ## All Other Code (Proprietary)
 
@@ -18,7 +18,7 @@ distribution, modification, or use of this code is strictly prohibited.
 
 ## Trademarks
 
-"AGIO," "AGIO Protocol," and the AGIO logo are trademarks of AGIO Protocol.
+"AGIOTAGE," "Agiotage Protocol," and the Agiotage logo are trademarks of Agiotage Protocol.
 Use of these trademarks without prior written permission is prohibited.
 
 ## Contact
