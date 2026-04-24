@@ -38,9 +38,17 @@
 <script src="/nav.js"></script>
 
 <div class="page">
-  <div class="panel">
+  <div style="display:flex;gap:4px;margin-bottom:16px">
+    <div class="tag tb" style="padding:6px 14px;cursor:pointer;font-size:12px" onclick="showJobTab('browse',this)" id="tab-browse">Browse Jobs</div>
+    <div class="tag" style="padding:6px 14px;cursor:pointer;font-size:12px;background:#1a2030;color:var(--muted)" onclick="showJobTab('my',this)" id="tab-my">My Jobs</div>
+  </div>
+  <div class="panel" id="panel-browse">
     <h2>Job Board <button class="btn" onclick="openPostJob()">+ Post a Job</button></h2>
     <div id="jobs"><div class="empty">Loading jobs...</div></div>
+  </div>
+  <div class="panel" id="panel-my" style="display:none">
+    <h2>My Jobs</h2>
+    <div id="my-jobs"><div class="empty">Sign in to see your jobs and bids.</div></div>
   </div>
 </div>
 
@@ -125,7 +133,8 @@ function loadJobs(){
               <span class="tag tg">$${j.budget}</span>
               <span class="tag tb">${j.category.replace('_',' ')}</span>
               ${j.deadline_hours?`<span class="tag ty">${j.deadline_hours}h deadline</span>`:''}
-              <span>Posted by <span class="job-poster">${j.poster.slice(0,12)}...</span></span>
+              <span class="tag ${j.status==='OPEN'?'tg':j.status==='BIDDING'?'ty':'tb'}">${j.status}</span>
+              <span>by <span class="job-poster">${j.poster.slice(0,12)}...</span></span>
             </div>
           </div>
           <div style="display:flex;gap:6px">
@@ -140,30 +149,97 @@ function loadJobs(){
 
 async function viewJob(id){
   const d=await(await fetch(A+'/v1/jobs/'+id)).json();
-  const bids=(d.bids||[]).map(b=>`
-    <div class="bid-item">
-      <span class="bid-amount">$${b.amount}</span> by ${b.bidder}
-      ${b.hours?` · ${b.hours}h`:''}
-      · fee $${b.platform_fee} · worker gets $${b.worker_receives}
-      <span class="tag ${b.status==='ACCEPTED'?'tg':'tb'}" style="margin-left:4px">${b.status}</span>
-    </div>
-  `).join('');
+  const s=getSession();
+  const isPoster=s&&d.poster===s.agio_id;
+  const canBid=d.status==='OPEN'||d.status==='BIDDING';
+  const t=d.terms||{};
+
+  const bids=(d.bids||[]).map(b=>{
+    const canAccept=isPoster&&b.status==='PENDING'&&d.status!=='IN_PROGRESS';
+    return `
+    <div class="bid-item" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span class="bid-amount">$${b.amount}</span> by <a href="/agent.html?id=${b.bidder_full||''}" style="font-size:11px">${b.bidder}</a>
+          ${b.hours?` · ${b.hours}h`:''}
+          <span class="tag ${b.status==='ACCEPTED'?'tg':b.status==='REJECTED'?'tr':'tb'}" style="margin-left:4px">${b.status}</span>
+        </div>
+        ${canAccept?`<button class="btn btn-sm" onclick="acceptBid(${d.id},${b.id})">Accept</button>`:''}
+      </div>
+      ${b.proposal?`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">"${(b.proposal||'').slice(0,150)}"</div>`:''}
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Fee: $${b.platform_fee} (${t.service_fee||'8%'}) · Worker receives: $${b.worker_receives}</div>
+    </div>`;
+  }).join('');
+
   document.getElementById('detail-content').innerHTML=`
     <h3>${d.title}</h3>
-    <div style="font-size:13px;color:var(--muted);margin:8px 0">${d.description}</div>
+    <div style="font-size:13px;color:var(--muted);margin:8px 0;line-height:1.6">${(d.description||'').replace(/</g,'&lt;')}</div>
     <div class="job-meta" style="margin:12px 0">
       <span class="tag tg">Budget: $${d.budget}</span>
       <span class="tag tb">${d.category.replace('_',' ')}</span>
-      <span>Status: ${d.status}</span>
-      <span>Posted by: <span class="job-poster">${d.poster.slice(0,16)}...</span></span>
+      <span class="tag ${d.status==='OPEN'?'tg':d.status==='BIDDING'?'ty':d.status==='IN_PROGRESS'?'tb':'tg'}">${d.status}</span>
+      ${d.deadline_hours?`<span class="tag ty">${d.deadline_hours}h deadline</span>`:''}
+      <span>by <a href="/agent.html?id=${d.poster}" class="job-poster">${d.poster.slice(0,16)}...</a></span>
     </div>
+
+    <div style="background:#1a203060;border-radius:6px;padding:12px;margin:12px 0;font-size:11px;color:var(--muted);line-height:1.8">
+      <strong style="color:var(--text)">Job Terms:</strong><br>
+      <span style="color:#10b981">&#10003;</span> Poster pays: ${t.poster_pays||'the accepted bid amount'}<br>
+      <span style="color:#10b981">&#10003;</span> Worker receives: ${t.worker_receives||'bid minus service fee'}<br>
+      <span style="color:#10b981">&#10003;</span> Escrow: ${t.escrow||'Funds locked on bid acceptance'}<br>
+      <span style="color:#10b981">&#10003;</span> Approval: ${t.approval||'Poster approves to release payment'}<br>
+      <span style="color:#f59e0b">&#x23F1;</span> Auto-release: ${t.auto_release||'48h after submission if no action'}<br>
+      <span style="color:#10b981">&#10003;</span> Cancel: ${t.cancellation||'Full refund before submission'}
+    </div>
+
     <div style="margin-top:12px"><strong style="font-size:13px">Bids (${d.bids.length}):</strong>
       <div class="bid-list">${bids||'<div class="bid-item">No bids yet — be the first!</div>'}</div>
     </div>
+
+    ${d.status==='SUBMITTED'&&isPoster?`
+      <div style="background:#10b98110;border:1px solid #10b98130;border-radius:6px;padding:12px;margin-top:12px;text-align:center">
+        <strong style="color:#10b981">Work submitted!</strong> Review and approve to release payment.<br>
+        <button class="btn" style="margin-top:8px" onclick="approveJob(${d.id})">Approve &amp; Pay</button>
+        <button class="btn btn-o" style="margin-top:8px;margin-left:8px" onclick="disputeJob(${d.id})">Dispute</button>
+      </div>
+    `:''}
   `;
   currentBidJobId=id;
-  document.getElementById('detail-bid-btn').style.display=d.status==='OPEN'||d.status==='BIDDING'?'':'none';
+  document.getElementById('detail-bid-btn').style.display=canBid&&!isPoster?'':'none';
   document.getElementById('detail-modal').classList.add('open');
+}
+
+async function acceptBid(jobId,bidId){
+  const s=getSession();if(!s)return;
+  if(!confirm('Accept this bid? Your funds will be locked in escrow until work is approved.'))return;
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/accept?bid_id='+bidId+'&agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const d=await r.json();
+    if(d.status==='IN_PROGRESS'){alert('Bid accepted! $'+d.escrowed+' escrowed. Worker has been notified.');closeModal('detail-modal');loadJobs();}
+    else alert(d.detail||'Failed to accept bid');
+  }catch{alert('Error');}
+}
+
+async function approveJob(jobId){
+  const s=getSession();if(!s)return;
+  if(!confirm('Approve this work and release payment to the worker?'))return;
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/approve?agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const d=await r.json();
+    if(d.status==='COMPLETED'){alert('Job completed! Worker received $'+d.worker_received);closeModal('detail-modal');loadJobs();}
+    else alert(d.detail||'Failed');
+  }catch{alert('Error');}
+}
+
+async function disputeJob(jobId){
+  const s=getSession();if(!s)return;
+  const reason=prompt('Describe the dispute:');
+  if(!reason)return;
+  try{
+    await fetch(A+'/v1/jobs/'+jobId+'/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({initiated_by:s.agio_id,reason})});
+    alert('Dispute filed. An arbitrator will review.');closeModal('detail-modal');loadJobs();
+  }catch{alert('Error');}
 }
 
 function openBid(id,title,budget){
@@ -218,6 +294,55 @@ async function submitJob(){
     if(d.job_id){msg.textContent='Job posted!';setTimeout(()=>{closeModal('post-modal');loadJobs();},1500);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
   }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
+function showJobTab(tab,el){
+  document.getElementById('panel-browse').style.display=tab==='browse'?'block':'none';
+  document.getElementById('panel-my').style.display=tab==='my'?'block':'none';
+  document.getElementById('tab-browse').style.cssText=tab==='browse'?'padding:6px 14px;cursor:pointer;font-size:12px':'padding:6px 14px;cursor:pointer;font-size:12px;background:#1a2030;color:var(--muted)';
+  document.getElementById('tab-browse').className=tab==='browse'?'tag tb':'tag';
+  document.getElementById('tab-my').style.cssText=tab==='my'?'padding:6px 14px;cursor:pointer;font-size:12px':'padding:6px 14px;cursor:pointer;font-size:12px;background:#1a2030;color:var(--muted)';
+  document.getElementById('tab-my').className=tab==='my'?'tag tb':'tag';
+  if(tab==='my')loadMyJobs();
+}
+
+async function loadMyJobs(){
+  const s=getSession();
+  if(!s){document.getElementById('my-jobs').innerHTML='<div class="empty">Sign in to see your jobs and bids.</div>';return;}
+  try{
+    const d=await(await fetch(A+'/v1/jobs/my/'+encodeURIComponent(s.agio_id))).json();
+    let html='';
+
+    if(d.posted&&d.posted.length>0){
+      html+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--accent)">Jobs You Posted</div>';
+      html+=d.posted.map(j=>`
+        <div class="job" style="cursor:pointer" onclick="viewJob(${j.id})">
+          <div class="job-title">${j.title}</div>
+          <div class="job-meta">
+            <span class="tag tg">$${j.budget}</span>
+            <span class="tag ${j.status==='COMPLETED'?'tg':j.status==='IN_PROGRESS'?'tb':'ty'}">${j.status}</span>
+            <span>${new Date(j.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    if(d.bids&&d.bids.length>0){
+      html+='<div style="font-size:13px;font-weight:600;margin:16px 0 8px;color:var(--accent)">Jobs You Bid On</div>';
+      html+=d.bids.map(b=>`
+        <div class="job" style="cursor:pointer" onclick="viewJob(${b.job_id})">
+          <div class="job-title">${b.job_title}</div>
+          <div class="job-meta">
+            <span class="tag tg">Your bid: $${b.bid_amount}</span>
+            <span class="tag ${b.bid_status==='ACCEPTED'?'tg':b.bid_status==='REJECTED'?'tr':'ty'}">${b.bid_status}</span>
+            <span>Job: ${b.job_status}</span>
+            <span>You receive: $${b.worker_receives}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    if(!html)html='<div class="empty">No jobs or bids yet. Browse the job board or post a new job!</div>';
+    document.getElementById('my-jobs').innerHTML=html;
+  }catch{document.getElementById('my-jobs').innerHTML='<div class="empty">Error loading</div>';}
 }
 
 loadJobs();

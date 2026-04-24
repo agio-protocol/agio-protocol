@@ -138,8 +138,11 @@ async def search_jobs(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search jobs."""
-    query = select(Job).where(Job.status == status)
+    """Search jobs. Default shows OPEN and BIDDING (accepting bids)."""
+    if status == "OPEN":
+        query = select(Job).where(Job.status.in_(("OPEN", "BIDDING")))
+    else:
+        query = select(Job).where(Job.status == status)
     if category:
         query = query.where(Job.category == category)
     query = query.where(Job.budget >= min_budget, Job.budget <= max_budget)
@@ -147,8 +150,9 @@ async def search_jobs(
     query = query.offset((page - 1) * limit).limit(limit)
 
     jobs = (await db.execute(query)).scalars().all()
+    count_filter = Job.status.in_(("OPEN", "BIDDING")) if status == "OPEN" else Job.status == status
     total = (await db.execute(
-        select(func.count()).select_from(Job).where(Job.status == status)
+        select(func.count()).select_from(Job).where(count_filter)
     )).scalar() or 0
 
     return {
@@ -395,6 +399,34 @@ async def dispute_job(
     return {"dispute_id": dispute.id, "job_id": job_id, "status": "DISPUTED"}
 
 
+@router.get("/my/{agio_id}")
+async def my_jobs(agio_id: str, db: AsyncSession = Depends(get_db)):
+    """Get jobs where this agent is poster or bidder."""
+    posted = (await db.execute(
+        select(Job).where(Job.poster_agent == agio_id).order_by(Job.created_at.desc()).limit(20)
+    )).scalars().all()
+
+    bid_rows = (await db.execute(
+        select(JobBid, Job).join(Job, JobBid.job_id == Job.id)
+        .where(JobBid.bidder_agent == agio_id).order_by(JobBid.created_at.desc()).limit(20)
+    )).all()
+
+    return {
+        "posted": [
+            {"id": j.id, "title": j.title, "budget": float(j.budget), "status": j.status,
+             "bid_count": 0, "created_at": j.created_at.isoformat()}
+            for j in posted
+        ],
+        "bids": [
+            {"job_id": g.id, "job_title": g.title, "job_status": g.status,
+             "bid_amount": float(b.bid_amount), "bid_status": b.status,
+             "worker_receives": float(_calculate_commission(b.bid_amount)[1]),
+             "created_at": b.created_at.isoformat()}
+            for b, g in bid_rows
+        ],
+    }
+
+
 @router.get("/{job_id}")
 async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
     """Get full job details with bids and commission breakdown."""
@@ -404,6 +436,8 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
 
     bids = (await db.execute(select(JobBid).where(JobBid.job_id == job_id).order_by(JobBid.created_at))).scalars().all()
 
+    commission_rate = _commission_rate(float(job.budget))
+
     return {
         "id": job.id, "title": job.title, "description": job.description,
         "category": job.category, "budget": float(job.budget), "token": job.budget_token,
@@ -411,13 +445,25 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
         "deadline_hours": job.deadline_hours,
         "created_at": job.created_at.isoformat(),
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        "terms": {
+            "poster_pays": f"Exactly the accepted bid amount (max ${float(job.budget):.2f})",
+            "worker_receives": f"Bid amount minus {commission_rate*100:.0f}% service fee",
+            "service_fee": f"{commission_rate*100:.0f}% of bid amount (paid by worker, deducted from payment)",
+            "escrow": "Poster's funds are locked in the vault when a bid is accepted. Released to worker on approval.",
+            "approval": "Poster reviews submitted work and clicks Approve to release payment.",
+            "auto_release": f"If poster does not approve or dispute within {AUTO_RELEASE_HOURS} hours of submission, payment auto-releases to worker.",
+            "cancellation": "Poster can cancel before work is submitted. Escrowed funds are fully refunded.",
+            "disputes": "Either party can open a dispute. An arbitrator reviews and decides. Service fee still applies to released amount.",
+        },
         "bids": [
             {
                 "id": b.id, "bidder": b.bidder_agent[:20] + "...",
+                "bidder_full": b.bidder_agent,
                 "amount": float(b.bid_amount),
                 "platform_fee": float(_calculate_commission(b.bid_amount)[0]),
                 "worker_receives": float(_calculate_commission(b.bid_amount)[1]),
-                "hours": b.estimated_hours, "status": b.status,
+                "hours": b.estimated_hours, "proposal": b.proposal,
+                "status": b.status, "created_at": b.created_at.isoformat(),
             }
             for b in bids
         ],
