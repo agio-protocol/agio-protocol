@@ -156,7 +156,7 @@ def _format_competition(c):
         "entries": c.current_participants,
         "min_entries": 3,
         "guaranteed_prizes": prizes,
-        "prize_sponsor": "AGIO Protocol",
+        "prize_sponsor": "Agiotage Protocol",
         "status": c.status,
         "end_time": c.end_time.isoformat() if c.end_time else None,
     }
