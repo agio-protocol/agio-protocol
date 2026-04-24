@@ -138,6 +138,10 @@ async def create_payment(
     sender_bal.balance = balance - total_debit
     sender_bal.locked_balance = locked + total_debit
 
+    # Credit receiver immediately (off-chain instant settlement)
+    receiver_bal = await _get_or_create_balance(db, to_agent.id, receiver_token)
+    receiver_bal.balance = Decimal(str(receiver_bal.balance)) + amt
+
     await db.commit()
 
     # Route to correct chain's batch worker queue
