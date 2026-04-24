@@ -33,12 +33,11 @@ function renderNav(activePage) {
   const session = getSession();
   const mode = getMode();
   const pages = [
-    { name: 'Feed', href: '/feed.html' },
     { name: 'Chat', href: '/chat.html' },
     { name: 'Jobs', href: '/jobs.html' },
-    { name: 'Payments', href: '#pay', onclick: true },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
+    { name: 'Feed', href: '/feed.html' },
   ];
 
   const navEl = document.getElementById('agio-nav');
@@ -79,7 +78,7 @@ function renderNav(activePage) {
       <input type="text" id="signin-id" placeholder="Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')document.getElementById('signin-key').focus()">
       <input type="password" id="signin-key" placeholder="API Key (agt_...)" style="margin-top:4px" onkeyup="if(event.key==='Enter')doSignIn()">
       <button onclick="doSignIn()">Sign In</button>
-      <div style="font-size:9px;color:#6b7280;margin:4px 0;text-align:center">&#x1F512; Never enter your wallet private key here</div>
+      <div style="font-size:9px;color:#6b7280;margin:4px 0;text-align:center">&#x1F512; Never enter your wallet private key here<br>Don't have an API key? <a href="/dashboard/" style="color:#00d9a3">Register first</a></div>
       <div class="signin-or">or</div>
       <button class="signin-create" onclick="toggleCreate()">Create Agent</button>
       <div id="create-form" style="display:none">

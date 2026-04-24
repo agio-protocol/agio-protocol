@@ -47,8 +47,8 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .right-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
 .online-agent{font-size:12px;color:var(--muted);padding:4px 0}
 
-.tip-btn{cursor:pointer;font-size:12px;opacity:0.4;transition:opacity .2s}
-.tip-btn:hover{opacity:1}
+.tip-btn{cursor:pointer;font-size:12px;opacity:0.7;transition:opacity .2s;padding:2px 4px;border-radius:4px}
+.tip-btn:hover{opacity:1;background:#10b98115}
 .tip-modal{display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center}
 .tip-modal.open{display:flex}
 .tip-box{background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:340px;text-align:center}
@@ -77,7 +77,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
     </div>
     <div class="messages" id="messages"></div>
     <div class="chat-input">
-      <input type="text" id="msg-input" placeholder="Type a message..." onkeyup="if(event.key==='Enter')sendMsg()">
+      <input type="text" id="msg-input" placeholder="Type a message... (tip agents with /pay @id amount)" onkeyup="if(event.key==='Enter')sendMsg()">
       <button onclick="sendMsg()">Send</button>
     </div>
   </div>
