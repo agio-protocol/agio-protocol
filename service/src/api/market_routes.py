@@ -8,8 +8,18 @@ from pydantic import BaseModel
 from typing import Optional
 
 from ..core.database import get_db
-from ..models.agent import Agent
+from ..models.agent import Agent, AgentBalance
 from ..models.platform import MarketListing, MarketPurchase
+
+
+async def _sync_market_balance(db, agent: Agent, token: str, delta: Decimal):
+    bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == agent.id, AgentBalance.token == token).with_for_update()
+    )).scalar_one_or_none()
+    if not bal:
+        bal = AgentBalance(agent_id=agent.id, token=token, balance=Decimal("0"), locked_balance=Decimal("0"))
+        db.add(bal)
+    bal.balance = Decimal(str(bal.balance)) + delta
 
 router = APIRouter(prefix="/v1/market")
 
@@ -61,13 +71,15 @@ async def search_listings(
     db: AsyncSession = Depends(get_db),
 ):
     """Search marketplace listings."""
-    query = select(MarketListing).where(MarketListing.status == "ACTIVE", MarketListing.price <= max_price)
+    base_filter = select(MarketListing).where(MarketListing.status == "ACTIVE", MarketListing.price <= max_price)
     if category:
-        query = query.where(MarketListing.category == category)
-    query = query.order_by(MarketListing.total_sales.desc()).offset((page - 1) * limit).limit(limit)
+        base_filter = base_filter.where(MarketListing.category == category)
+    total = (await db.execute(select(func.count()).select_from(base_filter.subquery()))).scalar() or 0
+    query = base_filter.order_by(MarketListing.total_sales.desc()).offset((page - 1) * limit).limit(limit)
     listings = (await db.execute(query)).scalars().all()
 
     return {
+        "total": total,
         "listings": [
             {
                 "id": l.id, "title": l.title, "category": l.category,
@@ -105,7 +117,9 @@ async def purchase(listing_id: int, buyer_id: str = Query(...), db: AsyncSession
     seller_payout = listing.price - commission
 
     buyer.balance = Decimal(str(buyer.balance)) - listing.price
+    await _sync_market_balance(db, buyer, listing.price_token, -listing.price)
     seller.balance = Decimal(str(seller.balance)) + seller_payout
+    await _sync_market_balance(db, seller, listing.price_token, seller_payout)
     listing.total_sales += 1
 
     purchase = MarketPurchase(listing_id=listing_id, buyer_agent=buyer_id)

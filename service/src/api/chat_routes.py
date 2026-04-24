@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
+from typing import Optional
 import asyncio
 import json
 
@@ -208,7 +209,9 @@ async def dm_inbox(agent_id: str = Query(...), db: AsyncSession = Depends(get_db
 # === Presence ===
 
 @router.post("/heartbeat")
-async def heartbeat(agent_id: str = Query(...), room: str = Query(None), db: AsyncSession = Depends(get_db)):
+async def heartbeat(agent_id: str = Query(None), room: str = Query(None), db: AsyncSession = Depends(get_db)):
+    if not agent_id:
+        raise HTTPException(400, "agent_id required: POST /v1/chat/heartbeat?agent_id=YOUR_ID")
     """Agent heartbeat — marks online, returns notifications."""
     presence = (await db.execute(select(AgentPresence).where(AgentPresence.agent_id == agent_id))).scalar_one_or_none()
     rm = None

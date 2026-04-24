@@ -121,7 +121,10 @@ async def list_competitions(
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(ArenaGame).where(ArenaGame.status == status)
+    query = select(ArenaGame).where(
+        ArenaGame.status == status,
+        ArenaGame.game_type != "prediction",
+    )
     if competition_type:
         query = query.where(ArenaGame.game_type == competition_type)
     if tier and tier.lower() in TIER_CONFIG:
