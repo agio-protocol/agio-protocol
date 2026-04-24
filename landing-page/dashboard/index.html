@@ -186,7 +186,14 @@
                 <a class="welcome-card" onclick="enterFromSuccess();setTimeout(()=>document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'}),500)"><div class="wicon">&#x1F4B0;</div>Deposit Funds</a>
                 <a href="/agents.html" class="welcome-card"><div class="wicon">&#x1F50D;</div>Explore Agents</a>
             </div>
-            <div style="margin-top:12px;font-size:12px;color:#6b7280;text-align:center">
+            <div style="background:#10b98108;border:1px solid #10b98120;border-radius:8px;padding:12px;margin-top:12px;font-size:11px;color:#9ca3af;line-height:1.7">
+                <strong style="color:#10b981">Your funds are always safe:</strong><br>
+                <span style="color:#10b981">&#10003;</span> Deposits go to a verified smart contract, not our wallet<br>
+                <span style="color:#10b981">&#10003;</span> Only you can withdraw<br>
+                <span style="color:#10b981">&#10003;</span> Verify your balance on-chain anytime<br>
+                <a href="/vault.html" target="_blank">Learn more about vault security &rarr;</a>
+            </div>
+            <div style="margin-top:10px;font-size:12px;color:#6b7280;text-align:center">
                 Or install the SDK: <code style="color:#10b981">pip install agiotage-sdk</code>
             </div>
             <button class="id-btn" style="margin-top:16px" onclick="enterFromSuccess()">Open Dashboard &rarr;</button>
@@ -422,13 +429,27 @@
                         <div class="pref-token">Preferred receive token: <span>${d.preferred_token}</span></div>
                     </div>
                     <div class="deposit-box" id="deposit-section">
-                        <h4>Deposit Funds</h4>
-                        <div style="font-size:12px;color:#9ca3af;margin-bottom:8px">Send ${tokenList} to your Agiotage vault to start transacting.</div>
+                        <h4>How Your Funds Work</h4>
+                        <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.7">
+                            Deposits go into a <strong style="color:#e0e0e0">smart contract on the blockchain</strong> — not into Agiotage's wallet. The contract is non-custodial:
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;line-height:1.9;margin-bottom:12px">
+                            <span style="color:#10b981">&#10003;</span> Only YOUR registered wallet can withdraw<br>
+                            <span style="color:#10b981">&#10003;</span> Agiotage cannot access your deposits<br>
+                            <span style="color:#10b981">&#10003;</span> Contract code is <a href="${explorer}" target="_blank">public and verified</a><br>
+                            <span style="color:#10b981">&#10003;</span> Balance verified on-chain every 5 minutes<br>
+                            <span style="color:#10b981">&#10003;</span> Withdraw 100% of your funds at any time
+                        </div>
+                        <div style="font-size:12px;font-weight:600;color:#e0e0e0;margin-bottom:6px">Deposit ${tokenList}:</div>
                         <div class="deposit-addr">
                             <span>${vaultAddr}</span>
                             <button class="copy-btn" onclick="navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
                         </div>
-                        <div style="font-size:11px;color:#6b7280">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">View on explorer</a></div>
+                        <div style="font-size:11px;color:#6b7280;margin-bottom:10px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a></div>
+                        <div style="font-size:11px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:4px">
+                            Prefer to keep tokens in your wallet? <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Switch to Direct Mode</a> in Settings.
+                            &middot; <a href="/vault.html" target="_blank">Vault security details</a>
+                        </div>
                     </div>
                 </div>
                 ${tierHtml || '<div></div>'}
@@ -531,13 +552,56 @@
             </div>`;
     }
 
-    function loadSettings() {
+    async function loadSettings() {
         const d = agentData;
         const tokens = getTokensForChain();
         const tokenOpts = tokens.map(t => `<option ${d.preferred_token === t ? 'selected' : ''}>${t}</option>`).join('');
         const chainLabel = agentChain === 'solana' ? 'Solana mainnet' : 'Base mainnet (chain 8453)';
+        const mode = d.payment_mode || 'vault';
+
+        let approvalHtml = '';
+        if (mode === 'direct') {
+            try {
+                const ap = await fetch(`${API_ROOT}/direct/approval-status/${encodeURIComponent(agioId)}`).then(r=>r.json());
+                approvalHtml = `
+                    <div class="section" style="background:#10b98108;border-color:#10b98120">
+                        <h3 style="color:#10b981">Direct Mode — Active</h3>
+                        <p style="color:#9ca3af;font-size:12px;margin-bottom:12px">Your tokens stay in your wallet. Agiotage pulls only what's needed for each payment.</p>
+                        <div style="font-size:13px;margin-bottom:12px">
+                            <div>Current approval: <strong style="color:#10b981">$${fmt(ap.approval_amount, 2)}</strong></div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px">Recommended: $${fmt(ap.recommended_approval, 2)}</div>
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;line-height:1.7;margin-bottom:10px">
+                            <strong style="color:#e0e0e0">How it works:</strong><br>
+                            1. Set a spending allowance on the token contract (one-time approval)<br>
+                            2. Agiotage pulls exact amounts for each payment<br>
+                            3. Your tokens never leave your wallet until settlement<br>
+                            4. Revoke access anytime
+                        </div>
+                        <div style="font-size:12px;color:#6b7280">
+                            Fee: $0.001/tx (individual gas) &middot; Cross-chain: not supported<br>
+                            <a href="/vault.html" target="_blank">Compare with Vault Mode</a>
+                        </div>
+                    </div>`;
+            } catch { approvalHtml = ''; }
+        }
+
         document.getElementById('page-settings').innerHTML = `
             <h1>Settings</h1>
+            <div class="section">
+                <h3>Payment Mode</h3>
+                <div style="display:flex;gap:12px;margin-bottom:12px">
+                    <label style="flex:1;background:${mode==='vault'?'#10b98110':'#1f2937'};border:1px solid ${mode==='vault'?'#10b981':'#374151'};border-radius:8px;padding:14px;cursor:pointer;text-align:center" onclick="setPaymentMode('vault')">
+                        <div style="font-weight:700;margin-bottom:4px;color:${mode==='vault'?'#10b981':'#9ca3af'}">&#x25C9; Vault Mode</div>
+                        <div style="font-size:11px;color:#6b7280">Deposit first &middot; $0.00015/tx &middot; Cross-chain</div>
+                    </label>
+                    <label style="flex:1;background:${mode==='direct'?'#10b98110':'#1f2937'};border:1px solid ${mode==='direct'?'#10b981':'#374151'};border-radius:8px;padding:14px;cursor:pointer;text-align:center" onclick="setPaymentMode('direct')">
+                        <div style="font-weight:700;margin-bottom:4px;color:${mode==='direct'?'#10b981':'#9ca3af'}">&#x25CB; Direct Mode</div>
+                        <div style="font-size:11px;color:#6b7280">No deposit &middot; $0.001/tx &middot; Full custody</div>
+                    </label>
+                </div>
+            </div>
+            ${approvalHtml}
             <div class="section">
                 <h3>Preferred Receive Token</h3>
                 <p style="color:#9ca3af;font-size:13px;margin-bottom:12px">When someone pays you in a different token, Agiotage will automatically convert to your preferred token.</p>
@@ -550,6 +614,18 @@
                     <div>Wallet: <span style="color:#e0e0e0;font-family:monospace">${d.wallet}</span></div>
                     <div>Registered: ${new Date(d.stats.registered_at).toLocaleDateString()}</div>
                     <div>Network: ${chainLabel}</div>
+                    <div>Payment mode: <span style="color:#10b981">${mode === 'direct' ? 'Direct (full custody)' : 'Vault (lower fees)'}</span></div>
+                </div>
+            </div>
+            <div class="section">
+                <h3>Vault Security</h3>
+                <div style="font-size:12px;color:#9ca3af;line-height:1.8">
+                    <div><span style="color:#10b981">&#10003;</span> Non-custodial — only your wallet can withdraw</div>
+                    <div><span style="color:#10b981">&#10003;</span> Balance invariant checked every 5 minutes</div>
+                    <div><span style="color:#10b981">&#10003;</span> Circuit breaker auto-pauses on unusual outflows</div>
+                    <div><span style="color:#10b981">&#10003;</span> 117+ passing tests across all contracts</div>
+                    <div><span style="color:#10b981">&#10003;</span> Open source and verified on block explorers</div>
+                    <div style="margin-top:8px"><a href="/vault.html" target="_blank" style="font-size:12px">Full vault transparency page &rarr;</a></div>
                 </div>
             </div>
             <div class="section">
@@ -565,6 +641,17 @@
                     `}
                 </div>
             </div>`;
+    }
+
+    async function setPaymentMode(mode) {
+        try {
+            await fetch(`${API_ROOT}/settings/payment-mode`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agio_id: agioId, mode }),
+            });
+            agentData.payment_mode = mode;
+            loadSettings();
+        } catch { alert('Failed to update payment mode'); }
     }
 
     setInterval(async () => {

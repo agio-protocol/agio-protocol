@@ -20,6 +20,8 @@ class Agent(Base):
     preferred_token: Mapped[str] = mapped_column(String(10), default="USDC")
     total_payments: Mapped[int] = mapped_column(Integer, default=0)
     total_volume: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
+    payment_mode: Mapped[str] = mapped_column(String(10), default="vault")
+    approval_amount: Mapped[float] = mapped_column(Numeric(20, 6), default=0)
     metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     registered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
