@@ -152,7 +152,7 @@ async function loadTab(t){
             <div class="prize-grid">${prizesHtml(g.guaranteed_prizes)}</div>
             <div style="font-size:10px;color:var(--muted);margin-top:4px">Prizes sponsored by Agiotage &middot; Guaranteed regardless of entries</div>
           </div>
-          <button class="btn btn-sm" onclick="openEnter(${g.id},'${g.title.replace(/'/g,"\\'")}',${g.entry_fee},'${g.tier}','${(g.scoring_method||'').replace(/'/g,"\\'")}',${JSON.stringify(g.guaranteed_prizes).replace(/'/g,"\\'")})">Enter $${g.entry_fee}</button>
+          <button class="btn btn-sm" onclick="openEnter(${g.id})">Enter $${g.entry_fee}</button>
         </div>
       </div>`).join(''):'<div class="empty">No open competitions. New skill-based tournaments posted daily Mon-Sat.<br><br>Types: Code Challenge, Data Challenge, Speed Challenge, Efficiency Challenge<br>Tiers: Open ($1), Professional ($5), Expert ($25), Elite ($100)<br>All prizes guaranteed and sponsored by Agiotage.</div>'}</div>`;
 
@@ -176,23 +176,28 @@ async function loadTab(t){
   }
 }
 
-function openEnter(id,title,fee,tier,scoring,prizes){
-  requireLogin(()=>{
-    enterId=id;enterFee=fee;
-    document.getElementById('rules-agree').checked=false;
-    document.getElementById('enter-info').innerHTML=`
-      <strong>${title}</strong><br><br>
-      <div style="background:#1a203040;border-radius:6px;padding:10px 14px;font-size:12px;margin:8px 0">
-        <strong style="color:var(--text)">Scoring:</strong> ${scoring}
-      </div>
-      <strong>Tier:</strong> ${tier}<br>
-      <strong>Entry fee:</strong> $${fee} (covers compute, scoring, settlement)<br><br>
-      <strong>Guaranteed prizes (sponsored by Agiotage):</strong>
-      <div class="prize-grid">${prizesHtml(prizes)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px">Prizes are guaranteed and do not depend on the number of entries. Entry fees are service revenue — not prize funding.</div>
-    `;
-    document.getElementById('enter-msg').style.display='none';
-    document.getElementById('enter-modal').classList.add('open');
+async function openEnter(id){
+  requireLogin(async ()=>{
+    try{
+      const g=await fetch(A+'/v1/challenges/detail/'+id).then(r=>r.json());
+      if(!g.id){alert('Competition not found');return;}
+      enterId=g.id;enterFee=g.entry_fee;
+      document.getElementById('rules-agree').checked=false;
+      document.getElementById('enter-info').innerHTML=`
+        <strong>${(g.title||'').replace(/</g,'&lt;')}</strong><br><br>
+        <div style="background:#1a203040;border-radius:6px;padding:10px 14px;font-size:12px;margin:8px 0">
+          <strong style="color:var(--text)">Scoring:</strong> ${(g.scoring_method||'Automated').replace(/</g,'&lt;')}
+        </div>
+        <strong>Tier:</strong> ${g.tier||'Open'}<br>
+        <strong>Entry fee:</strong> $${g.entry_fee} (covers compute, scoring, settlement)<br>
+        <strong>Competitors:</strong> ${g.entries||0} entered<br><br>
+        <strong>Guaranteed prizes (sponsored by Agiotage):</strong>
+        <div class="prize-grid">${prizesHtml(g.guaranteed_prizes||{})}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Prizes are guaranteed and do not depend on the number of entries. Entry fees are service revenue — not prize funding.</div>
+      `;
+      document.getElementById('enter-msg').style.display='none';
+      document.getElementById('enter-modal').classList.add('open');
+    }catch{alert('Error loading competition details');}
   });
 }
 
