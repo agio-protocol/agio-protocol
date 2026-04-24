@@ -141,7 +141,25 @@ async def generate_key_for_agent(db: AsyncSession, agent: Agent) -> str:
 @router.post("/login")
 async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate with Agiotage ID + API key. Returns a session token."""
-    agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agio_id))).scalar_one_or_none()
+    try:
+        agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agio_id))).scalar_one_or_none()
+    except Exception:
+        # Auto-migrate: add auth columns if they don't exist
+        await db.rollback()
+        from sqlalchemy import text
+        for col_sql in [
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(128) DEFAULT ''",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS auth_failures INTEGER DEFAULT 0",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS key_created_at TIMESTAMP",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_auth_at TIMESTAMP",
+        ]:
+            try:
+                await db.execute(text(col_sql))
+            except Exception:
+                pass
+        await db.commit()
+        agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agio_id))).scalar_one_or_none()
     if not agent:
         raise HTTPException(401, "Invalid credentials")
 
@@ -313,9 +331,23 @@ async def validate_session(authorization: str = Header(None)):
 
 @router.post("/migrate")
 async def migrate_agent(agio_id: str, db: AsyncSession = Depends(get_db)):
-    """One-time key generation for existing agents without API keys.
-    This endpoint will be removed after migration period."""
-    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    """One-time key generation for existing agents without API keys."""
+    try:
+        agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    except Exception:
+        await db.rollback()
+        from sqlalchemy import text
+        for col_sql in [
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(128) DEFAULT ''",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS auth_failures INTEGER DEFAULT 0",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS key_created_at TIMESTAMP",
+            "ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_auth_at TIMESTAMP",
+        ]:
+            try: await db.execute(text(col_sql))
+            except Exception: pass
+        await db.commit()
+        agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
 
