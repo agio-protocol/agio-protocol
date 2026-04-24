@@ -1,6 +1,172 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AGIO Market</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AGIO Marketplace</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}a{color:var(--accent);text-decoration:none}.topnav{display:flex;align-items:center;justify-content:space-between;max-width:1200px;margin:0 auto;padding:12px 24px;border-bottom:1px solid var(--border)}.topnav .logo{font-size:18px;font-weight:800;letter-spacing:3px;color:#fff}.topnav .logo span{color:var(--accent)}.topnav .links{display:flex;gap:6px}.topnav .links a{padding:7px 14px;color:var(--muted);font-size:13px;font-weight:500;border-radius:6px;text-decoration:none}.topnav .links a:hover{color:#fff}.topnav .links a.here{color:var(--accent);background:#00d9a308}.page{max-width:900px;margin:30px auto;padding:0 24px}.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}.panel h2{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}.item{padding:12px 0;border-bottom:1px solid var(--border)}.item:last-child{border:none}.card-title{font-weight:600;font-size:14px;margin-bottom:3px}.card-meta{font-size:11px;color:var(--muted);display:flex;gap:12px}.tag{padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600}.tg{background:#10b98115;color:#10b981}.tb{background:#3b82f615;color:#3b82f6}.empty{color:var(--muted);text-align:center;padding:30px}</style></head><body>
-<div id="agio-nav"></div><script>window.AGIO_PAGE="market";</script><script src="/nav.js"></script>
-<div class="page"><div class="panel"><h2>Knowledge Marketplace</h2><div id="listings"><div class="empty">Loading...</div></div></div></div>
-<script>const A='https://agio-protocol-production.up.railway.app';fetch(A+'/v1/market/search?limit=30').then(r=>r.json()).then(d=>{document.getElementById('listings').innerHTML=(d.listings||[]).map(l=>`<div class="item"><div class="card-title">${l.title}</div><div class="card-meta"><span class="tag tg">$${l.price}</span><span class="tag tb">${l.category}</span><span>${l.sales} sales</span></div></div>`).join('')||'<div class="empty">No listings yet. <a href="/dashboard/">Create one!</a></div>'}).catch(()=>{});</script></body></html>
+<style>*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}a{color:var(--accent);text-decoration:none}
+.page{max-width:900px;margin:30px auto;padding:0 24px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.panel h2{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.listing{padding:14px 0;border-bottom:1px solid var(--border)}.listing:last-child{border:none}
+.listing-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.listing-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.listing-desc{font-size:12px;color:var(--muted);margin-bottom:6px;max-height:36px;overflow:hidden}
+.listing-meta{font-size:11px;color:var(--muted);display:flex;gap:10px;align-items:center}
+.listing-seller{color:var(--accent)}
+.tag{padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.tg{background:#10b98115;color:#10b981}.tb{background:#3b82f615;color:#3b82f6}.ty{background:#f59e0b15;color:#f59e0b}
+.btn{padding:6px 16px;background:var(--accent);color:#06080d;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-sm{padding:4px 12px;font-size:11px}
+.empty{color:var(--muted);text-align:center;padding:30px;font-size:13px}
+.modal{display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.modal-box{background:#111827;border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:90vw}
+.modal-box h3{font-size:16px;margin-bottom:16px}
+.modal-box label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;margin-top:12px}
+.modal-box input,.modal-box select,.modal-box textarea{width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:13px}
+.modal-box textarea{height:80px;resize:vertical}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{flex:1;padding:10px;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer}
+.submit-btn{background:var(--accent);color:#06080d}
+.cancel-btn{background:#374151;color:var(--muted)}
+.msg{font-size:12px;margin-top:8px}
+</style></head><body>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE="market";</script>
+<script src="/nav.js"></script>
+
+<div class="page">
+  <div class="panel">
+    <h2>Marketplace <button class="btn" onclick="openList()">+ List for Sale</button></h2>
+    <div id="listings"><div class="empty">Loading listings...</div></div>
+  </div>
+</div>
+
+<!-- List Modal -->
+<div class="modal" id="list-modal">
+  <div class="modal-box">
+    <h3>List for Sale</h3>
+    <label>Title</label>
+    <input type="text" id="list-title" placeholder="e.g. 10,000 labeled images">
+    <label>Description</label>
+    <textarea id="list-desc" placeholder="What are you selling..."></textarea>
+    <label>Category</label>
+    <select id="list-cat">
+      <option value="dataset">Dataset</option>
+      <option value="research">Research Report</option>
+      <option value="model">Model / Weights</option>
+      <option value="api_access">API Access</option>
+      <option value="data_feed">Data Feed</option>
+      <option value="tool">Tool / Software</option>
+      <option value="other">Other</option>
+    </select>
+    <label>Price (USDC)</label>
+    <input type="number" id="list-price" placeholder="2.00" step="0.01" min="0.01">
+    <label>Content URL (optional)</label>
+    <input type="text" id="list-url" placeholder="https://...">
+    <div id="list-msg" class="msg" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal('list-modal')">Cancel</button>
+      <button class="submit-btn" onclick="submitList()">List for Sale</button>
+    </div>
+  </div>
+</div>
+
+<!-- Buy Confirmation Modal -->
+<div class="modal" id="buy-modal">
+  <div class="modal-box">
+    <h3>Confirm Purchase</h3>
+    <div id="buy-info" style="font-size:13px;margin-bottom:12px"></div>
+    <div id="buy-msg" class="msg" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal('buy-modal')">Cancel</button>
+      <button class="submit-btn" onclick="confirmBuy()">Buy Now</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const A='https://agio-protocol-production.up.railway.app';
+let buyListingId=null;
+
+function loadListings(){
+  fetch(A+'/v1/market/search?limit=30').then(r=>r.json()).then(d=>{
+    if(!d.listings||d.listings.length===0){
+      document.getElementById('listings').innerHTML='<div class="empty">No listings yet. Be the first to sell something!</div>';
+      return;
+    }
+    document.getElementById('listings').innerHTML=d.listings.map(l=>`
+      <div class="listing">
+        <div class="listing-top">
+          <div style="flex:1">
+            <div class="listing-title">${l.title}</div>
+            <div class="listing-meta">
+              <span class="tag tg">$${l.price}</span>
+              <span class="tag tb">${l.category}</span>
+              <span>${l.sales} sales</span>
+              <span>${l.rating>0?'★'.repeat(Math.round(l.rating))+' '+l.rating.toFixed(1):'No ratings yet'}</span>
+              <span>by <span class="listing-seller">${l.seller.slice(0,12)}...</span></span>
+            </div>
+          </div>
+          <button class="btn btn-sm" onclick="openBuy(${l.id},'${l.title.replace(/'/g,"\\'")}',${l.price})">Buy $${l.price}</button>
+        </div>
+      </div>
+    `).join('');
+  }).catch(()=>{document.getElementById('listings').innerHTML='<div class="empty">Error loading. <a href="javascript:loadListings()">Retry</a></div>';});
+}
+
+function openBuy(id,title,price){
+  requireLogin(()=>{
+    buyListingId=id;
+    const fee=(price*0.05).toFixed(4);
+    const seller=(price-price*0.05).toFixed(4);
+    document.getElementById('buy-info').innerHTML=`
+      <strong>${title}</strong><br><br>
+      Price: <strong>$${price}</strong><br>
+      Platform fee (5%): $${fee}<br>
+      Seller receives: $${seller}<br><br>
+      <span style="color:var(--muted)">Payment will be deducted from your AGIO balance.</span>
+    `;
+    document.getElementById('buy-msg').style.display='none';
+    document.getElementById('buy-modal').classList.add('open');
+  });
+}
+
+async function confirmBuy(){
+  const s=getSession();if(!s)return;
+  const msg=document.getElementById('buy-msg');
+  msg.style.display='block';msg.textContent='Processing...';msg.style.color='#00d9a3';
+  try{
+    const r=await fetch(A+'/v1/market/purchase/'+buyListingId+'?buyer_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const d=await r.json();
+    if(d.purchase_id){
+      msg.textContent='Purchased! Seller received $'+d.seller_received;
+      if(d.content_url)msg.innerHTML+='<br><a href="'+d.content_url+'" target="_blank">Download →</a>';
+      setTimeout(()=>{closeModal('buy-modal');loadListings();},3000);
+    } else {
+      msg.textContent=d.detail||'Purchase failed';msg.style.color='#ef4444';
+    }
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
+function openList(){requireLogin(()=>{document.getElementById('list-modal').classList.add('open');});}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+async function submitList(){
+  const s=getSession();if(!s){requireLogin(()=>submitList());return;}
+  const title=document.getElementById('list-title').value.trim();
+  const desc=document.getElementById('list-desc').value.trim();
+  const cat=document.getElementById('list-cat').value;
+  const price=parseFloat(document.getElementById('list-price').value);
+  const url=document.getElementById('list-url').value.trim()||null;
+  const msg=document.getElementById('list-msg');
+  if(!title||!desc||!price){msg.style.display='block';msg.textContent='Fill in all fields';msg.style.color='#ef4444';return;}
+  msg.style.display='block';msg.textContent='Creating listing...';msg.style.color='#00d9a3';
+  try{
+    const r=await fetch(A+'/v1/market/list',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({seller_agio_id:s.agio_id,title,description:desc,category:cat,price,content_url:url})});
+    const d=await r.json();
+    if(d.listing_id){msg.textContent='Listed!';setTimeout(()=>{closeModal('list-modal');loadListings();},1500);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
+loadListings();
+</script></body></html>

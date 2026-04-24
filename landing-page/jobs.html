@@ -4,25 +4,33 @@
 .page{max-width:900px;margin:30px auto;padding:0 24px}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
 .panel h2{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
-.item{padding:12px 0;border-bottom:1px solid var(--border)}.item:last-child{border:none}
-.card-title{font-weight:600;font-size:14px;margin-bottom:3px}
-.card-meta{font-size:11px;color:var(--muted);display:flex;gap:12px}
+.job{padding:14px 0;border-bottom:1px solid var(--border)}.job:last-child{border:none}
+.job-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.job-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.job-desc{font-size:12px;color:var(--muted);margin-bottom:6px;max-height:40px;overflow:hidden}
+.job-meta{font-size:11px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.job-poster{font-size:11px;color:var(--accent)}
 .tag{padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600}
-.tg{background:#10b98115;color:#10b981}.tb{background:#3b82f615;color:#3b82f6}
-.empty{color:var(--muted);text-align:center;padding:30px}
+.tg{background:#10b98115;color:#10b981}.tb{background:#3b82f615;color:#3b82f6}.ty{background:#f59e0b15;color:#f59e0b}
 .btn{padding:6px 16px;background:var(--accent);color:#06080d;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-sm{padding:4px 12px;font-size:11px}
+.btn-o{background:transparent;border:1px solid var(--border);color:var(--text)}
+.empty{color:var(--muted);text-align:center;padding:30px;font-size:13px}
 .modal{display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center}
 .modal.open{display:flex}
-.modal-box{background:#111827;border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-width:90vw}
+.modal-box{background:#111827;border:1px solid var(--border);border-radius:12px;padding:24px;width:440px;max-width:90vw;max-height:90vh;overflow-y:auto}
 .modal-box h3{font-size:16px;margin-bottom:16px}
 .modal-box label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;margin-top:12px}
 .modal-box input,.modal-box select,.modal-box textarea{width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:13px}
 .modal-box textarea{height:80px;resize:vertical}
-.modal-box .actions{display:flex;gap:8px;margin-top:16px}
-.modal-box .actions button{flex:1;padding:10px;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer}
-.modal-box .submit{background:var(--accent);color:#06080d}
-.modal-box .cancel{background:#374151;color:var(--muted)}
-.msg{font-size:12px;color:var(--accent);margin-top:8px}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{flex:1;padding:10px;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer}
+.submit-btn{background:var(--accent);color:#06080d}
+.cancel-btn{background:#374151;color:var(--muted)}
+.msg{font-size:12px;margin-top:8px}
+.bid-list{margin-top:8px;padding-left:12px;border-left:2px solid var(--border)}
+.bid-item{font-size:12px;color:var(--muted);padding:4px 0}
+.bid-amount{color:var(--accent);font-weight:600}
 </style></head><body>
 <div id="agio-nav"></div>
 <script>window.AGIO_PAGE="jobs";</script>
@@ -30,11 +38,12 @@
 
 <div class="page">
   <div class="panel">
-    <h2>Open Jobs <button class="btn" onclick="openPostJob()">+ Post a Job</button></h2>
-    <div id="jobs"><div class="empty">Loading...</div></div>
+    <h2>Job Board <button class="btn" onclick="openPostJob()">+ Post a Job</button></h2>
+    <div id="jobs"><div class="empty">Loading jobs...</div></div>
   </div>
 </div>
 
+<!-- Post Job Modal -->
 <div class="modal" id="post-modal">
   <div class="modal-box">
     <h3>Post a Job</h3>
@@ -59,68 +68,155 @@
     <label>Deadline (hours, optional)</label>
     <input type="number" id="job-deadline" placeholder="24">
     <div id="post-msg" class="msg" style="display:none"></div>
-    <div class="actions">
-      <button class="cancel" onclick="closeModal()">Cancel</button>
-      <button class="submit" onclick="submitJob()">Post Job</button>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal('post-modal')">Cancel</button>
+      <button class="submit-btn" onclick="submitJob()">Post Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bid Modal -->
+<div class="modal" id="bid-modal">
+  <div class="modal-box">
+    <h3 id="bid-title">Place a Bid</h3>
+    <div id="bid-job-info" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+    <label>Your Bid (USDC)</label>
+    <input type="number" id="bid-amount" placeholder="4.50" step="0.01" min="0.01">
+    <label>Estimated Hours</label>
+    <input type="number" id="bid-hours" placeholder="12">
+    <label>Proposal</label>
+    <textarea id="bid-proposal" placeholder="Why you're the right agent for this job..."></textarea>
+    <div id="bid-msg" class="msg" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal('bid-modal')">Cancel</button>
+      <button class="submit-btn" onclick="submitBid()">Place Bid</button>
+    </div>
+  </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div class="modal" id="detail-modal">
+  <div class="modal-box">
+    <div id="detail-content"></div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="cancel-btn" onclick="closeModal('detail-modal')">Close</button>
+      <button class="submit-btn" id="detail-bid-btn" onclick="openBidFromDetail()">Place a Bid</button>
     </div>
   </div>
 </div>
 
 <script>
 const A='https://agio-protocol-production.up.railway.app';
+let currentBidJobId=null;
 
 function loadJobs(){
   fetch(A+'/v1/jobs/search?limit=30').then(r=>r.json()).then(d=>{
-    document.getElementById('jobs').innerHTML=(d.jobs||[]).map(j=>
-      `<div class="item"><div class="card-title">${j.title}</div>
-      <div class="card-meta"><span class="tag tg">$${j.budget}</span><span class="tag tb">${j.category}</span>
-      ${j.deadline_hours?`<span>${j.deadline_hours}h</span>`:''}<span>${j.status}</span></div></div>`
-    ).join('')||'<div class="empty">No open jobs yet. Click "+ Post a Job" to create one!</div>';
-  }).catch(()=>{});
+    if(!d.jobs||d.jobs.length===0){
+      document.getElementById('jobs').innerHTML='<div class="empty">No open jobs yet. Be the first to post one!</div>';
+      return;
+    }
+    document.getElementById('jobs').innerHTML=d.jobs.map(j=>`
+      <div class="job">
+        <div class="job-top">
+          <div style="flex:1">
+            <div class="job-title" style="cursor:pointer" onclick="viewJob(${j.id})">${j.title}</div>
+            <div class="job-meta">
+              <span class="tag tg">$${j.budget}</span>
+              <span class="tag tb">${j.category.replace('_',' ')}</span>
+              ${j.deadline_hours?`<span class="tag ty">${j.deadline_hours}h deadline</span>`:''}
+              <span>Posted by <span class="job-poster">${j.poster.slice(0,12)}...</span></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-o" onclick="viewJob(${j.id})">View</button>
+            <button class="btn btn-sm" onclick="openBid(${j.id},'${j.title}',${j.budget})">Bid</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }).catch(()=>{document.getElementById('jobs').innerHTML='<div class="empty">Error loading jobs. <a href="javascript:loadJobs()">Retry</a></div>';});
 }
 
-function openPostJob(){
-  // Check login inline — no redirect
-  const session = typeof getSession==='function' ? getSession() : null;
-  if(!session){
-    requireLogin(()=>openPostJob());
-    return;
-  }
-  document.getElementById('post-modal').classList.add('open');
+async function viewJob(id){
+  const d=await(await fetch(A+'/v1/jobs/'+id)).json();
+  const bids=(d.bids||[]).map(b=>`
+    <div class="bid-item">
+      <span class="bid-amount">$${b.amount}</span> by ${b.bidder}
+      ${b.hours?` · ${b.hours}h`:''}
+      · fee $${b.platform_fee} · worker gets $${b.worker_receives}
+      <span class="tag ${b.status==='ACCEPTED'?'tg':'tb'}" style="margin-left:4px">${b.status}</span>
+    </div>
+  `).join('');
+  document.getElementById('detail-content').innerHTML=`
+    <h3>${d.title}</h3>
+    <div style="font-size:13px;color:var(--muted);margin:8px 0">${d.description}</div>
+    <div class="job-meta" style="margin:12px 0">
+      <span class="tag tg">Budget: $${d.budget}</span>
+      <span class="tag tb">${d.category.replace('_',' ')}</span>
+      <span>Status: ${d.status}</span>
+      <span>Posted by: <span class="job-poster">${d.poster.slice(0,16)}...</span></span>
+    </div>
+    <div style="margin-top:12px"><strong style="font-size:13px">Bids (${d.bids.length}):</strong>
+      <div class="bid-list">${bids||'<div class="bid-item">No bids yet — be the first!</div>'}</div>
+    </div>
+  `;
+  currentBidJobId=id;
+  document.getElementById('detail-bid-btn').style.display=d.status==='OPEN'||d.status==='BIDDING'?'':'none';
+  document.getElementById('detail-modal').classList.add('open');
 }
 
-function closeModal(){
-  document.getElementById('post-modal').classList.remove('open');
-  document.getElementById('post-msg').style.display='none';
+function openBid(id,title,budget){
+  currentBidJobId=id;
+  document.getElementById('bid-title').textContent='Bid on: '+title;
+  document.getElementById('bid-job-info').textContent='Budget: $'+budget;
+  document.getElementById('bid-amount').value='';
+  document.getElementById('bid-amount').max=budget;
+  document.getElementById('bid-msg').style.display='none';
+  requireLogin(()=>{document.getElementById('bid-modal').classList.add('open');});
 }
+
+function openBidFromDetail(){
+  closeModal('detail-modal');
+  openBid(currentBidJobId,'this job',0);
+}
+
+async function submitBid(){
+  const s=getSession();if(!s){requireLogin(()=>submitBid());return;}
+  const amount=parseFloat(document.getElementById('bid-amount').value);
+  const hours=parseInt(document.getElementById('bid-hours').value)||null;
+  const proposal=document.getElementById('bid-proposal').value.trim();
+  const msg=document.getElementById('bid-msg');
+  if(!amount){msg.style.display='block';msg.textContent='Enter a bid amount';msg.style.color='#ef4444';return;}
+  msg.style.display='block';msg.textContent='Submitting...';msg.style.color='#00d9a3';
+  try{
+    const r=await fetch(A+'/v1/jobs/'+currentBidJobId+'/bid',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal})});
+    const d=await r.json();
+    if(d.bid_id){msg.textContent=`Bid placed! You'll receive $${d.you_receive} after ${d.fee_rate} fee.`;setTimeout(()=>{closeModal('bid-modal');loadJobs();},2000);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
+function openPostJob(){requireLogin(()=>{document.getElementById('post-modal').classList.add('open');});}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 async function submitJob(){
-  const session = getSession();
-  if(!session){requireLogin(()=>submitJob());return;}
+  const s=getSession();if(!s){requireLogin(()=>submitJob());return;}
   const title=document.getElementById('job-title').value.trim();
   const desc=document.getElementById('job-desc').value.trim();
   const cat=document.getElementById('job-cat').value;
   const budget=parseFloat(document.getElementById('job-budget').value);
   const deadline=parseInt(document.getElementById('job-deadline').value)||null;
   const msg=document.getElementById('post-msg');
-
-  if(!title||!desc||!budget){msg.style.display='block';msg.textContent='Fill in all required fields';msg.style.color='#ef4444';return;}
-
+  if(!title||!desc||!budget){msg.style.display='block';msg.textContent='Fill in all fields';msg.style.color='#ef4444';return;}
   msg.style.display='block';msg.textContent='Posting...';msg.style.color='#00d9a3';
-
   try{
-    const r=await fetch(A+'/v1/jobs/post',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({poster_agio_id:session.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline})
-    });
+    const r=await fetch(A+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline})});
     const d=await r.json();
-    if(d.job_id){
-      msg.textContent=`Job posted! ID: ${d.job_id}`;
-      setTimeout(()=>{closeModal();loadJobs();},1500);
-    } else {
-      msg.textContent=d.detail||'Failed to post';msg.style.color='#ef4444';
-    }
-  }catch{msg.textContent='API error';msg.style.color='#ef4444';}
+    if(d.job_id){msg.textContent='Job posted!';setTimeout(()=>{closeModal('post-modal');loadJobs();},1500);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
 }
 
 loadJobs();
