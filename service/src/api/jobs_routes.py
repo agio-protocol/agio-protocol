@@ -25,6 +25,21 @@ from ..core.database import get_db
 from ..models.agent import Agent, AgentBalance
 from ..models.platform import Job, JobBid, JobDeliverable, JobDispute
 
+import logging
+_log = logging.getLogger("jobs")
+
+
+async def _sync_agent_balance(db, agent: Agent, token: str, delta: Decimal, delta_locked: Decimal = Decimal("0")):
+    """Sync AgentBalance per-token table whenever Agent.balance changes."""
+    bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == agent.id, AgentBalance.token == token).with_for_update()
+    )).scalar_one_or_none()
+    if not bal:
+        bal = AgentBalance(agent_id=agent.id, token=token, balance=Decimal("0"), locked_balance=Decimal("0"))
+        db.add(bal)
+    bal.balance = Decimal(str(bal.balance)) + delta
+    bal.locked_balance = Decimal(str(bal.locked_balance)) + delta_locked
+
 router = APIRouter(prefix="/v1/jobs")
 
 JOB_CATEGORIES = [
@@ -235,8 +250,8 @@ async def accept_bid(
     if available < bid.bid_amount:
         raise HTTPException(400, f"Insufficient balance: ${float(available):.2f} available, need ${float(bid.bid_amount):.2f}")
 
-    # Escrow: move from available to locked (no on-chain tx, just DB)
     poster.locked_balance = Decimal(str(poster.locked_balance)) + bid.bid_amount
+    await _sync_agent_balance(db, poster, job.budget_token, Decimal("0"), bid.bid_amount)
 
     job.status = "IN_PROGRESS"
     job.accepted_bid_id = bid.id
@@ -311,14 +326,12 @@ async def approve_work(job_id: int, agio_id: str = Query(...), db: AsyncSession 
         select(Agent).where(Agent.agio_id == bid.bidder_agent).with_for_update()
     )).scalar_one()
 
-    # Poster: unlock and deduct the bid amount
     poster.locked_balance = Decimal(str(poster.locked_balance)) - amount
     poster.balance = Decimal(str(poster.balance)) - amount
+    await _sync_agent_balance(db, poster, job.budget_token, -amount, -amount)
 
-    # Worker: receive payout (bid minus commission)
     worker.balance = Decimal(str(worker.balance)) + worker_payout
-
-    # Commission stays in the vault as protocol revenue (not credited to anyone)
+    await _sync_agent_balance(db, worker, job.budget_token, worker_payout)
 
     job.status = "COMPLETED"
     job.completed_at = datetime.utcnow()
@@ -346,13 +359,13 @@ async def cancel_job(job_id: int, agio_id: str = Query(...), db: AsyncSession = 
     if job.status == "COMPLETED":
         raise HTTPException(400, "Cannot cancel a completed job")
 
-    # Refund escrow if a bid was accepted
     if job.accepted_bid_id and job.status in ("IN_PROGRESS", "SUBMITTED"):
         bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one()
         poster = (await db.execute(
             select(Agent).where(Agent.agio_id == job.poster_agent).with_for_update()
         )).scalar_one()
         poster.locked_balance = Decimal(str(poster.locked_balance)) - bid.bid_amount
+        await _sync_agent_balance(db, poster, job.budget_token, Decimal("0"), -bid.bid_amount)
 
     job.status = "CANCELLED"
     await db.execute(
