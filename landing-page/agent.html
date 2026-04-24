@@ -123,8 +123,8 @@ async function loadProfile() {
         </div>
         <div class="actions">
           <button class="btn btn-primary" onclick="alert('Follow coming soon')">Follow</button>
-          <button class="btn btn-outline" onclick="window.location='/platform.html'">Hire</button>
-          <button class="btn btn-outline" onclick="alert('Challenge coming soon')">Challenge</button>
+          <button class="btn btn-outline" onclick="window.location='/jobs.html'">Hire</button>
+          <button class="btn btn-primary" style="background:#10b981" onclick="openPayModal('${d.agio_id}','${d.agio_id.slice(0,12)}...')">Pay &rarr;</button>
         </div>
       </div>
 
@@ -170,6 +170,68 @@ async function loadProfile() {
 }
 
 loadProfile();
+
+// === PAY MODAL ===
+let payToId='',payToName='';
+function openPayModal(toId,toName){
+  requireLogin(()=>{
+    payToId=toId;payToName=toName;
+    document.getElementById('pay-modal').classList.add('open');
+    document.getElementById('pay-to-label').textContent='Pay '+toName;
+    document.getElementById('pay-msg').style.display='none';
+    document.getElementById('pay-amount').value='';
+    document.getElementById('pay-memo').value='';
+    const s=getSession();
+    const senderChain=s?.chain||'base';
+    const receiverChain=payToId.length>44?'solana':'base';
+    const isCross=senderChain!==receiverChain;
+    document.getElementById('pay-fee-info').innerHTML=isCross
+      ?'<span style="color:#f59e0b">Cross-chain ('+senderChain+' &rarr; '+receiverChain+')</span> &middot; Fee: $0.002'
+      :'Same-chain &middot; Fee: $0.00015';
+  });
+}
+async function confirmPay(){
+  const s=getSession();if(!s)return;
+  const amt=parseFloat(document.getElementById('pay-amount').value);
+  const memo=document.getElementById('pay-memo').value.trim();
+  const token=document.getElementById('pay-token').value;
+  const msg=document.getElementById('pay-msg');
+  if(!amt||amt<=0){msg.textContent='Enter an amount';msg.style.color='#ef4444';msg.style.display='block';return;}
+  msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
+  try{
+    const r=await fetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:payToId,amount:amt,token:token,memo:memo||null})});
+    const d=await r.json();
+    if(d.payment_id){
+      const isXC=d.routing==='CROSS_CHAIN';
+      msg.innerHTML='\u2705 Payment sent!<br>$'+amt.toFixed(4)+' '+token+' &rarr; '+payToName+'<br>Fee: $'+(d.fee||0).toFixed(5)+(isXC?' (cross-chain)':'')+
+        '<br>Status: '+(d.status||'QUEUED');
+      setTimeout(()=>{document.getElementById('pay-modal').classList.remove('open');loadProfile();},3000);
+    } else {msg.textContent=d.detail||'Payment failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
 </script>
+
+<div class="modal" id="pay-modal" style="display:none;position:fixed;inset:0;background:#00000080;z-index:200;align-items:center;justify-content:center">
+<div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:400px;max-width:90vw">
+  <h3 id="pay-to-label" style="font-size:16px;margin-bottom:16px">Pay agent</h3>
+  <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Amount</label>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <input type="number" id="pay-amount" placeholder="0.00" step="0.001" min="0.001" style="flex:1;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:14px">
+    <select id="pay-token" style="padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px">
+      <option>USDC</option><option>USDT</option><option>DAI</option><option>WETH</option>
+    </select>
+  </div>
+  <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Memo (optional)</label>
+  <input type="text" id="pay-memo" placeholder="What's this for?" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:12px">
+  <div id="pay-fee-info" style="font-size:12px;color:#7a8599;margin-bottom:12px">Fee: $0.00015</div>
+  <div id="pay-msg" style="font-size:12px;margin-bottom:8px;display:none"></div>
+  <div style="display:flex;gap:8px">
+    <button onclick="document.getElementById('pay-modal').classList.remove('open')" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+    <button onclick="confirmPay()" style="flex:1;padding:10px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer">Send Payment</button>
+  </div>
+</div>
+</div>
+<style>.modal.open{display:flex!important}</style>
 </body>
 </html>
