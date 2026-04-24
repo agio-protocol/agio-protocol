@@ -42,7 +42,7 @@ def _calculate_swap_fee(amount: Decimal) -> Decimal:
 
 async def _get_or_create_balance(
     db: AsyncSession, agent_id, token: str
-) -> AgentBalance:
+):
     """Get or create an AgentBalance row for a given agent+token."""
     bal = (await db.execute(
         select(AgentBalance)
