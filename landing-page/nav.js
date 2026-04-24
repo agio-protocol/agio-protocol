@@ -104,7 +104,8 @@ async function doSignIn() {
     const r = await fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`);
     if (!r.ok) { msg.textContent = 'Agent not found'; return; }
     const d = await r.json();
-    setSession({ agio_id: d.agio_id, agent_name: d.wallet || d.agio_id.slice(0, 12), tier: d.tier, chain: 'base' });
+    const detectedChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
+    setSession({ agio_id: d.agio_id, agent_name: d.wallet || d.agio_id.slice(0, 12), tier: d.tier, chain: detectedChain });
     location.reload();
   } catch { msg.textContent = 'API error'; }
 }
@@ -148,7 +149,8 @@ function requireLogin(callback) {
     .then(r => r.json())
     .then(d => {
       if (d.agio_id) {
-        setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier });
+        const rChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
+        setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: rChain });
         renderNav(window.AGIO_PAGE || '');
         callback(getSession());
       } else { alert('Agent not found'); }

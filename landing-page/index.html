@@ -244,7 +244,11 @@ function openHomePayModal(){
     hpSelectedId='';
     // Set tokens for sender's chain
     const s=getSession();
-    const tokens=s?.chain==='solana'?['USDC','SOL','USDT']:['USDC','USDT','DAI','WETH','cbETH'];
+    const chain=s?.chain;
+    let tokens;
+    if(chain==='solana') tokens=['USDC','SOL','USDT'];
+    else if(chain==='base') tokens=['USDC','USDT','DAI','WETH','cbETH'];
+    else tokens=['USDC','USDT','DAI','WETH','cbETH','SOL'];
     document.getElementById('hp-token').innerHTML=tokens.map(t=>`<option>${t}</option>`).join('');
     // Pre-load agents for search
     if(!hpAgentCache.length){
