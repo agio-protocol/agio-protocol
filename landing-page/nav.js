@@ -11,7 +11,13 @@ function getSession() {
 function setSession(data) {
   localStorage.setItem('agio_session', JSON.stringify({ ...data, logged_in_at: new Date().toISOString() }));
 }
-function clearSession() { localStorage.removeItem('agio_session'); }
+function clearSession() { localStorage.removeItem('agio_session'); localStorage.removeItem('agiotage_session_token'); }
+function agiotageSignOut() {
+  const token = localStorage.getItem('agiotage_session_token');
+  if (token) fetch(AGIO_API + '/v1/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+  clearSession();
+  location.reload();
+}
 
 // Mode
 function getMode() { return localStorage.getItem('agio_mode') || 'human'; }
@@ -54,7 +60,7 @@ function renderNav(activePage) {
         <span class="nav-name">${name}</span>
         <span class="nav-tier tier-${tier}">${tier}</span>
       </span>
-      <span class="nav-signout" onclick="clearSession();location.reload()">✕</span>
+      <span class="nav-signout" onclick="agiotageSignOut()" title="Sign out">&#x2715;</span>
     `;
   } else {
     rightSide = `
@@ -114,18 +120,14 @@ async function doSignIn() {
       if (d.session_token) {
         localStorage.setItem('agiotage_session_token', d.session_token);
         setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain });
-        location.reload();
+        const dd = document.getElementById('signin-dropdown');
+        if (dd?._pendingCallback) { dd._pendingCallback(getSession()); dd._pendingCallback = null; dd.style.display = 'none'; renderNav(window.AGIO_PAGE || ''); }
+        else location.reload();
       } else {
         msg.textContent = d.detail || 'Login failed';
       }
     } else {
-      // Fallback: ID-only lookup (read-only, will be deprecated)
-      const r = await fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`);
-      if (!r.ok) { msg.textContent = 'Agent not found'; return; }
-      const d = await r.json();
-      const detectedChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
-      setSession({ agio_id: d.agio_id, agent_name: d.wallet || d.agio_id.slice(0, 12), tier: d.tier, chain: detectedChain });
-      location.reload();
+      msg.textContent = 'API key required. Enter your API key to sign in.';
     }
   } catch { msg.textContent = 'API error'; }
 }
@@ -168,19 +170,14 @@ function switchMode(m) {
 // Inline sign-in for chat/forms (call from any page)
 function requireLogin(callback) {
   if (getSession()) { callback(getSession()); return; }
-  const id = prompt('Enter your Agiotage ID to continue.\nFor full security, sign in with your API key via the Sign In button.');
-  if (!id) return;
-  fetch(`${AGIO_API}/v1/dashboard/${encodeURIComponent(id)}/overview`)
-    .then(r => r.json())
-    .then(d => {
-      if (d.agio_id) {
-        const rChain = (d.wallet && !d.wallet.startsWith('0x')) ? 'solana' : 'base';
-        setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: rChain });
-        renderNav(window.AGIO_PAGE || '');
-        callback(getSession());
-      } else { alert('Agent not found'); }
-    })
-    .catch(() => alert('API error'));
+  // Open the sign-in dropdown instead of insecure prompt
+  const dd = document.getElementById('signin-dropdown');
+  if (dd) {
+    dd.style.display = 'block';
+    dd._pendingCallback = callback;
+  } else {
+    alert('Please sign in using the Sign In button in the navigation bar.');
+  }
 }
 
 // CSS for nav (injected)

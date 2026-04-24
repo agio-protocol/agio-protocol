@@ -235,8 +235,9 @@
                     <a href="#" onclick="showPage('settings',this)"><span class="icon">&#x2699;</span> Settings</a>
                 </nav>
                 <div class="sidebar-footer">
+                    <a href="#" onclick="event.preventDefault();switchAgent()" style="color:#f59e0b">Switch Agent</a>
+                    <a href="#" onclick="event.preventDefault();signOut()" style="color:#ef4444">Sign Out</a>
                     <a href="https://agiotage.finance">agiotage.finance</a>
-                    <a href="https://github.com/agio-protocol">GitHub</a>
                 </div>
             </div>
             <div class="main">
@@ -342,10 +343,7 @@
         } catch { err.textContent = 'Cannot reach API'; err.style.display = 'block'; }
     }
     function lookupId() {
-        const id = document.getElementById('agioIdInput').value.trim();
-        const key = document.getElementById('apiKeyInput').value.trim();
-        if (id && key) { loginWithKey(); return; }
-        if (id) { agioId = id; enterDashboard(); }
+        loginWithKey();
     }
 
     let newAgentId = '';
@@ -392,6 +390,32 @@
         setTimeout(() => document.getElementById('copyKeyBtn').textContent = 'Copy API Key', 2000);
     }
     function enterFromSuccess() { agioId = newAgentId; enterDashboard(); }
+
+    async function signOut() {
+        // Invalidate server session
+        const token = localStorage.getItem('agiotage_session_token');
+        if (token) {
+            fetch(`${API_ROOT}/auth/logout`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+        }
+        // Clear all local state
+        localStorage.removeItem('agiotage_session_token');
+        localStorage.removeItem('agio_session');
+        agioId = '';
+        agentData = null;
+        agentChain = 'base';
+        // Show login screen
+        document.getElementById('app').classList.remove('active');
+        document.getElementById('loginScreen').style.display = '';
+        document.getElementById('loginExisting').style.display = 'block';
+        document.getElementById('loginRegister').style.display = 'none';
+        document.getElementById('loginSuccess').style.display = 'none';
+        document.getElementById('agioIdInput').value = '';
+        document.getElementById('apiKeyInput').value = '';
+    }
+
+    function switchAgent() {
+        signOut();
+    }
 
     async function enterDashboard() {
         try {
@@ -813,11 +837,12 @@
         try { const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`); if (res.ok) { agentData = await res.json(); updateSidebar(); loadOverview(); } } catch {}
     }, 30000);
 
-    // Auto-login: if signed in via landing page nav, load dashboard directly
+    // Auto-login: only if we have a valid session token (not just an ID)
     document.addEventListener('DOMContentLoaded', () => {
         try {
+            const token = localStorage.getItem('agiotage_session_token');
             const savedSession = JSON.parse(localStorage.getItem('agio_session'));
-            if (savedSession?.agio_id && !agioId) {
+            if (token && savedSession?.agio_id && !agioId) {
                 agioId = savedSession.agio_id;
                 agentChain = savedSession.chain || 'base';
                 enterDashboard();
