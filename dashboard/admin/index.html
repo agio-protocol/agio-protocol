@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AGIO Admin Dashboard</title>
+    <title>Agiotage Admin Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e0e0; }
@@ -55,7 +55,7 @@
 <body>
     <div class="login" id="loginScreen">
         <div class="login-box">
-            <h1>AGIO Admin</h1>
+            <h1>Agiotage Admin</h1>
             <input type="password" id="apiKey" placeholder="Admin API Key" onkeyup="if(event.key==='Enter')login()">
             <button onclick="login()">Sign In</button>
         </div>
@@ -63,7 +63,7 @@
 
     <div class="app" id="app">
         <div class="sidebar">
-            <h2>AGIO Admin</h2>
+            <h2>Agiotage Admin</h2>
             <a href="#" class="active" onclick="showPage('overview')">Overview</a>
             <a href="#" onclick="showPage('agents')">Agents</a>
             <a href="#" onclick="showPage('transactions')">Transactions</a>
@@ -71,6 +71,7 @@
             <a href="#" onclick="showPage('revenue')">Revenue</a>
             <a href="#" onclick="showPage('reconciliation')">Reconciliation</a>
             <a href="#" onclick="showPage('wallets')">Wallets</a>
+            <a href="#" onclick="showPage('feedback')" style="color:#f59e0b">Feedback</a>
         </div>
         <div class="main">
             <div id="page-overview"></div>
@@ -80,6 +81,7 @@
             <div id="page-revenue" style="display:none"></div>
             <div id="page-reconciliation" style="display:none"></div>
             <div id="page-wallets" style="display:none"></div>
+            <div id="page-feedback" style="display:none"></div>
         </div>
     </div>
 
@@ -119,6 +121,7 @@
         if (page === 'revenue') loadRevenue();
         if (page === 'reconciliation') loadReconciliation();
         if (page === 'wallets') loadWallets();
+        if (page === 'feedback') loadFeedback();
     }
 
     async function loadOverview() {
@@ -393,6 +396,29 @@
                         <tr><td>Vault PDA</td><td style="font-family:monospace;font-size:11px">${(sVault.address||'').slice(0,16)}...</td><td><a class="basescan" href="https://solscan.io/account/${sVault.address}" target="_blank">View</a></td></tr>
                     </table>
                 </div>
+            </div>
+        `;
+    }
+
+    async function loadFeedback() {
+        const d = await api('/feedback/list?limit=100');
+        if (!d) return;
+        const items = d.feedback || [];
+        const catColors = { bug: '#ef4444', feature: '#3b82f6', complaint: '#f59e0b', praise: '#10b981', question: '#8b5cf6', general: '#6b7280' };
+        document.getElementById('page-feedback').innerHTML = `
+            <h1>Agent Feedback (${items.length})</h1>
+            <div class="refresh"><a href="#" onclick="loadFeedback()" style="color:#10b981">Refresh</a></div>
+            <div class="section">
+                ${items.length ? `<table>
+                    <tr><th>Time</th><th>Category</th><th>Agent</th><th>Page</th><th>Message</th></tr>
+                    ${items.map(f => `<tr>
+                        <td style="white-space:nowrap;font-size:11px">${f.created_at ? new Date(f.created_at).toLocaleString() : '?'}</td>
+                        <td><span class="badge" style="background:${catColors[f.category] || '#6b7280'}20;color:${catColors[f.category] || '#6b7280'}">${f.category || 'general'}</span></td>
+                        <td style="font-size:11px;font-family:monospace">${(f.agent_id || 'anonymous').slice(0, 16)}${f.agent_id ? '...' : ''}</td>
+                        <td style="font-size:11px">${f.page || '?'}</td>
+                        <td style="font-size:12px;max-width:400px">${(f.message || '').replace(/</g, '&lt;')}</td>
+                    </tr>`).join('')}
+                </table>` : '<p style="color:#6b7280">No feedback yet. The feedback widget appears on every page of agiotage.finance.</p>'}
             </div>
         `;
     }
