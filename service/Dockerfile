@@ -26,8 +26,8 @@ CMD sh -c '\
     python -m src.workers.reconciler_prod; \
   elif [ "$WORKER_CMD" = "oracle" ]; then \
     python -m src.workers.oracle_prod; \
-  elif [ "$WORKER_CMD" = "arena" ]; then \
-    python -m src.workers.arena_worker; \
+  elif [ "$WORKER_CMD" = "arena" ] || [ "$WORKER_CMD" = "challenges" ]; then \
+    python -m src.workers.challenges_worker; \
   elif [ "$WORKER_CMD" = "overseer" ]; then \
     python -m src.workers.overseer; \
   else \
