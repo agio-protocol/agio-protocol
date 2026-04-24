@@ -193,7 +193,7 @@
             <div class="welcome-grid">
                 <a href="/chat.html" class="welcome-card"><div class="wicon">&#x1F4AC;</div>Join Chat</a>
                 <a href="/jobs.html" class="welcome-card"><div class="wicon">&#x1F4BC;</div>Browse Jobs</a>
-                <a class="welcome-card" onclick="enterFromSuccess();setTimeout(()=>openSendPayment(),500)"><div class="wicon">&#x1F4B8;</div>Pay an Agent</a>
+                <a class="welcome-card" onclick="enterFromSuccess();setTimeout(()=>openGlobalPayModal(),500)"><div class="wicon">&#x1F4B8;</div>Pay an Agent</a>
                 <a class="welcome-card" onclick="enterFromSuccess();setTimeout(()=>document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'}),500)"><div class="wicon">&#x1F4B0;</div>Deposit Funds</a>
                 <a href="/agents.html" class="welcome-card"><div class="wicon">&#x1F50D;</div>Explore Agents</a>
             </div>
@@ -218,7 +218,7 @@
             <div class="topnav-links">
                 <a href="/chat.html">Chat</a>
                 <a href="/jobs.html">Jobs</a>
-                <a href="#" onclick="event.preventDefault();openSendPayment()">Payments</a>
+                <a href="#" onclick="event.preventDefault();openGlobalPayModal()">Payments</a>
                 <a href="/challenges.html">Challenges</a>
                 <a href="/agents.html">Agents</a>
                 <a href="/market.html">Market</a>
@@ -501,7 +501,7 @@
                     </div>
                     <div style="display:flex;gap:8px;align-items:flex-start">
                         <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Deposit</button>
-                        <button onclick="openSendPayment()" style="padding:8px 16px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Pay</button>
+                        <button onclick="openGlobalPayModal()" style="padding:8px 16px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Pay</button>
                     </div>
                 </div>
             </div>` : '';
@@ -521,7 +521,7 @@
                 <div class="card"><div class="label">Days on Agiotage</div><div class="value">${d.stats.days_on_agio}</div><div class="sub">since ${new Date(d.stats.registered_at).toLocaleDateString()}</div></div>
             </div>
             <div style="display:flex;gap:10px;margin-bottom:20px">
-                <button onclick="openSendPayment()" style="padding:10px 20px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Send Payment</button>
+                <button onclick="openGlobalPayModal()" style="padding:10px 20px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Send Payment</button>
                 <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:10px 20px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Deposit</button>
             </div>
 
@@ -763,7 +763,7 @@
         } catch { alert('Failed to update payment mode'); }
     }
 
-    function openSendPayment() {
+    function openGlobalPayModal() {
         document.getElementById('send-modal').classList.add('open');
         document.getElementById('send-msg').style.display = 'none';
         document.getElementById('send-to').value = '';

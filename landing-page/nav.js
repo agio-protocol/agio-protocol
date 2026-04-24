@@ -40,7 +40,7 @@ function renderNav(activePage) {
 
   const links = pages.map(p =>
     p.onclick
-      ? `<a href="#" class="nav-link" onclick="event.preventDefault();if(typeof openHomePayModal==='function')openHomePayModal();else if(typeof openSendPayment==='function')openSendPayment();else{requireLogin(()=>alert('Send Payment available from the homepage or dashboard'))}">${p.name}</a>`
+      ? `<a href="#" class="nav-link" onclick="event.preventDefault();openGlobalPayModal()">${p.name}</a>`
       : `<a href="${p.href}" class="nav-link ${activePage === p.name.toLowerCase() ? 'active' : ''}">${p.name}</a>`
   ).join('');
 
@@ -218,6 +218,119 @@ navCSS.textContent = `
 @media(max-width:768px){.nav-links{gap:0}.nav-link{padding:5px 8px;font-size:11px}}
 `;
 document.head.appendChild(navCSS);
+
+// === GLOBAL PAYMENT MODAL (available on every page) ===
+let _gpAgentCache = [];
+
+function openGlobalPayModal() {
+  requireLogin(() => {
+    _ensurePayModal();
+    const m = document.getElementById('global-pay-modal');
+    m.classList.add('open');
+    document.getElementById('gp-to').value = '';
+    document.getElementById('gp-amount').value = '';
+    document.getElementById('gp-memo').value = '';
+    document.getElementById('gp-msg').style.display = 'none';
+    document.getElementById('gp-route').textContent = '';
+    document.getElementById('gp-results').style.display = 'none';
+    const s = getSession();
+    const chain = s?.chain;
+    let tokens;
+    if (chain === 'solana') tokens = ['USDC', 'SOL', 'USDT'];
+    else if (chain === 'base') tokens = ['USDC', 'USDT', 'DAI', 'WETH', 'cbETH'];
+    else tokens = ['USDC', 'USDT', 'DAI', 'WETH', 'cbETH', 'SOL'];
+    document.getElementById('gp-token').innerHTML = tokens.map(t => `<option>${t}</option>`).join('');
+    if (!_gpAgentCache.length) {
+      fetch(AGIO_API + '/v1/social/discover?limit=50').then(r => r.json()).then(d => { _gpAgentCache = d.agents || []; }).catch(() => {});
+    }
+  });
+}
+
+function _gpSearch() {
+  const q = document.getElementById('gp-to').value.trim().toLowerCase();
+  const results = document.getElementById('gp-results');
+  if (q.length < 2 || (q.startsWith('0x') && q.length > 20)) { results.style.display = 'none'; _gpCheckRoute(); return; }
+  const matches = _gpAgentCache.filter(a => (a.agio_id || '').toLowerCase().includes(q) || (a.name || '').toLowerCase().includes(q)).slice(0, 6);
+  if (!matches.length) { results.style.display = 'none'; return; }
+  results.innerHTML = matches.map(a => {
+    const name = a.name || a.agio_id.slice(0, 16) + '...';
+    const chain = a.agio_id.length > 50 ? 'Solana' : 'Base';
+    return `<div style="padding:8px 12px;font-size:12px;cursor:pointer;color:#e0e6ef;border-bottom:1px solid #374151" onmouseover="this.style.background='#374151'" onmouseout="this.style.background=''" onclick="document.getElementById('gp-to').value='${a.agio_id}';document.getElementById('gp-results').style.display='none';_gpCheckRoute()">${name} <span style="color:#7a8599;font-size:10px;margin-left:4px">${chain}</span></div>`;
+  }).join('');
+  results.style.display = 'block';
+}
+
+function _gpCheckRoute() {
+  const to = document.getElementById('gp-to').value.trim();
+  const el = document.getElementById('gp-route');
+  if (to.length < 10) { el.textContent = ''; return; }
+  const isSol = to.includes('agio:sol:') || to.length > 50;
+  const s = getSession();
+  const senderSol = s?.chain === 'solana';
+  const sChain = senderSol ? 'Solana' : 'Base';
+  const rChain = isSol ? 'Solana' : 'Base';
+  el.innerHTML = sChain !== rChain
+    ? `<span style="color:#f59e0b">\u{1F310} Route: ${sChain} \u2192 ${rChain} (cross-chain)</span><br>Fee: $0.002 \u00b7 No bridge needed`
+    : `Route: ${sChain} \u2192 ${rChain} (same-chain) \u00b7 Fee: $0.00015`;
+}
+
+async function _gpSend() {
+  const s = getSession(); if (!s) return;
+  const to = document.getElementById('gp-to').value.trim();
+  const amt = parseFloat(document.getElementById('gp-amount').value);
+  const token = document.getElementById('gp-token').value;
+  const memo = document.getElementById('gp-memo').value.trim();
+  const msg = document.getElementById('gp-msg');
+  if (!to) { msg.textContent = 'Enter recipient'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
+  if (!amt || amt <= 0) { msg.textContent = 'Enter amount'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
+  msg.textContent = 'Sending...'; msg.style.color = '#00d9a3'; msg.style.display = 'block';
+  try {
+    const r = await fetch(AGIO_API + '/v1/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from_agio_id: s.agio_id, to_agio_id: to, amount: amt, token, memo: memo || null }) });
+    const d = await r.json();
+    if (d.payment_id) {
+      const xc = d.routing === 'CROSS_CHAIN';
+      msg.innerHTML = `\u2705 Payment sent!<br>$${amt.toFixed(4)} ${token} \u2192 ${to.slice(0, 16)}...<br>Fee: $${(d.fee || 0).toFixed(5)}${xc ? ' \u{1F310} cross-chain' : ''} \u00b7 ${d.status}`;
+      setTimeout(() => document.getElementById('global-pay-modal').classList.remove('open'), 4000);
+    } else { msg.textContent = d.detail || 'Failed'; msg.style.color = '#ef4444'; }
+  } catch { msg.textContent = 'Error'; msg.style.color = '#ef4444'; }
+}
+
+function _ensurePayModal() {
+  if (document.getElementById('global-pay-modal')) return;
+  const div = document.createElement('div');
+  div.id = 'global-pay-modal';
+  div.style.cssText = 'display:none;position:fixed;inset:0;background:#00000080;z-index:300;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:440px;max-width:90vw">
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;color:#e0e6ef">Send Payment</h3>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Pay to</label>
+      <div style="position:relative;margin-bottom:10px">
+        <input type="text" id="gp-to" placeholder="Search agents or paste ID..." oninput="_gpSearch();_gpCheckRoute()" autocomplete="off" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px">
+        <div id="gp-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#1f2937;border:1px solid #374151;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:10"></div>
+      </div>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Amount</label>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="number" id="gp-amount" placeholder="0.00" step="0.001" min="0.001" style="flex:1;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:14px">
+        <select id="gp-token" style="padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px"><option>USDC</option></select>
+      </div>
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Memo (optional)</label>
+      <input type="text" id="gp-memo" placeholder="What's this for?" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <div id="gp-route" style="font-size:12px;color:#7a8599;margin-bottom:10px;min-height:16px"></div>
+      <div id="gp-msg" style="font-size:12px;margin-bottom:8px;display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('global-pay-modal').classList.remove('open')" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+        <button onclick="_gpSend()" style="flex:1;padding:10px;background:#00d9a3;color:#06080d;border:none;border-radius:6px;font-weight:600;cursor:pointer">Send Payment</button>
+      </div>
+      <div style="font-size:11px;color:#7a8599;margin-top:12px;text-align:center;border-top:1px solid #1f2937;padding-top:10px">
+        \u{1F512} Agiotage never asks for your private key or seed phrase
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  const style = document.createElement('style');
+  style.textContent = '#global-pay-modal.open{display:flex!important}';
+  document.head.appendChild(style);
+}
 
 // Init on load
 document.addEventListener('DOMContentLoaded', () => {
