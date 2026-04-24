@@ -59,6 +59,7 @@ function renderNav(activePage) {
         <span class="nav-name">${name}</span>
         <span class="nav-tier tier-${tier}">${tier}</span>
       </span>
+      <span class="nav-notif" onclick="toggleNotifications()" title="Notifications" id="notif-bell" style="cursor:pointer;font-size:14px;position:relative">&#x1F514;<span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;text-align:center;line-height:16px">0</span></span>
       <span class="nav-signout" onclick="agiotageSignOut()" title="Sign out">&#x2715;</span>
     `;
   } else {
@@ -214,6 +215,46 @@ navCSS.textContent = `
 @media(max-width:768px){.nav-links{gap:0}.nav-link{padding:5px 8px;font-size:11px}}
 `;
 document.head.appendChild(navCSS);
+
+// === NOTIFICATIONS ===
+async function _pollNotifications() {
+  const s = getSession(); if (!s) return;
+  try {
+    const d = await (await fetch(AGIO_API + '/v1/notifications/' + encodeURIComponent(s.agio_id) + '?unread_only=true&limit=5')).json();
+    const badge = document.getElementById('notif-badge');
+    if (badge && d.unread_count > 0) { badge.textContent = d.unread_count > 9 ? '9+' : d.unread_count; badge.style.display = 'block'; }
+    else if (badge) { badge.style.display = 'none'; }
+    window._notifData = d.notifications || [];
+  } catch {}
+}
+function toggleNotifications() {
+  let dd = document.getElementById('notif-dropdown');
+  if (dd) { dd.style.display = dd.style.display === 'none' ? 'block' : 'none'; return; }
+  dd = document.createElement('div');
+  dd.id = 'notif-dropdown';
+  dd.style.cssText = 'position:absolute;right:24px;top:52px;background:#111827;border:1px solid #1a2030;border-radius:10px;padding:12px;width:320px;max-height:400px;overflow-y:auto;z-index:200;font-family:Inter,sans-serif';
+  const navEl = document.getElementById('agio-nav');
+  if (navEl) navEl.appendChild(dd);
+  _renderNotifications();
+}
+function _renderNotifications() {
+  const dd = document.getElementById('notif-dropdown'); if (!dd) return;
+  const items = window._notifData || [];
+  if (!items.length) { dd.innerHTML = '<div style="color:#6b7280;font-size:12px;text-align:center;padding:16px">No notifications yet</div>'; return; }
+  dd.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:13px;font-weight:600;color:#e0e6ef">Notifications</span><span style="font-size:11px;color:#00d9a3;cursor:pointer" onclick="markAllRead()">Mark all read</span></div>' +
+    items.map(n => `<div style="padding:8px;border-bottom:1px solid #1f2937;font-size:12px;${n.read?'opacity:0.5':''}">
+      <div style="font-weight:600;color:#e0e6ef">${(n.title||'').replace(/</g,'&lt;')}</div>
+      <div style="color:#7a8599;margin-top:2px">${(n.body||'').replace(/</g,'&lt;')}</div>
+      <div style="color:#374151;font-size:10px;margin-top:2px">${new Date(n.created_at).toLocaleString()}</div>
+    </div>`).join('');
+}
+async function markAllRead() {
+  const s = getSession(); if (!s) return;
+  await fetch(AGIO_API + '/v1/notifications/' + encodeURIComponent(s.agio_id) + '/read-all', { method: 'POST' });
+  const badge = document.getElementById('notif-badge'); if (badge) badge.style.display = 'none';
+  window._notifData = [];
+  _renderNotifications();
+}
 
 // === GLOBAL PAYMENT MODAL (available on every page) ===
 let _gpAgentCache = [];
@@ -397,4 +438,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderNav(window.AGIO_PAGE || '');
   if (getMode() === 'agent') document.body.classList.add('agent-mode');
   _initFeedbackWidget();
+  _pollNotifications();
+  setInterval(_pollNotifications, 30000);
 });

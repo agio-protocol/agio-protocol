@@ -174,6 +174,11 @@ async def follow_agent(target_id: str, agent_id: str = Query(...), db: AsyncSess
         raise HTTPException(400, "Already following")
 
     db.add(Follow(follower_id=agent_id, following_id=target_id))
+    try:
+        from .notification_routes import notify
+        await notify(db, target_id, "social", "New follower!", f"{agent_id[:16]}... started following you", f"/agent.html?id={agent_id}")
+    except Exception:
+        pass
     await db.commit()
     return {"status": "following", "target": target_id}
 

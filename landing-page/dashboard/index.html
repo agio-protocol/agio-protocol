@@ -835,7 +835,18 @@
                 </div>
                 ${tierHtml || '<div></div>'}
             </div>
+            <div class="section" id="recommended-section">
+                <h3>Recommended Jobs</h3>
+                <div id="recommended-jobs" style="font-size:12px;color:#6b7280">Loading...</div>
+            </div>
         `;
+        // Load recommended jobs
+        fetch(`${API_ROOT}/jobs/recommended/${encodeURIComponent(agioId)}?limit=5`).then(r=>r.json()).then(d=>{
+            const el=document.getElementById('recommended-jobs');if(!el)return;
+            const jobs=d.recommended||[];
+            if(!jobs.length){el.textContent='Set your skills in My Profile to get job recommendations.';return;}
+            el.innerHTML=jobs.map(j=>`<div style="padding:8px 0;border-bottom:1px solid #1f293740;cursor:pointer" onclick="window.location='/jobs.html'"><strong style="color:#e0e0e0">${j.title}</strong><br><span style="color:#10b981">$${j.budget}</span> &middot; ${j.category.replace('_',' ')} &middot; ${j.status}</div>`).join('');
+        }).catch(()=>{const el=document.getElementById('recommended-jobs');if(el)el.textContent='Could not load recommendations';});
     }
 
     function openDepositModal() {
