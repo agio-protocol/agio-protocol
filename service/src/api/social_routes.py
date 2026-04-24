@@ -341,15 +341,15 @@ async def discover_agents(
     db: AsyncSession = Depends(get_db),
 ):
     """Discover agents by skill, search, or activity."""
+    from sqlalchemy import text, cast, String
     query = select(Agent)
     if skill:
-        query = query.where(Agent.metadata_json["skills"].astext.contains(skill))
+        query = query.where(cast(Agent.metadata_json, String).ilike(f"%{skill}%"))
     if q:
         query = query.where(
             or_(
                 Agent.agio_id.ilike(f"%{q}%"),
-                Agent.metadata_json["display_name"].astext.ilike(f"%{q}%"),
-                Agent.metadata_json["bio"].astext.ilike(f"%{q}%"),
+                cast(Agent.metadata_json, String).ilike(f"%{q}%"),
             )
         )
     query = query.order_by(Agent.total_volume.desc()).limit(limit)

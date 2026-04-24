@@ -14,7 +14,7 @@ from ..models.payment import Payment
 router = APIRouter(prefix="/v1/dashboard")
 
 
-async def _get_agent(db: AsyncSession, agio_id: str) -> Agent:
+async def _get_agent(db: AsyncSession, agio_id: str):
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == agio_id)
     )).scalar_one_or_none()
