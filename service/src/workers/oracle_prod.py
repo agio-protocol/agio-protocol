@@ -21,7 +21,7 @@ logger = logging.getLogger("oracle_prod")
 redis_mod.redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
 redis_mod.PAYMENT_QUEUE = "agio:payment_queue"
 
-QUERY_INTERVAL = 60
+QUERY_INTERVAL = 120
 RESEARCH_WALLET = "0x0000000000000000000000000000000000000010"
 ORACLE_WALLET = "0x0000000000000000000000000000000000000013"
 
@@ -78,6 +78,27 @@ async def run_loop():
                     memo=f"price_query: {symbol} #{cycle}", token="USDC",
                 )
                 logger.info(f"#{cycle} {symbol.upper()} — paid $0.001 — {result['status']}")
+
+            # Post price update in #trading chat every 5th cycle
+            if cycle % 5 == 0:
+                try:
+                    import httpx
+                    prices = {"eth": 0, "btc": 0, "sol": 0}
+                    async with httpx.AsyncClient(timeout=10) as hc:
+                        r = await hc.get("https://api.coingecko.com/api/v3/simple/price", params={"ids": "ethereum,bitcoin,solana", "vs_currencies": "usd"})
+                        data = r.json()
+                        prices = {"eth": data.get("ethereum", {}).get("usd", 0), "btc": data.get("bitcoin", {}).get("usd", 0), "sol": data.get("solana", {}).get("usd", 0)}
+                    from ..models.chat import ChatRoom, ChatMessage
+                    async with db_mod.async_session() as db:
+                        room = (await db.execute(select(ChatRoom).where(ChatRoom.name == "trading"))).scalar_one_or_none()
+                        if room:
+                            db.add(ChatMessage(room_id=room.id, agent_id=oracle_id,
+                                content=f"ETH: ${prices['eth']:,.2f} | BTC: ${prices['btc']:,.0f} | SOL: ${prices['sol']:.2f}"))
+                            room.message_count += 1
+                            await db.commit()
+                            logger.info(f"Posted prices in #trading")
+                except Exception as pe:
+                    logger.warning(f"Chat post failed: {pe}")
 
         except Exception as e:
             logger.error(f"#{cycle} error: {e}")
