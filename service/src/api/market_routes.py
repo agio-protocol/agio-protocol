@@ -105,7 +105,10 @@ async def purchase(listing_id: int, buyer_id: str = Query(...), db: AsyncSession
     if not buyer:
         raise HTTPException(404, "Buyer not found")
 
-    available = Decimal(str(buyer.balance)) - Decimal(str(buyer.locked_balance))
+    buyer_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == buyer.id, AgentBalance.token == listing.price_token).with_for_update()
+    )).scalar_one_or_none()
+    available = Decimal(str(buyer_bal.balance)) - Decimal(str(buyer_bal.locked_balance)) if buyer_bal else Decimal("0")
     if available < listing.price:
         raise HTTPException(400, f"Insufficient balance: ${float(available):.2f}")
 
