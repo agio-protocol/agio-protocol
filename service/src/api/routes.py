@@ -384,9 +384,116 @@ async def discover():
     }
 
 
+# --- Payment Mode ---
+
+class PaymentModeRequest(BaseModel):
+    agio_id: str
+    mode: str
+
+
+@router.post("/settings/payment-mode")
+async def set_payment_mode(req: PaymentModeRequest, db: AsyncSession = Depends(get_db)):
+    """Switch between vault and direct payment modes."""
+    if req.mode not in ("vault", "direct"):
+        raise HTTPException(400, "Mode must be 'vault' or 'direct'")
+    from ..models.agent import Agent
+    from sqlalchemy import update
+    result = await db.execute(
+        update(Agent).where(Agent.agio_id == req.agio_id).values(payment_mode=req.mode)
+    )
+    await db.commit()
+    if result.rowcount == 0:
+        raise AgentNotFound(req.agio_id)
+    return {"agio_id": req.agio_id, "payment_mode": req.mode}
+
+
+@router.get("/direct/approval-status/{agio_id}")
+async def get_approval_status(agio_id: str, db: AsyncSession = Depends(get_db)):
+    """Get current token approval status for Direct Mode."""
+    from ..models.agent import Agent
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    if not agent:
+        raise AgentNotFound(agio_id)
+    return {
+        "agio_id": agio_id,
+        "payment_mode": agent.payment_mode or "vault",
+        "approval_amount": float(agent.approval_amount or 0),
+        "wallet": agent.wallet_address,
+        "recommended_approval": 100.0,
+    }
+
+
+@router.get("/direct/approve-instructions/{agio_id}")
+async def get_approve_instructions(agio_id: str, amount: float = Query(100.0), db: AsyncSession = Depends(get_db)):
+    """Get the exact transaction the agent needs to sign to set their token approval."""
+    from ..models.agent import Agent
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    if not agent:
+        raise AgentNotFound(agio_id)
+
+    is_solana = len(agent.wallet_address) > 44
+
+    if is_solana:
+        return {
+            "chain": "solana",
+            "method": "spl-token approve",
+            "command": f"spl-token approve <your-usdc-token-account> {amount} 3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+            "revoke": "spl-token revoke <your-usdc-token-account>",
+            "amount": amount,
+            "delegate": "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+        }
+    else:
+        usdc_base = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+        vault = "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc"
+        amount_wei = int(amount * 1e6)
+        return {
+            "chain": "base",
+            "contract": usdc_base,
+            "method": "approve(address,uint256)",
+            "args": [vault, amount_wei],
+            "spender": vault,
+            "amount": amount,
+            "amount_wei": amount_wei,
+            "revoke": {"method": "approve(address,uint256)", "args": [vault, 0]},
+        }
+
+
+@router.get("/vault/status")
+async def vault_status(db: AsyncSession = Depends(get_db)):
+    """Public vault transparency data."""
+    from sqlalchemy import func as sa_func
+    from ..models.agent import AgentBalance
+
+    balances = (await db.execute(
+        select(AgentBalance.token, sa_func.sum(AgentBalance.balance), sa_func.sum(AgentBalance.locked_balance))
+        .group_by(AgentBalance.token)
+    )).all()
+
+    token_totals = {}
+    grand_total = 0
+    for token, bal, locked in balances:
+        total = float(bal or 0)
+        token_totals[token] = {"total": total, "locked": float(locked or 0)}
+        grand_total += total
+
+    return {
+        "base_vault": "0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc",
+        "solana_vault": "3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+        "total_deposits_usd": grand_total,
+        "token_breakdown": token_totals,
+        "base_explorer": "https://basescan.org/address/0xe68bA48B4178a83212c00d6cb28c5A93Ec3FeEBc",
+        "solana_explorer": "https://solscan.io/account/3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
+        "contracts_source": "https://github.com/agio-protocol/agio-contracts",
+        "payment_modes": {
+            "vault": "Deposit first. Lower fees ($0.00015/tx). Batched settlement. Cross-chain supported.",
+            "direct": "No deposit. Higher fees ($0.001/tx). Individual on-chain settlement. Same-chain only.",
+        },
+    }
+
+
 # --- System ---
 
 @router.get("/health")
 async def health():
     """Service health check."""
-    return {"status": "ok", "service": "agio-api", "version": "1.0.0"}
+    return {"status": "ok", "service": "agiotage-api", "version": "1.0.0"}
