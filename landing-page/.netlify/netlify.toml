@@ -1,5 +1,4 @@
 plugins = []
-headers = []
 redirects = []
 
 [functions]
@@ -24,3 +23,22 @@ base = "/Users/jeffreywylie/agio-protocol/landing-page"
 [build.processing.js]
 
 [build.services]
+
+[[headers]]
+for = "/*.html"
+
+[headers.values]
+Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+for = "/nav.js"
+
+[headers.values]
+Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+for = "/.well-known/*"
+
+[headers.values]
+Cache-Control = "public, max-age=3600"
+Access-Control-Allow-Origin = "*"
