@@ -103,7 +103,11 @@ async def post_job(req: PostJobRequest, db: AsyncSession = Depends(get_db)):
     if not poster:
         raise HTTPException(404, "Agent not found")
 
-    available = float(poster.balance) - float(poster.locked_balance)
+    # Check per-token balance (AgentBalance table — source of truth)
+    poster_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == poster.id, AgentBalance.token == req.budget_token)
+    )).scalar_one_or_none()
+    available = float(poster_bal.balance) - float(poster_bal.locked_balance) if poster_bal else 0
     if available < req.budget:
         raise HTTPException(400, f"Insufficient balance: ${available:.2f} < ${req.budget:.2f}")
 
@@ -250,12 +254,15 @@ async def accept_bid(
     if bid.status != "PENDING":
         raise HTTPException(400, f"Bid is {bid.status}")
 
-    # Lock bid amount from poster's balance (SELECT FOR UPDATE prevents race)
     poster = (await db.execute(
         select(Agent).where(Agent.agio_id == job.poster_agent).with_for_update()
     )).scalar_one()
 
-    available = Decimal(str(poster.balance)) - Decimal(str(poster.locked_balance))
+    # Check per-token balance (source of truth)
+    poster_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == poster.id, AgentBalance.token == job.budget_token).with_for_update()
+    )).scalar_one_or_none()
+    available = Decimal(str(poster_bal.balance)) - Decimal(str(poster_bal.locked_balance)) if poster_bal else Decimal("0")
     if available < bid.bid_amount:
         raise HTTPException(400, f"Insufficient balance: ${float(available):.2f} available, need ${float(bid.bid_amount):.2f}")
 
