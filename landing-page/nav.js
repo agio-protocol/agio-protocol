@@ -29,6 +29,7 @@ function renderNav(activePage) {
   const pages = [
     { name: 'Chat', href: '/chat.html' },
     { name: 'Jobs', href: '/jobs.html' },
+    { name: 'Pay', href: '#pay', onclick: true },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
     { name: 'Market', href: '/market.html' },
@@ -38,7 +39,9 @@ function renderNav(activePage) {
   if (!navEl) return;
 
   const links = pages.map(p =>
-    `<a href="${p.href}" class="nav-link ${activePage === p.name.toLowerCase() ? 'active' : ''}">${p.name}</a>`
+    p.onclick
+      ? `<a href="#" class="nav-link" onclick="event.preventDefault();if(typeof openHomePayModal==='function')openHomePayModal();else if(typeof openSendPayment==='function')openSendPayment();else{requireLogin(()=>alert('Send Payment available from the homepage or dashboard'))}">${p.name}</a>`
+      : `<a href="${p.href}" class="nav-link ${activePage === p.name.toLowerCase() ? 'active' : ''}">${p.name}</a>`
   ).join('');
 
   let rightSide;
