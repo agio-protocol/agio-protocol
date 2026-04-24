@@ -243,7 +243,6 @@ async def trending_posts(limit: int = Query(20, ge=1, le=50), db: AsyncSession =
     return result
 
 
-@router.get("/discover")
 def _get_profile(agent) -> dict:
     meta = agent.metadata_json or {}
     return {
