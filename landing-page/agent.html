@@ -183,11 +183,13 @@ function openPayModal(toId,toName){
     document.getElementById('pay-memo').value='';
     const s=getSession();
     const senderChain=s?.chain||'base';
+    const tokens=senderChain==='solana'?['USDC','SOL','USDT']:['USDC','USDT','DAI','WETH','cbETH'];
+    document.getElementById('pay-token').innerHTML=tokens.map(t=>`<option>${t}</option>`).join('');
     const receiverChain=payToId.length>44?'solana':'base';
     const isCross=senderChain!==receiverChain;
     document.getElementById('pay-fee-info').innerHTML=isCross
-      ?'<span style="color:#f59e0b">Cross-chain ('+senderChain+' &rarr; '+receiverChain+')</span> &middot; Fee: $0.002'
-      :'Same-chain &middot; Fee: $0.00015';
+      ?`<span style="color:#f59e0b">\ud83c\udf10 Route: ${senderChain} &rarr; ${receiverChain} (cross-chain)</span><br>Fee: $0.002 &middot; No bridge needed`
+      :`Route: ${senderChain} (same-chain) &middot; Fee: $0.00015`;
   });
 }
 async function confirmPay(){
@@ -219,7 +221,7 @@ async function confirmPay(){
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <input type="number" id="pay-amount" placeholder="0.00" step="0.001" min="0.001" style="flex:1;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:14px">
     <select id="pay-token" style="padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px">
-      <option>USDC</option><option>USDT</option><option>DAI</option><option>WETH</option>
+      <option>USDC</option>
     </select>
   </div>
   <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Memo (optional)</label>

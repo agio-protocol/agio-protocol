@@ -434,8 +434,31 @@
             ? `<div class="card"><div class="label">Your Savings vs SPARK</div><div class="value green">${d.savings_vs_spark_pct}%</div><div class="sub">lower fees at ${tier} tier</div></div>`
             : `<div class="card"><div class="label">Fee Rate</div><div class="value">$${fmt(d.fee_rate, 5)}</div><div class="sub">per transaction (SPARK)</div></div>`;
 
+        // Onboarding steps (show until first transaction)
+        const onboardHtml = d.stats.total_payments === 0 ? `
+            <div class="section" style="background:#10b98108;border-color:#10b98120;margin-bottom:20px">
+                <h3 style="color:#10b981;margin-bottom:10px">Get Started</h3>
+                <div style="display:flex;gap:16px;font-size:13px;line-height:1.8">
+                    <div style="flex:1">
+                        <div><span style="color:#10b981">&#x2460;</span> Registered <span style="color:#10b981">&#x2705;</span></div>
+                        <div><span style="color:#f59e0b">&#x2461;</span> <strong style="color:#e0e0e0">Get funded</strong> — deposit tokens or receive a payment</div>
+                        <div style="color:#6b7280">&#x2462; Send your first payment</div>
+                        <div style="color:#6b7280">&#x2463; Browse jobs, enter challenges, earn</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:flex-start">
+                        <button onclick="document.getElementById('deposit-section')?.scrollIntoView({behavior:'smooth'})" style="padding:8px 16px;background:#10b981;color:#000;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Deposit</button>
+                        <button onclick="openSendPayment()" style="padding:8px 16px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Pay</button>
+                    </div>
+                </div>
+            </div>` : '';
+
+        const sdkCmd = agentChain === 'solana'
+            ? "from agiotage import AgiotageClient\\nclient = AgiotageClient(chain='solana')\\nclient.login('" + d.agio_id.slice(0,12) + "...')\\nawait client.deposit(token='USDC', amount=10.00)"
+            : "from agiotage import AgiotageClient\\nclient = AgiotageClient(chain='base')\\nclient.login('" + d.agio_id.slice(0,12) + "...')\\nawait client.deposit(token='USDC', amount=10.00)";
+
         document.getElementById('page-overview').innerHTML = `
             <h1>Overview</h1>
+            ${onboardHtml}
             <div class="cards">
                 <div class="card"><div class="label">Total Balance</div><div class="value green">$${fmt(total, 4)}</div><div class="sub">across all tokens</div></div>
                 <div class="card"><div class="label">Transactions</div><div class="value blue">${d.stats.total_payments}</div><div class="sub">all time</div></div>
@@ -456,26 +479,33 @@
                         <div class="pref-token">Preferred receive token: <span>${d.preferred_token}</span></div>
                     </div>
                     <div class="deposit-box" id="deposit-section">
-                        <h4>How Your Funds Work</h4>
-                        <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;line-height:1.7">
-                            Deposits go into a <strong style="color:#e0e0e0">smart contract on the blockchain</strong> — not into Agiotage's wallet. The contract is non-custodial:
+                        <h4>Fund Your Account</h4>
+                        <div style="font-size:12px;color:#9ca3af;margin-bottom:12px;line-height:1.7">
+                            Deposits go into a <strong style="color:#e0e0e0">non-custodial smart contract</strong> — only your wallet can withdraw. <a href="/vault.html" target="_blank">Learn more</a>
                         </div>
-                        <div style="font-size:12px;color:#9ca3af;line-height:1.9;margin-bottom:12px">
-                            <span style="color:#10b981">&#10003;</span> Only YOUR registered wallet can withdraw<br>
-                            <span style="color:#10b981">&#10003;</span> Agiotage cannot access your deposits<br>
-                            <span style="color:#10b981">&#10003;</span> Contract code is <a href="${explorer}" target="_blank">public and verified</a><br>
-                            <span style="color:#10b981">&#10003;</span> Balance verified on-chain every 5 minutes<br>
-                            <span style="color:#10b981">&#10003;</span> Withdraw 100% of your funds at any time
+
+                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option A — Via SDK (for agents)</div>
+                        <div style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#9ca3af;margin-bottom:12px;white-space:pre-line;overflow-x:auto">pip install agiotage-sdk\n\n${sdkCmd}</div>
+
+                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option B — Via Wallet (manual)</div>
+                        <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;line-height:1.7">
+                            Send ${tokenList} from your registered wallet to the vault contract:
                         </div>
-                        <div style="font-size:12px;font-weight:600;color:#e0e0e0;margin-bottom:6px">Deposit ${tokenList}:</div>
                         <div class="deposit-addr">
                             <span>${vaultAddr}</span>
                             <button class="copy-btn" onclick="navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
                         </div>
-                        <div style="font-size:11px;color:#6b7280;margin-bottom:10px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a></div>
-                        <div style="font-size:11px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:4px">
-                            Prefer to keep tokens in your wallet? <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Switch to Direct Mode</a> in Settings.
-                            &middot; <a href="/vault.html" target="_blank">Vault security details</a>
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:12px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a> &middot; Send ONLY from your registered wallet.</div>
+
+                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option C — Receive a Payment (easiest)</div>
+                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;line-height:1.7">No deposit needed — share your Agiotage ID and other agents can pay you directly:</div>
+                        <div class="deposit-addr">
+                            <span>${d.agio_id}</span>
+                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${d.agio_id}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+                        </div>
+
+                        <div style="font-size:10px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:8px">
+                            <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Direct Mode</a> (no deposit, pay from wallet) &middot; <a href="/vault.html" target="_blank">Vault security</a>
                         </div>
                     </div>
                 </div>
@@ -522,8 +552,8 @@
             fetch(url).then(r => r.json()), fetch(`${API_BASE}/${encodeURIComponent(agioId)}/ledger/summary`).then(r => r.json()),
         ]);
         const s = summaryRes;
-        const tokens = getTokensForChain();
-        const tokenOpts = tokens.map(t => `<option value="${t}">${t}</option>`).join('');
+        const allTokens = [...new Set([...BASE_TOKENS, ...SOL_TOKENS])];
+        const tokenOpts = allTokens.map(t => `<option value="${t}">${t}</option>`).join('');
         const rows = ledgerRes.ledger.map(t => {
             const isSent = t.direction === 'sent';
             return `<tr>
