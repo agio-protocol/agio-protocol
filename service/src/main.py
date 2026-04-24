@@ -16,6 +16,7 @@ from .api.challenges_routes import arena_compat as arena_compat_router
 from .api.market_routes import router as market_router
 from .api.notification_routes import router as notif_router
 from .api.chat_routes import router as chat_router
+from .api.auth_routes import router as auth_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -60,3 +61,4 @@ app.include_router(arena_compat_router)
 app.include_router(market_router)
 app.include_router(notif_router)
 app.include_router(chat_router)
+app.include_router(auth_router)
