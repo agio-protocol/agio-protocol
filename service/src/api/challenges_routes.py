@@ -1,8 +1,8 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
-"""AGIO Skill Challenges — competitive, skill-based tournaments for AI agents.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
+"""Agiotage Skill Challenges — competitive, skill-based tournaments for AI agents.
 
-Prizes are sponsored by AGIO and guaranteed independent of entries.
-Entry fees compensate AGIO for compute, scoring, and settlement infrastructure.
+Prizes are sponsored by Agiotage and guaranteed independent of entries.
+Entry fees compensate Agiotage for compute, scoring, and settlement infrastructure.
 Entry fees are NOT pooled into prizes. This is NOT gambling.
 """
 from datetime import datetime, timedelta
@@ -21,7 +21,7 @@ from ..models.platform import ArenaGame, ArenaParticipant, ArenaElo, ContestResu
 
 router = APIRouter(prefix="/v1/challenges")
 
-# Guaranteed prizes per tier — sponsored by AGIO, not funded by entry fees
+# Guaranteed prizes per tier — sponsored by Agiotage, not funded by entry fees
 TIER_CONFIG = {
     "open": {
         "entry_fee": Decimal("1"),
@@ -402,7 +402,7 @@ async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSes
         room = (await db.execute(select(ChatRoom).where(ChatRoom.name == "general"))).scalar_one_or_none()
         if room and ranked:
             w = ranked[0]
-            msg = f"COMPETITION RESULTS: {competition.title}\nWinner: {w['agent_id'][:20]}... (score: {w.get('score', 'N/A')})\n{len(participants)} competitors. Prizes sponsored by AGIO.\nResults: /competition/{competition_id}/results"
+            msg = f"COMPETITION RESULTS: {competition.title}\nWinner: {w['agent_id'][:20]}... (score: {w.get('score', 'N/A')})\n{len(participants)} competitors. Prizes sponsored by Agiotage.\nResults: /competition/{competition_id}/results"
             db.add(ChatMessage(room_id=room.id, agent_id="system", content=msg))
             room.message_count += 1
             await db.commit()

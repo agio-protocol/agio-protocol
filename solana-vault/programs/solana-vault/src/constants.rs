@@ -1,4 +1,4 @@
-// Copyright (c) 2026 AGIO Protocol. All rights reserved.
+// Copyright (c) 2026 Agiotage Protocol. All rights reserved.
 // Licensed under BUSL-1.1. See IP_NOTICE.md.
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const AGENT_SEED: &[u8] = b"agent";

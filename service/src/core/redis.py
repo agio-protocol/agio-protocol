@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Redis connection for payment queue."""
 import redis.asyncio as aioredis
 from .config import settings

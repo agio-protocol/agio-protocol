@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AGIO Dashboard</title>
+    <title>AGIOTAGE Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e0e0; }
@@ -112,23 +112,23 @@
 <body>
     <!-- Login Screen -->
     <div class="login" id="loginScreen">
-        <div class="login-logo">AGIO</div>
+        <div class="login-logo">AGIOTAGETAGE</div>
         <div class="login-sub">Agent Dashboard</div>
 
         <!-- Existing agent -->
         <div class="login-box" id="loginExisting">
             <h2>Welcome back</h2>
-            <p>Enter your AGIO ID to view your dashboard.</p>
-            <input class="id-input" id="agioIdInput" placeholder="Enter AGIO ID (0x...)" onkeyup="if(event.key==='Enter')lookupId()">
+            <p>Enter your Agiotage ID to view your dashboard.</p>
+            <input class="id-input" id="agioIdInput" placeholder="Enter Agiotage ID (0x...)" onkeyup="if(event.key==='Enter')lookupId()">
             <button class="wallet-btn" onclick="lookupId()">View Dashboard</button>
             <div class="divider">— or —</div>
-            <button class="id-btn" onclick="showRegister()">New to AGIO? Create Agent</button>
+            <button class="id-btn" onclick="showRegister()">New to Agiotage? Create Agent</button>
         </div>
 
         <!-- New agent registration -->
         <div class="login-box" id="loginRegister" style="display:none">
             <h2>Create your agent</h2>
-            <p>No email, no password. Just a name and you're on AGIO in 30 seconds.</p>
+            <p>No email, no password. Just a name and you're on Agiotage in 30 seconds.</p>
             <input class="id-input" id="regName" placeholder="Agent name (e.g. my-research-bot)" style="margin-bottom:10px">
             <select class="id-input" id="regToken" style="margin-bottom:10px;appearance:auto">
                 <option value="USDC" selected>Preferred token: USDC</option>
@@ -140,19 +140,19 @@
             <button class="wallet-btn" onclick="registerAgent()">Register</button>
             <div id="regError" style="color:#ef4444;font-size:12px;margin-top:8px;display:none"></div>
             <div class="divider">— or —</div>
-            <button class="id-btn" onclick="showLogin()">Already have an AGIO ID? Sign in</button>
+            <button class="id-btn" onclick="showLogin()">Already have an Agiotage ID? Sign in</button>
         </div>
 
         <!-- Registration success -->
         <div class="login-box" id="loginSuccess" style="display:none">
             <h2 style="color:#10b981">Agent Created</h2>
-            <p style="margin-bottom:16px">Save this ID — it's your identity on AGIO.</p>
+            <p style="margin-bottom:16px">Save this ID — it's your identity on Agiotage.</p>
             <div style="background:#1f2937;padding:14px;border-radius:8px;font-family:monospace;font-size:13px;word-break:break-all;margin-bottom:12px;text-align:left" id="newAgioId"></div>
             <button class="wallet-btn" onclick="copyNewId()" id="copyBtn">Copy to Clipboard</button>
             <div style="margin-top:20px;text-align:left;font-size:13px;color:#9ca3af;line-height:2">
                 <strong style="color:#e0e0e0">Next steps:</strong><br>
                 1. Install the SDK: <code style="color:#10b981">pip install agio-sdk</code><br>
-                2. Deposit USDC to your AGIO vault<br>
+                2. Deposit USDC to your Agiotage vault<br>
                 3. Start paying other agents<br>
                 <a href="https://github.com/agio-protocol/agio-protocol" target="_blank" style="color:#3b82f6">Full setup guide on GitHub</a>
             </div>
@@ -164,7 +164,7 @@
     <div class="app" id="app">
         <div class="sidebar">
             <div class="sidebar-header">
-                <div class="logo">AGIO</div>
+                <div class="logo">AGIOTAGETAGE</div>
                 <div class="dash-label">Agent Dashboard</div>
             </div>
             <div class="sidebar-agent" id="sidebarAgent"></div>
@@ -253,7 +253,7 @@
             document.getElementById('newAgioId').textContent = newAgentId;
 
         } catch (e) {
-            errDiv.textContent = 'Cannot reach AGIO API. Is the service running?';
+            errDiv.textContent = 'Cannot reach Agiotage API. Is the service running?';
             errDiv.style.display = 'block';
         }
     }
@@ -272,7 +272,7 @@
     async function enterDashboard() {
         try {
             const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`);
-            if (!res.ok) { alert('Agent not found. Check your AGIO ID.'); return; }
+            if (!res.ok) { alert('Agent not found. Check your Agiotage ID.'); return; }
             agentData = await res.json();
         } catch (e) { alert('Cannot connect to API. Is the server running?'); return; }
 
@@ -380,7 +380,7 @@
                 </div>
                 ${savingsHtml}
                 <div class="card">
-                    <div class="label">Days on AGIO</div>
+                    <div class="label">Days on Agiotage</div>
                     <div class="value">${d.stats.days_on_agio}</div>
                     <div class="sub">since ${new Date(d.stats.registered_at).toLocaleDateString()}</div>
                 </div>
@@ -487,7 +487,7 @@
             <div class="section">
                 <h3>How Tiers Work</h3>
                 <p style="color:#9ca3af;font-size:13px;line-height:1.6">
-                    Your tier is <strong>permanent</strong> — once earned, it never downgrades. The more you use AGIO, the cheaper it gets.
+                    Your tier is <strong>permanent</strong> — once earned, it never downgrades. The more you use Agiotage, the cheaper it gets.
                     Every transaction moves you closer to the next tier and its lower fees.
                 </p>
                 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:16px">
@@ -522,7 +522,7 @@
             <h1>Settings</h1>
             <div class="section">
                 <h3>Preferred Receive Token</h3>
-                <p style="color:#9ca3af;font-size:13px;margin-bottom:12px">When someone pays you in a different token, AGIO will automatically convert to your preferred token.</p>
+                <p style="color:#9ca3af;font-size:13px;margin-bottom:12px">When someone pays you in a different token, Agiotage will automatically convert to your preferred token.</p>
                 <select style="padding:8px 12px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-size:14px">
                     <option ${d.preferred_token==='USDC'?'selected':''}>USDC</option>
                     <option ${d.preferred_token==='USDT'?'selected':''}>USDT</option>

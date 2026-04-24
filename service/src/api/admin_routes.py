@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Admin API routes — protected by ADMIN_API_KEY header."""
 from datetime import datetime, timedelta
 from decimal import Decimal

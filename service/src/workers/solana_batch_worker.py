@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """
 Solana Batch Worker — settles payments on the Solana AGIO vault.
 

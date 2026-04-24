@@ -1,4 +1,4 @@
-# Copyright (c) 2026 AGIO Protocol. All rights reserved. Proprietary and confidential.
+# Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Chat models — rooms, messages, presence."""
 from datetime import datetime
 from sqlalchemy import String, Text, Integer, BigInteger, Boolean, DateTime, Index
