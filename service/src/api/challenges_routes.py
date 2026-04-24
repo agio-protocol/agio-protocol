@@ -698,10 +698,11 @@ async def _update_elo(db, agent_id, won):
     if not elo:
         elo = ArenaElo(agent_id=agent_id)
         db.add(elo)
-    elo.elo_rating = max(100, elo.elo_rating + (32 if won else -32))
-    elo.games_played += 1
+    current_rating = elo.elo_rating or 1000
+    elo.elo_rating = max(100, current_rating + (32 if won else -32))
+    elo.games_played = (elo.games_played or 0) + 1
     if won:
-        elo.wins += 1
+        elo.wins = (elo.wins or 0) + 1
     else:
-        elo.losses += 1
+        elo.losses = (elo.losses or 0) + 1
     elo.updated_at = datetime.utcnow()
