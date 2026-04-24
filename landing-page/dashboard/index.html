@@ -350,7 +350,12 @@
             if (!res.ok) { alert('Agent not found.'); return; }
             agentData = await res.json();
         } catch { alert('Cannot connect to API.'); return; }
-        if (agentData.wallet && agentData.wallet.length > 44) agentChain = 'solana';
+        // Detect chain: check session, wallet format, or agio_id prefix
+        const sess = getSession ? getSession() : null;
+        if (sess?.chain === 'solana') agentChain = 'solana';
+        else if (agentData.wallet && !agentData.wallet.startsWith('0x')) agentChain = 'solana';
+        else if (agentData.wallet && agentData.wallet.length > 44) agentChain = 'solana';
+        else if (agentData.agio_id && agentData.agio_id.includes('sol:')) agentChain = 'solana';
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('app').classList.add('active');
         updateSidebar();
@@ -480,32 +485,30 @@
                     </div>
                     <div class="deposit-box" id="deposit-section">
                         <h4>Fund Your Account</h4>
-                        <div style="font-size:12px;color:#9ca3af;margin-bottom:12px;line-height:1.7">
-                            Deposits go into a <strong style="color:#e0e0e0">non-custodial smart contract</strong> — only your wallet can withdraw. <a href="/vault.html" target="_blank">Learn more</a>
-                        </div>
 
-                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option A — Via SDK (for agents)</div>
-                        <div style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#9ca3af;margin-bottom:12px;white-space:pre-line;overflow-x:auto">pip install agiotage-sdk\n\n${sdkCmd}</div>
-
-                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option B — Via Wallet (manual)</div>
-                        <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;line-height:1.7">
-                            Send ${tokenList} from your registered wallet to the vault contract:
-                        </div>
-                        <div class="deposit-addr">
-                            <span>${vaultAddr}</span>
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
-                        </div>
-                        <div style="font-size:10px;color:#6b7280;margin-bottom:12px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a> &middot; Send ONLY from your registered wallet.</div>
-
-                        <div style="font-size:12px;font-weight:600;color:#10b981;margin-bottom:6px">Option C — Receive a Payment (easiest)</div>
-                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;line-height:1.7">No deposit needed — share your Agiotage ID and other agents can pay you directly:</div>
+                        <div style="font-size:12px;font-weight:600;color:#10b981;margin:10px 0 6px">Easiest — Receive a payment</div>
+                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Share your Agiotage ID. Other agents can pay you directly — no deposit needed.</div>
                         <div class="deposit-addr">
                             <span>${d.agio_id}</span>
                             <button class="copy-btn" onclick="navigator.clipboard.writeText('${d.agio_id}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
                         </div>
 
-                        <div style="font-size:10px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:8px">
-                            <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Direct Mode</a> (no deposit, pay from wallet) &middot; <a href="/vault.html" target="_blank">Vault security</a>
+                        <div style="font-size:12px;font-weight:600;color:#10b981;margin:12px 0 6px">Deposit from your wallet</div>
+                        <div style="font-size:11px;color:#9ca3af;margin-bottom:4px">Send ${tokenList} from your registered wallet to the vault:</div>
+                        <div class="deposit-addr">
+                            <span>${vaultAddr}</span>
+                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${vaultAddr}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+                        </div>
+                        <div style="font-size:10px;color:#6b7280;margin-bottom:4px">Network: ${network} &middot; <a href="${explorer}" target="_blank" style="color:#3b82f6">Verify on explorer</a></div>
+                        <div style="font-size:10px;color:#f59e0b">\u26a0\ufe0f Send ONLY from your registered wallet. Deposits from other wallets cannot be credited.</div>
+
+                        <details style="margin-top:12px">
+                          <summary style="font-size:12px;font-weight:600;color:#10b981;cursor:pointer">For developers — Deposit via SDK</summary>
+                          <div style="background:#111827;border:1px solid #1f2937;border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:#9ca3af;margin-top:6px;white-space:pre-line;overflow-x:auto">pip install agiotage-sdk\n\n${sdkCmd}</div>
+                        </details>
+
+                        <div style="font-size:10px;color:#6b7280;border-top:1px solid #1f2937;padding-top:8px;margin-top:10px">
+                            Deposits go into a non-custodial smart contract — only your wallet can withdraw. <a href="/vault.html" target="_blank">Vault security</a> &middot; <a href="#" onclick="event.preventDefault();showPage('settings',document.querySelector('.sidebar nav a:last-child'))">Direct Mode</a>
                         </div>
                     </div>
                 </div>
