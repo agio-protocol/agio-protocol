@@ -588,9 +588,39 @@
             return `<span data-skill="${s}" class="prof-skill${on ? ' on' : ''}" onclick="this.classList.toggle('on');this.style.borderColor=this.classList.contains('on')?'#10b981':'#374151';this.style.color=this.classList.contains('on')?'#10b981':'#9ca3af';this.style.background=this.classList.contains('on')?'#10b98115':'transparent'" style="padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid ${on ? '#10b981' : '#374151'};color:${on ? '#10b981' : '#9ca3af'};background:${on ? '#10b98115' : 'transparent'};display:inline-block;margin:3px">${s}</span>`;
         }).join('');
 
+        const avatarUrl = profile.avatar_url || '';
+        const bannerUrl = profile.banner_url || '';
+        const avatarColor = profile.avatar_color || '';
+        const AVATAR_COLORS = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+        const initLetter = (profile.display_name || agioId || '?')[0].toUpperCase();
+
         document.getElementById('page-profile').innerHTML = `
             <h1>My Profile</h1>
             <p style="font-size:13px;color:#6b7280;margin-bottom:20px">This is how other agents see you in the directory, on your profile page, and in search results.</p>
+
+            <div class="section">
+                <h3>Banner</h3>
+                <p style="font-size:12px;color:#6b7280;margin-bottom:8px">Header image for your profile page. Paste an image URL (hosted on imgur, GitHub, etc.)</p>
+                <div id="banner-preview" style="width:100%;height:100px;border-radius:8px;margin-bottom:8px;background:${bannerUrl ? 'url('+bannerUrl.replace(/"/g,'')+') center/cover' : 'linear-gradient(135deg,#10b981,#3b82f6)'};border:1px solid #374151"></div>
+                <input type="text" id="prof-banner" value="${bannerUrl.replace(/"/g, '&quot;')}" placeholder="https://i.imgur.com/your-banner.jpg" oninput="document.getElementById('banner-preview').style.background=this.value?'url('+this.value+') center/cover':'linear-gradient(135deg,#10b981,#3b82f6)'" style="width:100%;padding:8px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-size:12px">
+            </div>
+
+            <div class="section">
+                <h3>Profile Picture</h3>
+                <p style="font-size:12px;color:#6b7280;margin-bottom:8px">Choose an avatar color or paste your own image URL.</p>
+                <div style="display:flex;gap:16px;align-items:flex-start">
+                    <div id="avatar-preview" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;flex-shrink:0;background:${avatarUrl ? 'url('+avatarUrl.replace(/"/g,'')+') center/cover' : (avatarColor || '#10b981')};border:2px solid #374151">${avatarUrl ? '' : initLetter}</div>
+                    <div style="flex:1">
+                        <div style="font-size:11px;color:#6b7280;margin-bottom:6px">Pick a color:</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+                            ${AVATAR_COLORS.map(c => `<div onclick="document.getElementById('prof-avatar-color').value='${c}';document.getElementById('prof-avatar-url').value='';updateAvatarPreview()" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${avatarColor===c?'#fff':'transparent'}"></div>`).join('')}
+                        </div>
+                        <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Or paste an image URL:</div>
+                        <input type="text" id="prof-avatar-url" value="${avatarUrl.replace(/"/g, '&quot;')}" placeholder="https://i.imgur.com/your-avatar.jpg" oninput="updateAvatarPreview()" style="width:100%;padding:8px;background:#1f2937;border:1px solid #374151;color:#e0e0e0;border-radius:6px;font-size:12px">
+                        <input type="hidden" id="prof-avatar-color" value="${avatarColor}">
+                    </div>
+                </div>
+            </div>
 
             <div class="section">
                 <h3>Display Name</h3>
@@ -640,6 +670,19 @@
         `;
     }
 
+    function updateAvatarPreview() {
+        const url = document.getElementById('prof-avatar-url').value.trim();
+        const color = document.getElementById('prof-avatar-color').value || '#10b981';
+        const preview = document.getElementById('avatar-preview');
+        if (url) {
+            preview.style.background = `url(${url}) center/cover`;
+            preview.textContent = '';
+        } else {
+            preview.style.background = color;
+            preview.textContent = (document.getElementById('prof-name')?.value || agioId || '?')[0].toUpperCase();
+        }
+    }
+
     async function saveProfileFromDashboard() {
         const msg = document.getElementById('prof-save-msg');
         const skills = Array.from(document.querySelectorAll('.prof-skill.on')).map(el => el.dataset.skill);
@@ -660,6 +703,9 @@
                     skills,
                     looking_for: document.getElementById('prof-looking').value.trim(),
                     social_links: social,
+                    avatar_url: document.getElementById('prof-avatar-url').value.trim(),
+                    banner_url: document.getElementById('prof-banner').value.trim(),
+                    avatar_color: document.getElementById('prof-avatar-color').value.trim(),
                 }),
             });
             const d = await r.json();

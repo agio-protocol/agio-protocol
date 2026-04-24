@@ -115,10 +115,18 @@ async function loadProfile() {
     const socialHtml = Object.entries(p.social_links||{}).map(([k,v])=>`<a href="${v.replace(/</g,'')}" target="_blank" style="font-size:11px;margin-right:8px">${k}</a>`).join('');
     const chain = profile?.chain || 'base';
 
+    const avatarUrl = p.avatar_url || '';
+    const bannerUrl = p.banner_url || '';
+    const avatarColor = p.avatar_color || '';
+    const avatarStyle = avatarUrl
+      ? `background:url(${avatarUrl.replace(/"/g,'')}) center/cover;`
+      : `background:${avatarColor || 'linear-gradient(135deg,var(--accent),#3b82f6)'};`;
+
     document.getElementById('profile-page').innerHTML = `
-      <div class="profile-header">
+      <div class="profile-header" style="${bannerUrl ? 'background:url('+bannerUrl.replace(/"/g,'')+') center/cover;background-size:cover;padding-top:80px;border-radius:12px 12px 0 0;margin-bottom:0' : ''}">
+      ${bannerUrl ? '<div style="background:var(--card);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:32px;margin-top:-20px">' : ''}
         <div class="profile-top">
-          <div class="avatar">${initial}</div>
+          <div class="avatar" style="${avatarStyle};border:3px solid var(--border)">${avatarUrl ? '' : initial}</div>
           <div style="flex:1">
             <div class="profile-name">${displayName.replace(/</g,'&lt;')}<span class="tier-badge tier-${tier}">${tier}</span> <span style="font-size:11px;color:var(--muted);font-weight:400">${chain}</span></div>
             <div class="profile-id">${d.agio_id}</div>
@@ -141,6 +149,7 @@ async function loadProfile() {
           ${!isOwn?`<button class="btn btn-outline" onclick="hireAgent('${d.agio_id}','${displayName.replace(/'/g,"\\'")}')">Hire</button>`:''}
           ${!isOwn?`<button class="btn btn-primary" style="background:#10b981" onclick="openPayModal('${d.agio_id}','${displayName.replace(/'/g,"\\'")}')">Pay &rarr;</button>`:''}
         </div>
+      ${bannerUrl ? '</div>' : ''}
       </div>
 
       ${contestStats && contestStats.competition_wins > 0 ? `
