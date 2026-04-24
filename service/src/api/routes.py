@@ -397,13 +397,27 @@ async def set_payment_mode(req: PaymentModeRequest, db: AsyncSession = Depends(g
     if req.mode not in ("vault", "direct"):
         raise HTTPException(400, "Mode must be 'vault' or 'direct'")
     from ..models.agent import Agent
-    from sqlalchemy import update
-    result = await db.execute(
-        update(Agent).where(Agent.agio_id == req.agio_id).values(payment_mode=req.mode)
-    )
-    await db.commit()
-    if result.rowcount == 0:
-        raise AgentNotFound(req.agio_id)
+    from sqlalchemy import update, text
+    try:
+        result = await db.execute(
+            update(Agent).where(Agent.agio_id == req.agio_id).values(payment_mode=req.mode)
+        )
+        await db.commit()
+        if result.rowcount == 0:
+            raise AgentNotFound(req.agio_id)
+    except Exception:
+        await db.rollback()
+        try:
+            await db.execute(text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(10) DEFAULT 'vault'"))
+            await db.execute(text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS approval_amount NUMERIC(20,6) DEFAULT 0"))
+            await db.commit()
+            result = await db.execute(update(Agent).where(Agent.agio_id == req.agio_id).values(payment_mode=req.mode))
+            await db.commit()
+            if result.rowcount == 0:
+                raise AgentNotFound(req.agio_id)
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(500, f"Migration error: {e}")
     return {"agio_id": req.agio_id, "payment_mode": req.mode}
 
 
@@ -414,10 +428,17 @@ async def get_approval_status(agio_id: str, db: AsyncSession = Depends(get_db)):
     agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
     if not agent:
         raise AgentNotFound(agio_id)
+    mode = "vault"
+    approval = 0
+    try:
+        mode = agent.payment_mode or "vault"
+        approval = float(agent.approval_amount or 0)
+    except Exception:
+        pass
     return {
         "agio_id": agio_id,
-        "payment_mode": agent.payment_mode or "vault",
-        "approval_amount": float(agent.approval_amount or 0),
+        "payment_mode": mode,
+        "approval_amount": approval,
         "wallet": agent.wallet_address,
         "recommended_approval": 100.0,
     }
