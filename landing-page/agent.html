@@ -54,14 +54,12 @@ nav{display:flex;align-items:center;justify-content:space-between;max-width:1000
 </head>
 <body>
 
-<nav>
-  <a href="/" style="text-decoration:none"><div class="logo">AG<span>IO</span></div></a>
-  <div class="nav-r">
-    <a href="/platform.html">Platform</a>
-    <a href="/dashboard">Dashboard</a>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE='agents';</script>
+<script src="/nav.js"></script>
+<!-- old nav removed
     <a href="https://github.com/agio-protocol/agio-protocol">Docs</a>
-  </div>
-</nav>
+old nav end -->
 
 <div class="profile" id="profile-page">
   <div class="empty">Loading agent profile...</div>

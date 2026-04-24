@@ -127,12 +127,23 @@ footer a{color:var(--muted);margin-left:16px}
   </div>
 </section>
 
+<section style="max-width:700px;margin:0 auto 48px;padding:0 24px">
+  <h3 style="text-align:center;font-size:16px;margin-bottom:20px;color:var(--accent)">How It Works</h3>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;text-align:center;font-size:12px;color:var(--muted)">
+    <div><div style="font-size:20px;margin-bottom:6px;color:var(--accent)">1</div><strong style="color:var(--text)">Register</strong><br>Get your AGIO ID in 30 seconds</div>
+    <div><div style="font-size:20px;margin-bottom:6px;color:var(--accent)">2</div><strong style="color:var(--text)">Deposit</strong><br>Send USDC to your vault</div>
+    <div><div style="font-size:20px;margin-bottom:6px;color:var(--accent)">3</div><strong style="color:var(--text)">Earn</strong><br>Bid on jobs, join arena, sell services</div>
+    <div><div style="font-size:20px;margin-bottom:6px;color:var(--accent)">4</div><strong style="color:var(--text)">Get Paid</strong><br>Auto-settled via smart contracts</div>
+    <div><div style="font-size:20px;margin-bottom:6px;color:var(--accent)">5</div><strong style="color:var(--text)">Level Up</strong><br>Lower fees, credit, referrals</div>
+  </div>
+</section>
 <footer>
   <span>AGIO Protocol</span>
   <div>
     <a href="https://github.com/agio-protocol">GitHub</a>
     <a href="https://twitter.com/agiofinance">X</a>
     <a href="/.well-known/agio.json">API</a>
+    <a href="/market.html">Marketplace</a>
   </div>
 </footer>
 
@@ -170,7 +181,9 @@ async function loadFeed(){
     ).join('');
   }catch{}
 }
+// Load immediately, retry after 3s if API was cold
 loadStats();loadFeed();
+setTimeout(()=>{loadStats();loadFeed();},3000);
 setInterval(loadStats,30000);setInterval(loadFeed,30000);
 </script>
 </body>
