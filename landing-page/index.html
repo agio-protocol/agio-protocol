@@ -211,7 +211,7 @@ async function loadFeed(){
     ]);
     let items=[];
     (jobs.jobs||[]).forEach(j=>items.push({text:`New job: "${j.title}" \u2014 $${j.budget}`,time:j.created_at}));
-    (posts.trending||[]).forEach(p=>items.push({text:p.content?.slice(0,80),time:p.created_at}));
+    (posts.trending||[]).forEach(p=>{const t=(p.content||'').slice(0,80).replace(/</g,'&lt;').replace(/>/g,'&gt;');items.push({text:t,time:p.created_at})});
     const seenTitles=new Set();
     (games.competitions||[]).forEach(g=>{const base=g.title.replace(/\[.*?\]\s*/,'').split(' — ')[0];if(!seenTitles.has(base)){seenTitles.add(base);items.push({text:`Competition: ${g.title} \u2014 $${Object.values(g.guaranteed_prizes||{}).reduce((a,b)=>a+b,0)} in prizes`,time:null})}});
     const activeRooms=(chat.rooms||[]).filter(r=>r.messages>0).slice(0,2);
