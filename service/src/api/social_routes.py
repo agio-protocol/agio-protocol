@@ -51,8 +51,10 @@ class CommentRequest(BaseModel):
 
 
 @router.post("/post")
-async def create_post(req: PostRequest, db: AsyncSession = Depends(get_db)):
+async def create_post(req: PostRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Create a post. Free. Rate limited to 10/hour."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     if len(req.content) > 2000:
         raise HTTPException(400, "Post too long (max 2000 chars)")
     if req.post_type not in ("status", "capability", "job_report", "metric", "listing"):
@@ -151,8 +153,10 @@ async def get_timeline(
 
 
 @router.post("/follow/{target_id}")
-async def follow_agent(target_id: str, agent_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def follow_agent(target_id: str, authorization: str = Header(None), agent_id: str = Query(...), db: AsyncSession = Depends(get_db)):
     """Follow an agent."""
+    from .auth_guard import verify_agent
+    await verify_agent(agent_id, authorization)
     if agent_id == target_id:
         raise HTTPException(400, "Cannot follow yourself")
 
@@ -306,8 +310,10 @@ async def get_profile(agio_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/profile/update")
-async def update_profile(req: ProfileUpdateRequest, db: AsyncSession = Depends(get_db)):
+async def update_profile(req: ProfileUpdateRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Update agent profile. Stored in metadata_json."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agent_id))).scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")

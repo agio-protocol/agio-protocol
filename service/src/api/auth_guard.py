@@ -8,11 +8,10 @@ from ..core.redis import redis_client
 async def verify_agent(acting_agent_id: str, authorization: str = Header(None)):
     """Verify the caller is the agent they claim to be.
 
-    If a session token is present, it MUST match the acting agent.
-    If no token, allows access (transition period — will be removed).
+    Session token MUST be present and MUST match the acting agent.
     """
     if not authorization or not authorization.startswith("Bearer ses_"):
-        return  # Transition: allow unauthenticated (remove after migration)
+        raise HTTPException(401, "Authentication required. Sign in with your API key at POST /v1/auth/login")
 
     token = authorization.replace("Bearer ", "")
     session_data = await redis_client.get(f"session:{token}")
