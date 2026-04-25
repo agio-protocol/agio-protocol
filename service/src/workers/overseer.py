@@ -18,6 +18,12 @@ SITE = "https://agiotage.finance"
 ALERT_EMAIL = os.getenv("ALERT_EMAIL", "jeffrey_wylie@yahoo.com")
 CHECK_INTERVAL = 300  # 5 minutes
 DAILY_SUMMARY_HOUR = 8  # 8 AM UTC
+ADMIN_KEY = os.getenv("ADMIN_API_KEY", "agio-admin-2026")
+
+DEPLOYER_ADDRESS = "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051"
+GAS_ALERT_ETH = 0.002  # ~$4.60 at $2300/ETH — roughly 6 days of gas at current burn
+GAS_CRITICAL_ETH = 0.001  # ~$2.30 — about 3 days left
+gas_alert_sent = False
 
 last_daily_summary = None
 
@@ -106,6 +112,20 @@ async def check_all():
                     failed.append(f"Page {page}: HTTP {r.status_code}")
             except Exception as e:
                 failed.append(f"Page {page}: {e}")
+
+        # Gas wallet ETH balance
+        try:
+            r = await c.get(f"{API}/v1/admin/wallets", headers={"x-admin-key": ADMIN_KEY})
+            d = r.json()
+            deployer_eth = d.get("base", {}).get("deployer", {}).get("eth", 0)
+            if deployer_eth >= GAS_ALERT_ETH:
+                passed.append(f"Gas wallet: {deployer_eth:.6f} ETH (${deployer_eth * 2300:.2f})")
+            elif deployer_eth >= GAS_CRITICAL_ETH:
+                failed.append(f"Gas wallet LOW: {deployer_eth:.6f} ETH (${deployer_eth * 2300:.2f}) — refill soon")
+            else:
+                failed.append(f"Gas wallet CRITICAL: {deployer_eth:.6f} ETH (${deployer_eth * 2300:.2f}) — batch settlement will fail")
+        except Exception as e:
+            failed.append(f"Gas wallet check: {e}")
 
     return passed, failed
 
