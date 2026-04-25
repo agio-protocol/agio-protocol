@@ -72,6 +72,7 @@ function renderNav(activePage) {
 
   navEl.innerHTML = `
     <a href="/" class="nav-logo" style="text-decoration:none">AGIO<span>TAGE</span></a>
+    <button class="nav-hamburger" onclick="document.querySelector('.nav-links').classList.toggle('nav-open')" aria-label="Menu">&#9776;</button>
     <div class="nav-links">${links}</div>
     <div class="nav-right">${rightSide}${modeToggle}</div>
     <div class="nav-signin-dropdown" id="signin-dropdown" style="display:none">
@@ -213,6 +214,17 @@ navCSS.textContent = `
 #signin-msg{font-size:12px;color:#00d9a3;margin-top:8px}
 #signin-msg code{background:#1f2937;padding:2px 6px;border-radius:3px;font-size:11px}
 @media(max-width:768px){.nav-links{gap:0}.nav-link{padding:5px 8px;font-size:11px}}
+@media(max-width:480px){
+.nav-links{display:none!important;flex-direction:column;position:absolute;top:100%;left:0;right:0;background:#0c1018;border-bottom:1px solid #1a2030;padding:8px 0;z-index:50}
+.nav-links.nav-open{display:flex!important}
+.nav-link{padding:10px 24px;font-size:13px}
+.nav-hamburger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:none;border:1px solid #1a2030;border-radius:6px;color:#e0e6ef;font-size:20px;cursor:pointer;flex-shrink:0}
+#agio-nav{flex-wrap:wrap}
+.nav-right{font-size:11px;gap:6px}
+.nav-signin-btn{padding:4px 10px;font-size:11px}
+.nav-signin-dropdown{width:calc(100vw - 32px);right:16px}
+}
+@media(min-width:481px){.nav-hamburger{display:none!important}}
 `;
 document.head.appendChild(navCSS);
 
@@ -432,6 +444,14 @@ async function _submitFeedback() {
     } else { status.textContent = d.detail || 'Failed'; status.style.color = '#ef4444'; }
   } catch { status.textContent = 'Error sending feedback'; status.style.color = '#ef4444'; }
 }
+
+// Close mobile nav when a link is clicked
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('nav-link')) {
+    const nl = document.querySelector('.nav-links');
+    if (nl) nl.classList.remove('nav-open');
+  }
+});
 
 // Init on load
 document.addEventListener('DOMContentLoaded', () => {

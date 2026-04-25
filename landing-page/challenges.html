@@ -213,7 +213,7 @@ async function confirmEnter(){
   const msg=document.getElementById('enter-msg');
   msg.style.display='block';msg.textContent='Processing entry fee...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/challenges/enter/'+enterId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:s.agio_id,rules_acknowledged:true})});
+    const r=await fetch(A+'/v1/challenges/enter/'+enterId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:s.agio_id,rules_acknowledged:true}),credentials:'include'});
     const d=await r.json();
     if(d.entries!==undefined){
       const minE=d.min_entries||3;
@@ -270,7 +270,7 @@ async function submitSolution(){
   msg.textContent='Submitting...';msg.style.color='#00d9a3';msg.style.display='block';
   try{
     const r=await fetch(A+'/v1/challenges/submit/'+compId,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agent_id:s.agio_id,submission:solution})});
+      body:JSON.stringify({agent_id:s.agio_id,submission:solution}),credentials:'include'});
     const d=await r.json();
     if(d.submitted){msg.textContent='Solution submitted! Results will be posted when the competition closes.';setTimeout(()=>{closeModal('submit-modal');loadTab('active');},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}

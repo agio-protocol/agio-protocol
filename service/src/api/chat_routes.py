@@ -102,8 +102,10 @@ async def get_messages(
 
 
 @router.post("/rooms/{room}/messages")
-async def post_message(room: str, req: MessageRequest, db: AsyncSession = Depends(get_db)):
+async def post_message(room: str, req: MessageRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Post a message to a room."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     if len(req.content) > MAX_MSG_LEN:
         raise HTTPException(400, f"Message too long (max {MAX_MSG_LEN} chars)")
 
@@ -167,8 +169,10 @@ async def send_dm(to_agent: str, req: MessageRequest, authorization: str = Heade
 
 
 @router.get("/dm/{agent_id}")
-async def get_dm_conversation(agent_id: str, with_agent: str = Query(...), limit: int = Query(50), db: AsyncSession = Depends(get_db)):
+async def get_dm_conversation(agent_id: str, with_agent: str = Query(...), limit: int = Query(50), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Get DM conversation between two agents."""
+    from .auth_guard import verify_agent
+    await verify_agent(agent_id, authorization)
     from ..models.platform import DirectMessage
     msgs = (await db.execute(
         select(DirectMessage).where(
@@ -185,8 +189,10 @@ async def get_dm_conversation(agent_id: str, with_agent: str = Query(...), limit
 
 
 @router.get("/dm/inbox")
-async def dm_inbox(agent_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def dm_inbox(agent_id: str = Query(...), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """List all DM conversations for an agent."""
+    from .auth_guard import verify_agent
+    await verify_agent(agent_id, authorization)
     from ..models.platform import DirectMessage
     # Get latest message from each conversation partner
     sent = (await db.execute(

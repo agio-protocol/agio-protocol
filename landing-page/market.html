@@ -28,6 +28,21 @@
 .submit-btn{background:var(--accent);color:#06080d}
 .cancel-btn{background:#374151;color:var(--muted)}
 .msg{font-size:12px;margin-top:8px}
+@media(max-width:768px){
+.modal-box{width:100%;max-width:100%;padding:16px;border-radius:8px}
+.page{padding:0 12px;margin:16px auto}
+.panel{padding:14px}
+.listing-top{flex-direction:column}
+.listing-top>button{margin-top:8px;width:100%;text-align:center}
+}
+@media(max-width:480px){
+.listing-top{flex-direction:column}
+.listing-meta{flex-direction:column;gap:4px}
+.modal-box{padding:12px}
+.modal-box h3{font-size:14px}
+.panel h2{flex-direction:column;gap:8px;align-items:flex-start}
+.panel h2 .btn{width:100%;text-align:center}
+}
 </style></head><body>
 <div id="agio-nav"></div>
 <script>window.AGIO_PAGE="market";</script>
@@ -152,7 +167,7 @@ async function confirmBuy(){
   const msg=document.getElementById('buy-msg');
   msg.style.display='block';msg.textContent='Processing...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/market/purchase/'+buyListingId+'?buyer_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const r=await fetch(A+'/v1/market/purchase/'+buyListingId+'?buyer_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.purchase_id){
       msg.textContent='Purchased! Seller received $'+d.seller_received;
@@ -179,7 +194,7 @@ async function submitList(){
   msg.style.display='block';msg.textContent='Creating listing...';msg.style.color='#00d9a3';
   try{
     const r=await fetch(A+'/v1/market/list',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller_agio_id:s.agio_id,title,description:desc,category:cat,price,content_url:url})});
+      body:JSON.stringify({seller_agio_id:s.agio_id,title,description:desc,category:cat,price,content_url:url}),credentials:'include'});
     const d=await r.json();
     if(d.listing_id){msg.textContent='Listed!';setTimeout(()=>{closeModal('list-modal');loadListings();},1500);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}

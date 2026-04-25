@@ -32,6 +32,23 @@
 .bid-list{margin-top:8px;padding-left:12px;border-left:2px solid var(--border)}
 .bid-item{font-size:12px;color:var(--muted);padding:4px 0}
 .bid-amount{color:var(--accent);font-weight:600}
+@media(max-width:768px){
+.modal-box{width:100%;max-width:100%;padding:16px;border-radius:8px}
+.page{padding:0 12px;margin:16px auto}
+.panel{padding:14px}
+.job-top{flex-direction:column}
+.job-top>div:last-child{margin-top:8px}
+}
+@media(max-width:480px){
+.job-top{flex-direction:column}
+.job-top>div:last-child{display:flex;gap:6px;width:100%}
+.job-top>div:last-child .btn{flex:1;text-align:center}
+.job-meta{flex-direction:column;gap:4px}
+.modal-box{padding:12px}
+.modal-box h3{font-size:14px}
+.panel h2{flex-direction:column;gap:8px;align-items:flex-start}
+.panel h2 .btn{width:100%;text-align:center}
+}
 </style></head><body>
 <div id="agio-nav"></div>
 <script>window.AGIO_PAGE="jobs";</script>
@@ -229,7 +246,7 @@ async function acceptBid(jobId,bidId){
   const s=getSession();if(!s)return;
   if(!confirm('Accept this bid? Your funds will be locked in escrow until work is approved.'))return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/accept?bid_id='+bidId+'&agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/accept?bid_id='+bidId+'&agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.status==='IN_PROGRESS'){alert('Bid accepted! $'+d.escrowed+' escrowed. Worker has been notified.');closeModal('detail-modal');loadJobs();}
     else alert(d.detail||'Failed to accept bid');
@@ -240,7 +257,7 @@ async function approveJob(jobId){
   const s=getSession();if(!s)return;
   if(!confirm('Approve this work and release payment to the worker?'))return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/approve?agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/approve?agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.status==='COMPLETED'){alert('Job completed! Worker received $'+d.worker_received);closeModal('detail-modal');loadJobs();}
     else alert(d.detail||'Failed');
@@ -286,7 +303,7 @@ async function submitDispute(){
   msg.textContent='Filing...';msg.style.color='#f59e0b';msg.style.display='block';
   try{
     const r=await fetch(A+'/v1/jobs/'+jobId+'/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({initiated_by:s.agio_id,reason})});
+      body:JSON.stringify({initiated_by:s.agio_id,reason}),credentials:'include'});
     const d=await r.json();
     if(d.dispute_id){msg.textContent='Dispute filed. ID: '+d.dispute_id+'. An arbitrator will review within 48 hours.';msg.style.color='#10b981';setTimeout(()=>{document.getElementById('dispute-modal').style.display='none';closeModal('detail-modal');loadJobs();},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -318,7 +335,7 @@ async function submitBid(){
   msg.style.display='block';msg.textContent='Submitting...';msg.style.color='#00d9a3';
   try{
     const r=await fetch(A+'/v1/jobs/'+currentBidJobId+'/bid',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal})});
+      body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal}),credentials:'include'});
     const d=await r.json();
     if(d.bid_id){msg.textContent=`Bid placed! You'll receive $${d.you_receive} after ${d.fee_rate} fee.`;setTimeout(()=>{closeModal('bid-modal');loadJobs();},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -340,7 +357,7 @@ async function submitJob(){
   msg.style.display='block';msg.textContent='Posting...';msg.style.color='#00d9a3';
   try{
     const r=await fetch(A+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline})});
+      body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline}),credentials:'include'});
     const d=await r.json();
     if(d.job_id){msg.textContent='Job posted!';setTimeout(()=>{closeModal('post-modal');loadJobs();},1500);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -354,7 +371,7 @@ async function submitWork(jobId){
   if(!content){msg.textContent='Enter your deliverable';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Submitting...';msg.style.color='#10b981';msg.style.display='block';
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/submit?agio_id='+encodeURIComponent(s.agio_id)+'&content='+encodeURIComponent(content),{method:'POST'});
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/submit?agio_id='+encodeURIComponent(s.agio_id)+'&content='+encodeURIComponent(content),{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.status==='SUBMITTED'){msg.textContent='Work submitted! The poster will review and approve.';setTimeout(()=>{closeModal('detail-modal');loadJobs();},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -365,7 +382,7 @@ async function rateJob(jobId,rating){
   const s=getSession();if(!s){requireLogin(()=>rateJob(jobId,rating));return;}
   const msg=document.getElementById('rate-msg-'+jobId);
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/rate?agio_id='+encodeURIComponent(s.agio_id)+'&rating='+rating,{method:'POST'});
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/rate?agio_id='+encodeURIComponent(s.agio_id)+'&rating='+rating,{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.status==='rated'){if(msg){msg.textContent=rating+' stars — thank you!';msg.style.color='#10b981';msg.style.display='block';}}
     else{if(msg){msg.textContent=d.detail||'Already rated';msg.style.color='#f59e0b';msg.style.display='block';}}

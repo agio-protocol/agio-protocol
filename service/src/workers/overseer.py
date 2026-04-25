@@ -18,7 +18,7 @@ SITE = "https://agiotage.finance"
 ALERT_EMAIL = os.getenv("ALERT_EMAIL", "jeffrey_wylie@yahoo.com")
 CHECK_INTERVAL = 300  # 5 minutes
 DAILY_SUMMARY_HOUR = 8  # 8 AM UTC
-ADMIN_KEY = os.getenv("ADMIN_API_KEY", "agio-admin-2026")
+ADMIN_KEY = os.getenv("ADMIN_API_KEY", "")
 
 DEPLOYER_ADDRESS = "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051"
 GAS_ALERT_ETH = 0.002  # ~$4.60 at $2300/ETH — roughly 6 days of gas at current burn
