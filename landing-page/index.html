@@ -164,33 +164,64 @@ footer a{color:var(--muted);margin-left:16px}
   </div>
 </section>
 
-<section style="max-width:680px;margin:0 auto 40px;padding:0 24px">
-  <h3 style="text-align:center;font-size:16px;margin-bottom:16px;color:var(--accent)">Cheapest Way to Transact</h3>
+<section style="max-width:720px;margin:0 auto 40px;padding:0 24px">
+  <h3 style="text-align:center;font-size:16px;margin-bottom:6px;color:var(--accent)">Lowest Cost Way to Transact</h3>
+  <p style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:18px">A tenth of a penny per payment. See how we compare.</p>
 
   <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:14px">
-    <div style="display:flex;justify-content:center;gap:40px;margin-bottom:20px;font-size:13px">
-      <div style="text-align:center"><div style="color:var(--accent);font-size:24px;font-weight:800">$0.001</div><div style="color:var(--muted);font-size:11px;margin-top:2px">same-chain payment</div></div>
-      <div style="text-align:center"><div style="color:var(--accent);font-size:24px;font-weight:800">$0.002</div><div style="color:var(--muted);font-size:11px;margin-top:2px">cross-chain payment</div></div>
-    </div>
-    <table style="width:100%;font-size:12px;border-collapse:collapse">
-      <tr style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:6px 0;border-bottom:1px solid var(--border)">Alternative</td><td style="padding:6px 0;border-bottom:1px solid var(--border);text-align:right">Their cost</td><td style="padding:6px 0;border-bottom:1px solid var(--border);text-align:right;width:90px">Agiotage saves</td></tr>
-      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Solana transfer</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.005</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">5x cheaper</td></tr>
-      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Arbitrum / Optimism</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.05</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">50x cheaper</td></tr>
-      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Stripe / PayPal</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.33</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">330x cheaper</td></tr>
-      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Circle CCTP bridge</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.50</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">500x cheaper</td></tr>
-      <tr style="color:var(--muted)"><td style="padding:8px 0">Ethereum L1</td><td style="padding:8px 0;text-align:right;color:var(--text)">$1.50</td><td style="padding:8px 0;text-align:right;color:var(--accent);font-weight:600">1,500x cheaper</td></tr>
+    <table style="width:100%;font-size:13px;border-collapse:collapse">
+      <thead>
+        <tr style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">
+          <th style="padding:0 0 10px;text-align:left;font-weight:600">Payment Method</th>
+          <th style="padding:0 0 10px;text-align:right;font-weight:600">Agiotage</th>
+          <th style="padding:0 0 10px;text-align:right;font-weight:600">Their Cost</th>
+          <th style="padding:0 0 10px;text-align:right;font-weight:600">You Save</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:12px 0;color:var(--text)">vs Solana transfer</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">$0.001</td>
+          <td style="padding:12px 0;text-align:right;color:var(--muted)">$0.005</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">5x less</td>
+        </tr>
+        <tr style="border-top:1px solid #1a203040">
+          <td style="padding:12px 0;color:var(--text)">vs Arbitrum / Optimism</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">$0.001</td>
+          <td style="padding:12px 0;text-align:right;color:var(--muted)">$0.05</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">50x less</td>
+        </tr>
+        <tr style="border-top:1px solid #1a203040">
+          <td style="padding:12px 0;color:var(--text)">vs Stripe / PayPal</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">$0.001</td>
+          <td style="padding:12px 0;text-align:right;color:var(--muted)">$0.33</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">330x less</td>
+        </tr>
+        <tr style="border-top:1px solid #1a203040">
+          <td style="padding:12px 0;color:var(--text)">vs Circle CCTP bridge</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">$0.002</td>
+          <td style="padding:12px 0;text-align:right;color:var(--muted)">$0.50</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">250x less</td>
+        </tr>
+        <tr style="border-top:1px solid #1a203040">
+          <td style="padding:12px 0;color:var(--text)">vs Ethereum L1</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">$0.001</td>
+          <td style="padding:12px 0;text-align:right;color:var(--muted)">$1.50</td>
+          <td style="padding:12px 0;text-align:right;color:var(--accent);font-weight:700">1,500x less</td>
+        </tr>
+      </tbody>
     </table>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:var(--muted)">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Job board</div>5-12% commission
+      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Job board</div>5-12% commission (paid by worker)
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Marketplace</div>5% commission
+      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Marketplace</div>5% commission (paid by seller)
     </div>
   </div>
-  <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">No hidden charges. Higher tiers unlock up to 80% off.</div>
+  <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">All fees shown before you confirm. No hidden charges. Higher tiers unlock up to 80% off.</div>
 </section>
 
 <section style="max-width:700px;margin:0 auto 48px;padding:0 24px">
