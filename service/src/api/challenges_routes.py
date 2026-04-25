@@ -27,24 +27,28 @@ TIER_CONFIG = {
         "entry_fee": Decimal("1"),
         "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")},
         "min_tier": "SPARK",
+        "min_entrants": 3,
         "label": "Open",
     },
     "professional": {
         "entry_fee": Decimal("5"),
         "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")},
         "min_tier": "ARC",
+        "min_entrants": 3,
         "label": "Professional",
     },
     "expert": {
         "entry_fee": Decimal("25"),
         "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")},
         "min_tier": "PULSE",
+        "min_entrants": 3,
         "label": "Expert",
     },
     "elite": {
         "entry_fee": Decimal("100"),
         "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")},
         "min_tier": "CORE",
+        "min_entrants": 5,
         "label": "Elite",
     },
 }
@@ -143,6 +147,8 @@ def _format_competition(c):
     tier = get_tier_from_fee(float(c.entry_fee))
     prizes = get_guaranteed_prizes(float(c.entry_fee))
     ctype = COMPETITION_TYPES.get(c.game_type, {})
+    tier_cfg = TIER_CONFIG.get(tier, {})
+    min_entrants = tier_cfg.get("min_entrants", 3)
     return {
         "id": c.id,
         "type": c.game_type,
@@ -150,11 +156,11 @@ def _format_competition(c):
         "scoring_method": ctype.get("scoring", "Automated objective scoring"),
         "title": c.title,
         "description": c.description or "",
-        "tier": TIER_CONFIG.get(tier, {}).get("label", "Open") if tier else "Open",
+        "tier": tier_cfg.get("label", "Open"),
         "entry_fee": float(c.entry_fee),
         "entry_fee_covers": "Sandboxed compute, automated scoring, result verification, settlement processing",
         "entries": c.current_participants,
-        "min_entries": 3,
+        "min_entries": min_entrants,
         "guaranteed_prizes": prizes,
         "prize_sponsor": "Agiotage Protocol",
         "status": c.status,
@@ -262,13 +268,16 @@ async def enter_competition(competition_id: int, req: EntryRequest, authorizatio
     await db.commit()
 
     prizes = get_guaranteed_prizes(float(competition.entry_fee))
+    tier = get_tier_from_fee(float(competition.entry_fee))
+    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 3)
     return {
         "competition_id": competition_id,
         "status": competition.status,
         "entries": competition.current_participants,
+        "min_entries": min_entrants,
         "guaranteed_prizes": prizes,
         "entry_fee_collected": float(competition.entry_fee),
-        "refund_policy": "Full refund if competition cancelled (fewer than 3 entries). Non-refundable once competition begins.",
+        "refund_policy": f"Full refund if fewer than {min_entrants} entrants by deadline. Non-refundable once competition begins.",
     }
 
 
@@ -318,8 +327,10 @@ async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSes
         select(ArenaParticipant).where(ArenaParticipant.game_id == competition_id)
     )).scalars().all()
 
-    if len(participants) < 2:
-        raise HTTPException(400, "Not enough participants")
+    tier = get_tier_from_fee(float(competition.entry_fee))
+    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 3)
+    if len(participants) < min_entrants:
+        raise HTTPException(400, f"Not enough participants ({len(participants)}/{min_entrants}). Use cancel endpoint to refund.")
 
     prizes = get_guaranteed_prizes(float(competition.entry_fee))
     ranked = sorted(req.rankings, key=lambda r: r.get("rank", 999))
@@ -467,6 +478,56 @@ async def cancel_competition(competition_id: int, db: AsyncSession = Depends(get
     competition.status = "CANCELLED"
     await db.commit()
     return {"competition_id": competition_id, "status": "CANCELLED", "refunded": len(participants)}
+
+
+@router.post("/check-expired")
+async def check_expired_competitions(db: AsyncSession = Depends(get_db)):
+    """Auto-cancel expired competitions that didn't meet minimum entrant threshold. Refunds all entry fees."""
+    expired = (await db.execute(
+        select(ArenaGame).where(
+            ArenaGame.status == "OPEN",
+            ArenaGame.end_time < datetime.utcnow(),
+            ArenaGame.game_type != "prediction",
+        )
+    )).scalars().all()
+
+    cancelled = []
+    for comp in expired:
+        tier = get_tier_from_fee(float(comp.entry_fee))
+        min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 3)
+
+        if comp.current_participants < min_entrants:
+            participants = (await db.execute(
+                select(ArenaParticipant).where(ArenaParticipant.game_id == comp.id)
+            )).scalars().all()
+
+            for p in participants:
+                agent = (await db.execute(
+                    select(Agent).where(Agent.agio_id == p.agent_id).with_for_update()
+                )).scalar_one_or_none()
+                if agent:
+                    bal = (await db.execute(
+                        select(AgentBalance).where(
+                            AgentBalance.agent_id == agent.id,
+                            AgentBalance.token == "USDC",
+                        ).with_for_update()
+                    )).scalar_one_or_none()
+                    if bal:
+                        bal.locked_balance = Decimal(str(bal.locked_balance)) - comp.entry_fee
+
+            comp.status = "CANCELLED"
+            cancelled.append({
+                "competition_id": comp.id,
+                "title": comp.title,
+                "entries": comp.current_participants,
+                "min_required": min_entrants,
+                "refunded": len(participants),
+            })
+
+    if cancelled:
+        await db.commit()
+
+    return {"cancelled": cancelled, "checked": len(expired)}
 
 
 @router.get("/leaderboard")
