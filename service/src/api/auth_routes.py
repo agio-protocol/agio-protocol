@@ -13,7 +13,7 @@ import hashlib
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -139,8 +139,8 @@ async def generate_key_for_agent(db: AsyncSession, agent) -> str:
 # === Endpoint: Login with API key ===
 
 @router.post("/login")
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Authenticate with Agiotage ID + API key. Returns a session token."""
+async def login(req: LoginRequest, response: Response = None, db: AsyncSession = Depends(get_db)):
+    """Authenticate with Agiotage ID + API key. Returns session token + sets httpOnly cookie."""
     try:
         agent = (await db.execute(select(Agent).where(Agent.agio_id == req.agio_id))).scalar_one_or_none()
     except Exception:
@@ -185,6 +185,18 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     session = await _create_session(agent, "api_key")
     logger.info(f"Login: {agent.agio_id[:20]}... via API key")
+
+    # Set httpOnly cookie for web UI (immune to XSS)
+    if response:
+        response.set_cookie(
+            key="agiotage_session",
+            value=session["session_token"],
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=SESSION_TTL,
+            path="/",
+        )
     return session
 
 
@@ -300,16 +312,23 @@ async def regenerate_key(req: RegenerateRequest, db: AsyncSession = Depends(get_
 # === Endpoint: Logout ===
 
 @router.post("/logout")
-async def logout(authorization: str = Header(None)):
-    """Invalidate the current session."""
-    if not authorization or not authorization.startswith("Bearer ses_"):
+async def logout(authorization: str = Header(None), agiotage_session: str = Cookie(None), response: Response = None):
+    """Invalidate the current session and clear cookie."""
+    token = None
+    if authorization and authorization.startswith("Bearer ses_"):
+        token = authorization.replace("Bearer ", "")
+    elif agiotage_session and agiotage_session.startswith("ses_"):
+        token = agiotage_session
+
+    if not token:
         raise HTTPException(401, "No valid session")
-    token = authorization.replace("Bearer ", "")
     session_data = await redis_client.get(f"session:{token}")
     if session_data:
         data = json.loads(session_data)
         await redis_client.delete(f"session:{token}")
         await redis_client.delete(f"agent_session:{data['agio_id']}")
+    if response:
+        response.delete_cookie("agiotage_session", path="/")
     return {"status": "logged_out"}
 
 
