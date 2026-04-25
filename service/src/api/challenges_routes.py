@@ -163,7 +163,9 @@ def _format_competition(c):
 
 
 @router.post("/create")
-async def create_competition(req: CreateCompetitionRequest, db: AsyncSession = Depends(get_db)):
+async def create_competition(req: CreateCompetitionRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    from .auth_guard import verify_agent
+    await verify_agent(req.creator_id, authorization)
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == req.creator_id)
     )).scalar_one_or_none()
@@ -230,6 +232,8 @@ async def enter_competition(competition_id: int, req: EntryRequest, authorizatio
     if existing:
         raise HTTPException(400, "Already entered this competition")
 
+    from .auth_guard import verify_agent
+    await verify_agent(req.creator_id, authorization)
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == req.agent_id).with_for_update()
     )).scalar_one_or_none()

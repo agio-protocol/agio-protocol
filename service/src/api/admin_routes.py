@@ -24,7 +24,7 @@ from email.mime.text import MIMEText
 
 router = APIRouter(prefix="/v1/admin")
 
-ADMIN_KEY = "agio-admin-2026"
+ADMIN_KEY = os.getenv("ADMIN_API_KEY", "agio-admin-2026")
 FEEDBACK_EMAIL = "jeffrey_wylie@yahoo.com"
 _feedback_log = logging.getLogger("feedback")
 
@@ -512,3 +512,47 @@ async def list_feedback(limit: int = Query(50), db: AsyncSession = Depends(get_d
         ))
         await db.commit()
         return {"feedback": []}
+
+
+@router.get("/revenue")
+async def admin_revenue(db: AsyncSession = Depends(get_db), _=Depends(verify_admin)):
+    """Revenue breakdown — fees, commissions, competition entries."""
+    total_fees = float((await db.execute(
+        select(func.coalesce(func.sum(Payment.fee), 0)).where(Payment.status == "SETTLED")
+    )).scalar() or 0)
+    total_swap = float((await db.execute(
+        select(func.coalesce(func.sum(Payment.swap_fee), 0)).where(Payment.status == "SETTLED")
+    )).scalar() or 0)
+
+    from ..models.platform import Job, JobBid, MarketPurchase, MarketListing, ArenaGame
+    completed_jobs = (await db.execute(
+        select(Job, JobBid).join(JobBid, Job.accepted_bid_id == JobBid.id).where(Job.status == "COMPLETED")
+    )).all()
+    job_commission = 0
+    for job, bid in completed_jobs:
+        amt = float(bid.bid_amount)
+        if amt < 1: job_commission += amt * 0.05
+        elif amt < 10: job_commission += amt * 0.08
+        elif amt < 100: job_commission += amt * 0.10
+        else: job_commission += amt * 0.12
+
+    purchases = (await db.execute(
+        select(MarketListing.price).join(MarketPurchase, MarketPurchase.listing_id == MarketListing.id)
+    )).scalars().all()
+    market_commission = sum(float(p) * 0.05 for p in purchases)
+
+    comp_entries = float((await db.execute(
+        select(func.coalesce(func.sum(ArenaGame.entry_fee * ArenaGame.current_participants), 0))
+        .where(ArenaGame.status == "COMPLETED", ArenaGame.game_type != "prediction")
+    )).scalar() or 0)
+
+    return {
+        "payment_fees": round(total_fees, 6),
+        "swap_fees": round(total_swap, 6),
+        "job_commissions": round(job_commission, 4),
+        "jobs_completed": len(completed_jobs),
+        "marketplace_commissions": round(market_commission, 4),
+        "marketplace_sales": len(purchases),
+        "competition_entry_revenue": round(comp_entries, 2),
+        "total_revenue": round(total_fees + total_swap + job_commission + market_commission + comp_entries, 4),
+    }

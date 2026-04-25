@@ -396,7 +396,7 @@ class PaymentModeRequest(BaseModel):
 
 
 @router.post("/settings/payment-mode")
-async def set_payment_mode(req: PaymentModeRequest, db: AsyncSession = Depends(get_db)):
+async def set_payment_mode(req: PaymentModeRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Switch between vault and direct payment modes."""
     from .auth_guard import verify_agent
     await verify_agent(req.agio_id, authorization)
