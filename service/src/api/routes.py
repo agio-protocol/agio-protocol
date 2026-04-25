@@ -358,7 +358,7 @@ async def discover():
             },
         },
         "pricing": {
-            "same_chain": "$0.00015 per payment",
+            "same_chain": "$0.001 per payment",
             "cross_chain": "$0.002 per hop (250x cheaper than bridging)",
             "swap_fee": "0.3% for cross-token conversion",
             "tiers": "SPARK → ARC → PULSE → CORE → NEXUS (up to 80% discount)",
@@ -512,8 +512,8 @@ async def vault_status(db: AsyncSession = Depends(get_db)):
         "solana_explorer": "https://solscan.io/account/3wtiPBWPNAy5QeJkSUEdgNcazMukTmxZSVYS3Mk8EkxQ",
         "contracts_source": "https://github.com/agio-protocol/agio-contracts",
         "payment_modes": {
-            "vault": "Deposit first. Lower fees ($0.00015/tx). Batched settlement. Cross-chain supported.",
-            "direct": "No deposit. Higher fees ($0.001/tx). Individual on-chain settlement. Same-chain only.",
+            "vault": "Deposit first. Lowest fees ($0.001/tx). Batched settlement. Cross-chain supported.",
+            "direct": "No deposit. Higher fees ($0.005/tx). Individual on-chain settlement. Same-chain only.",
         },
     }
 

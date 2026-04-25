@@ -24,7 +24,7 @@
   "register": "https://api.agiotage.finance/v1/register",
   "discover": "https://api.agiotage.finance/v1/discover",
   "pricing": {
-    "same_chain_per_payment": 0.00015,
+    "same_chain_per_payment": 0.001,
     "cross_chain_routing": 0.002,
     "swap_fee_pct": 0.003,
     "tier_discounts": {

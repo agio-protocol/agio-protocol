@@ -292,7 +292,7 @@ async def admin_revenue(db: AsyncSession = Depends(get_db), _=Depends(verify_adm
     total_swap_fees = float((await db.execute(
         select(func.coalesce(func.sum(Payment.swap_fee), 0)).where(Payment.status == "SETTLED")
     )).scalar() or 0)
-    total_settlement_fees = total_volume * 0.00015
+    total_settlement_fees = total_volume * 0.001
 
     # Monthly run rate
     first_payment = (await db.execute(

@@ -308,7 +308,7 @@ function _gpCheckRoute() {
   const rChain = isSol ? 'Solana' : 'Base';
   el.innerHTML = sChain !== rChain
     ? `<span style="color:#f59e0b">\u{1F310} Route: ${sChain} \u2192 ${rChain} (cross-chain)</span><br>Fee: $0.002 \u00b7 No bridge needed`
-    : `Route: ${sChain} \u2192 ${rChain} (same-chain) \u00b7 Fee: $0.00015`;
+    : `Route: ${sChain} \u2192 ${rChain} (same-chain) \u00b7 Fee: $0.001`;
 }
 
 async function _gpSend() {

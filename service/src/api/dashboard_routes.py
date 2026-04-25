@@ -83,8 +83,8 @@ async def dashboard_overview(agio_id: str, authorization: str = Header(None), db
         }
 
     # Fee rate for current tier
-    fee_rate = float(current_tier.micropayment_fee) if current_tier else 0.00015
-    spark_rate = 0.00015
+    fee_rate = float(current_tier.micropayment_fee) if current_tier else 0.001
+    spark_rate = 0.001
     savings_pct = round((1 - fee_rate / spark_rate) * 100, 1) if spark_rate > 0 else 0
 
     return {
@@ -256,8 +256,8 @@ async def dashboard_rewards(agio_id: str, authorization: str = Header(None), db:
     )).scalar_one_or_none()
 
     volume = float(agent.total_volume)
-    current_fee_rate = float(current_tier.micropayment_fee) if current_tier else 0.00015
-    spark_fee_rate = float(spark_tier.micropayment_fee) if spark_tier else 0.00015
+    current_fee_rate = float(current_tier.micropayment_fee) if current_tier else 0.001
+    spark_fee_rate = float(spark_tier.micropayment_fee) if spark_tier else 0.001
     savings = (spark_fee_rate - current_fee_rate) * agent.total_payments
 
     return {
