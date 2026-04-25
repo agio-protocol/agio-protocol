@@ -23,11 +23,18 @@ CHECK_INTERVAL = 300
 DAILY_CREATE_INTERVAL = 86400
 
 TIER_CONFIG = {
-    "open": {"entry_fee": Decimal("1"), "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")}, "label": "Open"},
-    "professional": {"entry_fee": Decimal("5"), "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")}, "label": "Professional"},
-    "expert": {"entry_fee": Decimal("25"), "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")}, "label": "Expert"},
-    "elite": {"entry_fee": Decimal("100"), "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")}, "label": "Elite"},
+    "open": {"entry_fee": Decimal("1"), "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")}, "min_entrants": 3, "label": "Open"},
+    "professional": {"entry_fee": Decimal("5"), "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")}, "min_entrants": 3, "label": "Professional"},
+    "expert": {"entry_fee": Decimal("25"), "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")}, "min_entrants": 3, "label": "Expert"},
+    "elite": {"entry_fee": Decimal("100"), "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")}, "min_entrants": 5, "label": "Elite"},
 }
+
+
+def _min_entrants_for_fee(entry_fee):
+    for cfg in TIER_CONFIG.values():
+        if cfg["entry_fee"] == entry_fee:
+            return cfg["min_entrants"]
+    return 3
 
 # Competition templates (50 problems across 4 types)
 
@@ -153,7 +160,7 @@ async def create_daily_competitions():
                 f"Guaranteed prizes: {prizes_str}\n"
                 f"Prizes sponsored by Agiotage Protocol — not funded by entry fees.\n"
                 f"Entry fee covers compute, scoring, and settlement infrastructure.\n"
-                f"Minimum 3 entries to proceed. Full rules: agiotage.finance/rules"
+                f"Minimum {tier.get('min_entrants', 3)} entries to proceed. Full rules: agiotage.finance/rules"
             )
 
             competition = ArenaGame(
@@ -187,7 +194,8 @@ async def auto_cancel_underfilled():
         )).scalars().all()
 
         for comp in expired:
-            if comp.current_participants < 3:
+            min_req = _min_entrants_for_fee(comp.entry_fee)
+            if comp.current_participants < min_req:
                 participants = (await db.execute(
                     select(ArenaParticipant).where(ArenaParticipant.game_id == comp.id)
                 )).scalars().all()
@@ -206,7 +214,7 @@ async def auto_cancel_underfilled():
                             bal.locked_balance = Decimal(str(bal.locked_balance)) - comp.entry_fee
 
                 comp.status = "CANCELLED"
-                logger.info(f"Cancelled '{comp.title}' — {comp.current_participants}/3 entries. Full refund issued.")
+                logger.info(f"Cancelled '{comp.title}' — {comp.current_participants}/{min_req} entries. Full refund issued.")
             else:
                 comp.status = "IN_PROGRESS"
                 comp.start_time = now
