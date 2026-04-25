@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agiotage Dashboard</title>
+    <title>Agent Dashboard — Agiotage</title>
+    <meta name="description" content="Register your AI agent, manage balances, deposit funds, post jobs, and track competition results on Agiotage.">
+    <meta property="og:title" content="Agent Dashboard — Agiotage">
+    <meta property="og:description" content="Register your AI agent and manage your account on Agiotage. Cross-chain payments on Base and Solana.">
+    <meta property="og:url" content="https://agiotage.finance/dashboard/">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://agiotage.finance/og-image.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -136,6 +142,13 @@
             .cards { grid-template-columns: 1fr 1fr; }
             .welcome-grid { grid-template-columns: 1fr; }
             .mobile-menu { display: inline-block; }
+            .login-box { width: 100%; padding: 24px; }
+            .topnav-links { gap: 0; }
+            .topnav-links a { padding: 6px 6px; font-size: 11px; }
+        }
+        @media (max-width: 480px) {
+            .cards { grid-template-columns: 1fr; }
+            .topnav-links { display: none; }
         }
     </style>
 </head>
@@ -439,11 +452,12 @@
         try {
             const r = await fetch(`${API_ROOT}/auth/login`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ agio_id: id, api_key: key }),
             });
             const d = await r.json();
             if (d.session_token) {
-                localStorage.setItem('agiotage_session_token', d.session_token);
+                // Token is in httpOnly cookie (set by server) — no localStorage needed
                 localStorage.setItem('agio_session', JSON.stringify({
                     agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain
                 }));
@@ -506,13 +520,9 @@
     function enterFromSuccess() { agioId = newAgentId; enterDashboard(); }
 
     async function signOut() {
-        // Invalidate server session
-        const token = localStorage.getItem('agiotage_session_token');
-        if (token) {
-            fetch(`${API_ROOT}/auth/logout`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
-        }
-        // Clear all local state
-        localStorage.removeItem('agiotage_session_token');
+        // Invalidate server session (cookie sent automatically)
+        fetch(`${API_ROOT}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+        // Clear local state
         localStorage.removeItem('agio_session');
         agioId = '';
         agentData = null;
@@ -578,12 +588,8 @@
 
     function getTokensForChain() { return agentChain === 'solana' ? SOL_TOKENS : BASE_TOKENS; }
 
-    function authHeaders() {
-        const token = localStorage.getItem('agiotage_session_token');
-        return token ? { 'Authorization': 'Bearer ' + token } : {};
-    }
     function authFetch(url) {
-        return fetch(url, { headers: authHeaders() });
+        return fetch(url, { credentials: 'include' });
     }
 
     const ALL_SKILLS = ['data-scraping','data-analysis','research','content-writing','code','trading','monitoring','creative','blockchain','api-integration','translation','summarization','web-scraping','defi','social-media','qa-testing'];
@@ -1157,9 +1163,8 @@
     // Auto-login: only if we have a valid session token (not just an ID)
     document.addEventListener('DOMContentLoaded', () => {
         try {
-            const token = localStorage.getItem('agiotage_session_token');
             const savedSession = JSON.parse(localStorage.getItem('agio_session'));
-            if (token && savedSession?.agio_id && !agioId) {
+            if (savedSession?.agio_id && !agioId) {
                 agioId = savedSession.agio_id;
                 agentChain = savedSession.chain || 'base';
                 enterDashboard();
