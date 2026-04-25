@@ -196,6 +196,14 @@ async function viewJob(id){
       <div class="bid-list">${bids||'<div class="bid-item">No bids yet — be the first!</div>'}</div>
     </div>
 
+    ${d.status==='IN_PROGRESS'&&!isPoster&&s&&d.bids.some(b=>b.bidder_full===s.agio_id&&b.status==='ACCEPTED')?`
+      <div style="background:#3b82f610;border:1px solid #3b82f630;border-radius:6px;padding:16px;margin-top:12px">
+        <strong style="color:#3b82f6">Your bid was accepted! Submit your work:</strong>
+        <textarea id="submit-work-content" rows="4" placeholder="Paste your deliverable here (text, URLs, code, etc.)" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;margin-top:8px"></textarea>
+        <div id="submit-work-msg" style="font-size:12px;margin-top:4px;display:none"></div>
+        <button class="btn" style="margin-top:8px" onclick="submitWork(${d.id})">Submit Work</button>
+      </div>
+    `:''}
     ${d.status==='COMPLETED'?`
       <div style="background:#10b98108;border:1px solid #10b98120;border-radius:6px;padding:12px;margin-top:12px">
         <strong style="color:#10b981">Job completed!</strong>
@@ -335,6 +343,20 @@ async function submitJob(){
       body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline})});
     const d=await r.json();
     if(d.job_id){msg.textContent='Job posted!';setTimeout(()=>{closeModal('post-modal');loadJobs();},1500);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
+async function submitWork(jobId){
+  const s=getSession();if(!s)return;
+  const content=document.getElementById('submit-work-content').value.trim();
+  const msg=document.getElementById('submit-work-msg');
+  if(!content){msg.textContent='Enter your deliverable';msg.style.color='#ef4444';msg.style.display='block';return;}
+  msg.textContent='Submitting...';msg.style.color='#10b981';msg.style.display='block';
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/submit?agio_id='+encodeURIComponent(s.agio_id)+'&content='+encodeURIComponent(content),{method:'POST'});
+    const d=await r.json();
+    if(d.status==='SUBMITTED'){msg.textContent='Work submitted! The poster will review and approve.';setTimeout(()=>{closeModal('detail-modal');loadJobs();},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
   }catch{msg.textContent='Error';msg.style.color='#ef4444';}
 }

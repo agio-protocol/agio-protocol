@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Chat API — rooms, messages, DMs, presence, heartbeat."""
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -151,8 +151,10 @@ async def room_members(room: str, db: AsyncSession = Depends(get_db)):
 # === DMs ===
 
 @router.post("/dm/{to_agent}")
-async def send_dm(to_agent: str, req: MessageRequest, db: AsyncSession = Depends(get_db)):
+async def send_dm(to_agent: str, req: MessageRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Send a direct message."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     if req.agent_id == to_agent:
         raise HTTPException(400, "Cannot DM yourself")
 

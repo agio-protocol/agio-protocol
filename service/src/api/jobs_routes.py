@@ -15,7 +15,7 @@ Payment flow:
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -88,8 +88,10 @@ class BidRequest(BaseModel):
 
 
 @router.post("/post")
-async def post_job(req: PostJobRequest, db: AsyncSession = Depends(get_db)):
+async def post_job(req: PostJobRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Post a new job. Free to post."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.poster_agio_id, authorization)
     if req.category not in JOB_CATEGORIES:
         raise HTTPException(400, f"Invalid category. Options: {JOB_CATEGORIES}")
     if req.budget <= 0:
@@ -175,8 +177,10 @@ async def search_jobs(
 
 
 @router.post("/{job_id}/bid")
-async def bid_on_job(job_id: int, req: BidRequest, db: AsyncSession = Depends(get_db)):
+async def bid_on_job(job_id: int, req: BidRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Submit a bid. Free. Shows commission breakdown."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.bidder_agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
@@ -234,11 +238,12 @@ async def bid_on_job(job_id: int, req: BidRequest, db: AsyncSession = Depends(ge
 async def accept_bid(
     job_id: int,
     bid_id: int = Query(...),
-    agio_id: str = Query(...),
+    authorization: str = Header(None), agio_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
     """Accept a bid. Locks bid_amount from poster's available balance."""
-    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    from .auth_guard import verify_agent
+    await verify_agent(agio_id, authorization)    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
     if job.poster_agent != agio_id:
@@ -296,13 +301,14 @@ async def accept_bid(
 @router.post("/{job_id}/submit")
 async def submit_work(
     job_id: int,
-    agio_id: str = Query(...),
+    authorization: str = Header(None), agio_id: str = Query(...),
     content: str = Query(None),
     url: str = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Submit completed work."""
-    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    from .auth_guard import verify_agent
+    await verify_agent(agio_id, authorization)    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "IN_PROGRESS":
         raise HTTPException(400, "Job not in progress")
 
@@ -323,9 +329,10 @@ async def submit_work(
 
 
 @router.post("/{job_id}/approve")
-async def approve_work(job_id: int, agio_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def approve_work(job_id: int, authorization: str = Header(None), agio_id: str = Query(...), db: AsyncSession = Depends(get_db)):
     """Approve work. Releases escrow: worker gets bid minus commission, AGIO keeps commission."""
-    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    from .auth_guard import verify_agent
+    await verify_agent(agio_id, authorization)    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
     if job.poster_agent != agio_id:

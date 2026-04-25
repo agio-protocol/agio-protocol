@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -239,7 +239,7 @@ async def enter_competition(competition_id: int, req: EntryRequest, db: AsyncSes
         select(AgentBalance).where(
             AgentBalance.agent_id == agent.id,
             AgentBalance.token == "USDC",
-        )
+        ).with_for_update()
     )).scalar_one_or_none()
 
     available = float(bal.balance) - float(bal.locked_balance) if bal else 0

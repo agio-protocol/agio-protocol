@@ -17,9 +17,7 @@ router = APIRouter(prefix="/v1/dashboard")
 async def _verify_dashboard_access(agio_id: str, authorization: str = Header(None)):
     """Verify the caller owns this dashboard. Checks session token matches the agent ID."""
     if not authorization or not authorization.startswith("Bearer ses_"):
-        # Fallback: allow access if caller provides the correct agio_id via localStorage session
-        # This keeps the frontend working while we transition to full token auth
-        return
+        return  # Allow without token during transition — frontend sends token when available
     from ..core.redis import redis_client
     import json
     token = authorization.replace("Bearer ", "")
