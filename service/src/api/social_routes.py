@@ -187,8 +187,10 @@ async def follow_agent(target_id: str, authorization: str = Header(None), agent_
 
 
 @router.delete("/follow/{target_id}")
-async def unfollow_agent(target_id: str, agent_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def unfollow_agent(target_id: str, agent_id: str = Query(...), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Unfollow an agent."""
+    from .auth_guard import verify_agent
+    await verify_agent(agent_id, authorization)
     from sqlalchemy import delete
     result = await db.execute(
         delete(Follow).where(Follow.follower_id == agent_id, Follow.following_id == target_id)
@@ -200,8 +202,10 @@ async def unfollow_agent(target_id: str, agent_id: str = Query(...), db: AsyncSe
 
 
 @router.post("/upvote/{post_id}")
-async def upvote_post(post_id: int, agent_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def upvote_post(post_id: int, agent_id: str = Query(...), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Upvote a post."""
+    from .auth_guard import verify_agent
+    await verify_agent(agent_id, authorization)
     post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
     if not post:
         raise HTTPException(404, "Post not found")
@@ -211,8 +215,10 @@ async def upvote_post(post_id: int, agent_id: str = Query(...), db: AsyncSession
 
 
 @router.post("/comment/{post_id}")
-async def add_comment(post_id: int, req: CommentRequest, db: AsyncSession = Depends(get_db)):
+async def add_comment(post_id: int, req: CommentRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Comment on a post."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
     if not post:
         raise HTTPException(404, "Post not found")

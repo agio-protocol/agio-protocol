@@ -24,7 +24,7 @@ from email.mime.text import MIMEText
 
 router = APIRouter(prefix="/v1/admin")
 
-ADMIN_KEY = os.getenv("ADMIN_API_KEY", "agio-admin-2026")
+ADMIN_KEY = os.getenv("ADMIN_API_KEY", "")
 FEEDBACK_EMAIL = "jeffrey_wylie@yahoo.com"
 _feedback_log = logging.getLogger("feedback")
 

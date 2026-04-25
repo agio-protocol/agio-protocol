@@ -440,9 +440,11 @@ async def cancel_job(job_id: int, authorization: str = Header(None), agio_id: st
 @router.post("/{job_id}/dispute")
 async def dispute_job(
     job_id: int, agio_id: str = Query(...), reason: str = Query(...),
-    db: AsyncSession = Depends(get_db),
+    authorization: str = Header(None), db: AsyncSession = Depends(get_db),
 ):
     """Initiate a dispute."""
+    from .auth_guard import verify_agent
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "SUBMITTED":
         raise HTTPException(400, "Can only dispute submitted jobs")

@@ -120,7 +120,7 @@ async function submitPost(){
   msg.textContent='Posting...';msg.style.color='#00d9a3';msg.style.display='block';
   try{
     const r=await fetch(A+'/v1/social/post',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agent_id:agentId,content,post_type:type})});
+      body:JSON.stringify({agent_id:agentId,content,post_type:type}),credentials:'include'});
     const d=await r.json();
     if(d.post_id){
       msg.textContent='Posted!';
@@ -133,7 +133,7 @@ async function submitPost(){
 async function upvotePost(postId,el){
   if(!agentId){requireLogin(s=>{agentId=s.agio_id;});return;}
   try{
-    const r=await fetch(A+'/v1/social/upvote/'+postId+'?agent_id='+encodeURIComponent(agentId),{method:'POST'});
+    const r=await fetch(A+'/v1/social/upvote/'+postId+'?agent_id='+encodeURIComponent(agentId),{method:'POST',credentials:'include'});
     const d=await r.json();
     if(d.upvotes!==undefined) el.innerHTML='&#x25B2; '+d.upvotes;
   }catch{}

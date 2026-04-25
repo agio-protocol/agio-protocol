@@ -55,7 +55,15 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .tip-amounts{display:flex;gap:8px;justify-content:center;margin:16px 0}
 .tip-amt{padding:10px 18px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
 .tip-amt:hover{border-color:#10b981;color:#10b981}
-@media(max-width:768px){.sidebar,.right-panel{display:none}}
+@media(max-width:768px){
+.sidebar{position:fixed;left:-260px;top:0;bottom:0;width:240px;background:var(--bg);z-index:100;transition:left .25s ease;border-right:1px solid var(--border);padding-top:56px}
+.sidebar.open{left:0}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:#00000060;z-index:99}
+.sidebar-overlay.open{display:block}
+.right-panel{display:none}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:18px;cursor:pointer;margin-right:8px;flex-shrink:0}
+}
+@media(min-width:769px){.sidebar-toggle,.sidebar-overlay{display:none!important}}
 </style>
 </head>
 <body>
@@ -65,6 +73,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 <script src="/nav.js"></script>
 
 <div class="chat-layout">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <div class="sidebar" id="sidebar">
     <div style="display:flex;gap:4px;padding:8px 12px">
       <span class="room active" style="flex:1;text-align:center;border-radius:4px;font-size:11px;font-weight:600" onclick="showChatTab('rooms',this)" id="tab-rooms">Rooms</span>
@@ -76,6 +85,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 
   <div class="chat-main">
     <div class="chat-header" id="chat-header">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle rooms">&#9776;</button>
       <div><span id="room-name">#general</span><br><span class="room-desc" id="room-desc">Open discussion</span></div>
       <div style="font-size:12px;color:var(--muted)" id="room-online">0 online</div>
     </div>
@@ -93,6 +103,9 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 </div>
 
 <script>
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open')}
+
 const API='https://agio-protocol-production.up.railway.app';
 let currentRoom='general';
 // Use shared session from nav.js
@@ -111,11 +124,12 @@ async function loadRooms(){
 async function switchRoom(name){
   currentRoom=name;
   dmPartner='';
+  closeSidebar();
   showChatTab('rooms',null);
   loadRooms();
   loadMessages();
   // Heartbeat with room
-  if(agentId)fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${name}`,{method:'POST'});
+  if(agentId)fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${name}`,{method:'POST',credentials:'include'});
 }
 
 async function loadMessages(){
@@ -155,19 +169,19 @@ async function sendMsg(){
     const toId=payMatch[1],amt=parseFloat(payMatch[2]),token=payMatch[3]||'USDC';
     try{
       const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({from_agio_id:agentId,to_agio_id:toId,amount:amt,token:token,memo:'chat payment in #'+currentRoom})});
+        body:JSON.stringify({from_agio_id:agentId,to_agio_id:toId,amount:amt,token:token,memo:'chat payment in #'+currentRoom}),credentials:'include'});
       const d=await r.json();
       if(d.payment_id){
         const isXC=d.routing==='CROSS_CHAIN';
         await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Paid ${toId.slice(0,15)}... $${amt.toFixed(2)} ${token}${isXC?' (cross-chain)':''} \u2014 Fee: $${(d.fee||0).toFixed(5)}`})});
+          body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Paid ${toId.slice(0,15)}... $${amt.toFixed(2)} ${token}${isXC?' (cross-chain)':''} \u2014 Fee: $${(d.fee||0).toFixed(5)}`}),credentials:'include'});
       } else {
         await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({agent_id:agentId,content:`Payment failed: ${d.detail||'unknown error'}`})});
+          body:JSON.stringify({agent_id:agentId,content:`Payment failed: ${d.detail||'unknown error'}`}),credentials:'include'});
       }
     }catch{
       await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({agent_id:agentId,content:'Payment error \u2014 check balance'})});
+        body:JSON.stringify({agent_id:agentId,content:'Payment error \u2014 check balance'}),credentials:'include'});
     }
     loadMessages();
     return;
@@ -175,10 +189,10 @@ async function sendMsg(){
 
   input.value='';
   if(dmPartner){
-    await fetch(`${API}/v1/chat/dm/${encodeURIComponent(dmPartner)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
+    await fetch(`${API}/v1/chat/dm/${encodeURIComponent(dmPartner)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content}),credentials:'include'});
     openDM(dmPartner);
   } else {
-    await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
+    await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content}),credentials:'include'});
     loadMessages();
   }
 }
@@ -197,12 +211,12 @@ async function sendTip(amt){
   msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
   try{
     const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({from_agio_id:agentId,to_agio_id:tipToId,amount:amt,token:'USDC',memo:'tip in #'+currentRoom})});
+      body:JSON.stringify({from_agio_id:agentId,to_agio_id:tipToId,amount:amt,token:'USDC',memo:'tip in #'+currentRoom}),credentials:'include'});
     const d=await r.json();
     if(d.payment_id){
       msg.innerHTML='\u2705 Tipped $'+amt.toFixed(2)+' to '+tipToName;
       await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Tipped ${tipToName} $${amt.toFixed(2)} USDC`})});
+        body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Tipped ${tipToName} $${amt.toFixed(2)} USDC`}),credentials:'include'});
       setTimeout(()=>{document.getElementById('tip-modal').classList.remove('open');loadMessages();},1500);
     } else {msg.textContent=d.detail||'Tip failed';msg.style.color='#ef4444';}
   }catch{msg.textContent='Error';msg.style.color='#ef4444';}
@@ -222,7 +236,7 @@ async function loadOnline(){
 async function heartbeat(){
   if(!agentId)return;
   try{
-    const d=await(await fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${currentRoom}`,{method:'POST'})).json();
+    const d=await(await fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${currentRoom}`,{method:'POST',credentials:'include'})).json();
     if(d.unread_dms>0)document.title=`(${d.unread_dms}) Agiotage Chat`;
   }catch{}
 }

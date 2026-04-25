@@ -349,8 +349,12 @@ async def validate_session(authorization: str = Header(None)):
 # === Endpoint: Migrate existing agents (temporary) ===
 
 @router.post("/migrate")
-async def migrate_agent(agio_id: str, db: AsyncSession = Depends(get_db)):
-    """One-time key generation for existing agents without API keys."""
+async def migrate_agent(agio_id: str, x_admin_key: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """One-time key generation for existing agents without API keys. Admin-only."""
+    import os
+    admin_key = os.getenv("ADMIN_API_KEY", "")
+    if not admin_key or x_admin_key != admin_key:
+        raise HTTPException(401, "Admin authentication required")
     try:
         agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
     except Exception:

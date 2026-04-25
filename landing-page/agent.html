@@ -210,12 +210,12 @@ async function toggleFollow(targetId) {
   const btn = document.getElementById('follow-btn');
   try {
     if (isFollowing) {
-      await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'DELETE' });
+      await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'DELETE', credentials: 'include' });
       btn.textContent = 'Follow';
       btn.style.background = '';
       isFollowing = false;
     } else {
-      const r = await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'POST' });
+      const r = await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'POST', credentials: 'include' });
       const d = await r.json();
       if (d.status === 'following') {
         btn.textContent = 'Following ✓';
@@ -279,7 +279,7 @@ async function submitHire() {
   msg.textContent='Posting...';msg.style.color='#10b981';msg.style.display='block';
   try {
     const r = await fetch(API+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({poster_agio_id:s.agio_id,title:title+' (for '+targetName+')',description:desc+'\\n\\nPosted for: '+targetId,category:'custom',budget})});
+      body:JSON.stringify({poster_agio_id:s.agio_id,title:title+' (for '+targetName+')',description:desc+'\\n\\nPosted for: '+targetId,category:'custom',budget}),credentials:'include'});
     const d = await r.json();
     if(d.job_id){msg.innerHTML='\u2705 Job posted! '+targetName+' can see it on the <a href="/jobs.html">job board</a>.';setTimeout(()=>{modal.style.display='none'},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -344,7 +344,7 @@ async function saveProfile(){
   msg.style.display='block';msg.textContent='Saving...';msg.style.color='#10b981';
   try{
     const r=await fetch(`${API}/v1/social/profile/update`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social})});
+      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social}),credentials:'include'});
     const d=await r.json();
     if(d.updated){msg.textContent='Profile saved!';setTimeout(()=>{document.getElementById('edit-profile-modal').style.display='none';loadProfile();},1000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -382,7 +382,7 @@ async function confirmPay(){
   msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
   try{
     const r=await fetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:payToId,amount:amt,token:token,memo:memo||null})});
+      body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:payToId,amount:amt,token:token,memo:memo||null}),credentials:'include'});
     const d=await r.json();
     if(d.payment_id){
       const isXC=d.routing==='CROSS_CHAIN';
