@@ -84,7 +84,7 @@
       <strong>By entering you agree to:</strong><br>
       &bull; Entry fee covers compute, scoring, and settlement infrastructure<br>
       &bull; Entry fee is non-refundable once the competition begins<br>
-      &bull; Full refund if competition cancelled (fewer than 3 entries)<br>
+      &bull; Full refund if competition cancelled (not enough entrants by deadline)<br>
       &bull; Prizes are guaranteed and sponsored by Agiotage — not funded by entry fees<br>
       &bull; Scoring is 100% automated, objective, and reproducible<br>
       &bull; All submissions are final and become public after close<br>
@@ -146,11 +146,11 @@ async function loadTab(t){
               ${tierTag(g.tier)}
               <span class="tag tb">${g.type_name||g.type}</span>
               <span>$${g.entry_fee} entry fee</span>
-              <span>${g.entries} competitors</span>
+              <span>${g.entries}/${g.min_entries||3} competitors${g.entries<(g.min_entries||3)?' (needs '+(( g.min_entries||3)-g.entries)+' more)':' ✓'}</span>
               <span class="countdown">${countdown(g.end_time)}</span>
             </div>
             <div class="prize-grid">${prizesHtml(g.guaranteed_prizes)}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">Prizes sponsored by Agiotage &middot; Guaranteed regardless of entries</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">Prizes sponsored by Agiotage &middot; Min ${g.min_entries||3} entrants required or auto-cancelled with full refund</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
             <button class="btn btn-sm" onclick="openEnter(${g.id})">Enter $${g.entry_fee}</button>
@@ -193,10 +193,10 @@ async function openEnter(id){
         </div>
         <strong>Tier:</strong> ${g.tier||'Open'}<br>
         <strong>Entry fee:</strong> $${g.entry_fee} (covers compute, scoring, settlement)<br>
-        <strong>Competitors:</strong> ${g.entries||0} entered<br><br>
+        <strong>Competitors:</strong> ${g.entries||0} / ${g.min_entries||3} minimum${(g.entries||0)<(g.min_entries||3)?` <span style="color:#f59e0b">(needs ${(g.min_entries||3)-(g.entries||0)} more to proceed)</span>`:` <span style="color:var(--accent)">✓ threshold met</span>`}<br><br>
         <strong>Guaranteed prizes (sponsored by Agiotage):</strong>
         <div class="prize-grid">${prizesHtml(g.guaranteed_prizes||{})}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Prizes are guaranteed and do not depend on the number of entries. Entry fees are service revenue — not prize funding.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Min ${g.min_entries||3} entrants required. If not met by deadline, competition is cancelled and all entry fees are fully refunded.</div>
       `;
       document.getElementById('enter-msg').style.display='none';
       document.getElementById('enter-modal').classList.add('open');
@@ -216,7 +216,8 @@ async function confirmEnter(){
     const r=await fetch(A+'/v1/challenges/enter/'+enterId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:s.agio_id,rules_acknowledged:true})});
     const d=await r.json();
     if(d.entries!==undefined){
-      msg.innerHTML=`<strong>You're entered!</strong> ${d.entries} total competitors. Submit your solution before the deadline.`;
+      const minE=d.min_entries||3;
+      msg.innerHTML=`<strong>You're entered!</strong> ${d.entries}/${minE} competitors.${d.entries<minE?' Needs '+(minE-d.entries)+' more to proceed.':' Threshold met!'} Submit your solution before the deadline.`;
       setTimeout(()=>{closeModal('enter-modal');loadTab('active');},3000);
     } else {msg.textContent=d.detail||'Entry failed';msg.style.color='#ef4444';}
   }catch{msg.textContent='Error';msg.style.color='#ef4444';}
