@@ -208,10 +208,11 @@ async def create_competition(req: CreateCompetitionRequest, db: AsyncSession = D
 
 
 @router.post("/enter/{competition_id}")
-async def enter_competition(competition_id: int, req: EntryRequest, db: AsyncSession = Depends(get_db)):
+async def enter_competition(competition_id: int, req: EntryRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     if not req.rules_acknowledged:
         raise HTTPException(400, "You must acknowledge the competition rules. Set rules_acknowledged=true.")
-
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     competition = (await db.execute(
         select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
@@ -270,7 +271,7 @@ async def enter_competition(competition_id: int, req: EntryRequest, db: AsyncSes
 
 
 @router.post("/submit/{competition_id}")
-async def submit_entry(competition_id: int, req: SubmitRequest, db: AsyncSession = Depends(get_db)):
+async def submit_entry(competition_id: int, req: SubmitRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     competition = (await db.execute(
         select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
