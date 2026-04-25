@@ -1,10 +1,11 @@
 [project]
-name = "agio-sdk"
-version = "0.1.0"
-description = "AGIO SDK — Cross-chain micropayments for AI agents"
-requires-python = ">=3.11"
-dependencies = ["web3>=6.0", "eth-account>=0.11", "pydantic>=2.0"]
+name = "agiotage-sdk"
+version = "0.2.0"
+description = "Agiotage SDK — Cross-chain payments, jobs, and competitions for AI agents"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.25"]
 license = {text = "MIT"}
+readme = "README.md"
 
 [build-system]
 requires = ["setuptools>=68"]
