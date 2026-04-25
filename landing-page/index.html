@@ -164,47 +164,33 @@ footer a{color:var(--muted);margin-left:16px}
   </div>
 </section>
 
-<section style="max-width:760px;margin:0 auto 40px;padding:0 24px">
-  <h3 style="text-align:center;font-size:16px;margin-bottom:6px;color:var(--accent)">Fees &mdash; Cheapest Way to Transact</h3>
-  <p style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px">A tenth of a penny per payment. Compare for yourself.</p>
+<section style="max-width:680px;margin:0 auto 40px;padding:0 24px">
+  <h3 style="text-align:center;font-size:16px;margin-bottom:16px;color:var(--accent)">Cheapest Way to Transact</h3>
 
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:12px;margin-bottom:14px">
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;border-bottom:1px solid var(--border);padding:10px 16px;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px">
-      <span>Method</span><span style="text-align:right">Cost</span><span style="text-align:right;min-width:80px">vs Agiotage</span>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:14px">
+    <div style="display:flex;justify-content:center;gap:40px;margin-bottom:20px;font-size:13px">
+      <div style="text-align:center"><div style="color:var(--accent);font-size:24px;font-weight:800">$0.001</div><div style="color:var(--muted);font-size:11px;margin-top:2px">same-chain payment</div></div>
+      <div style="text-align:center"><div style="color:var(--accent);font-size:24px;font-weight:800">$0.002</div><div style="color:var(--muted);font-size:11px;margin-top:2px">cross-chain payment</div></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);background:#10b98108">
-      <span style="color:var(--accent);font-weight:700">Agiotage (same-chain)</span><span style="text-align:right;color:var(--accent);font-weight:700">$0.001</span><span style="text-align:right;color:var(--accent);font-weight:700">&#8212;</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border)">
-      <span style="color:var(--accent);font-weight:700">Agiotage (cross-chain)</span><span style="text-align:right;color:var(--accent);font-weight:700">$0.002</span><span style="text-align:right;color:var(--accent)">&#8212;</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);color:var(--muted)">
-      <span>Solana raw transfer</span><span style="text-align:right">$0.005</span><span style="text-align:right;color:#ef4444">5x more</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);color:var(--muted)">
-      <span>Arbitrum / Optimism</span><span style="text-align:right">$0.05</span><span style="text-align:right;color:#ef4444">50x more</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);color:var(--muted)">
-      <span>Stripe / PayPal ($1 payment)</span><span style="text-align:right">$0.33</span><span style="text-align:right;color:#ef4444">330x more</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;border-bottom:1px solid var(--border);color:var(--muted)">
-      <span>Circle CCTP bridge</span><span style="text-align:right">$0.50</span><span style="text-align:right;color:#ef4444">500x more</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:0;padding:10px 16px;color:var(--muted)">
-      <span>Ethereum L1 transfer</span><span style="text-align:right">$1.50</span><span style="text-align:right;color:#ef4444">1,500x more</span>
-    </div>
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <tr style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:6px 0;border-bottom:1px solid var(--border)">Alternative</td><td style="padding:6px 0;border-bottom:1px solid var(--border);text-align:right">Their cost</td><td style="padding:6px 0;border-bottom:1px solid var(--border);text-align:right;width:90px">Agiotage saves</td></tr>
+      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Solana transfer</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.005</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">5x cheaper</td></tr>
+      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Arbitrum / Optimism</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.05</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">50x cheaper</td></tr>
+      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Stripe / PayPal</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.33</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">330x cheaper</td></tr>
+      <tr style="color:var(--muted)"><td style="padding:8px 0;border-bottom:1px solid #1a203040">Circle CCTP bridge</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--text)">$0.50</td><td style="padding:8px 0;border-bottom:1px solid #1a203040;text-align:right;color:var(--accent);font-weight:600">500x cheaper</td></tr>
+      <tr style="color:var(--muted)"><td style="padding:8px 0">Ethereum L1</td><td style="padding:8px 0;text-align:right;color:var(--text)">$1.50</td><td style="padding:8px 0;text-align:right;color:var(--accent);font-weight:600">1,500x cheaper</td></tr>
+    </table>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:var(--muted)">
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="color:var(--text);font-weight:600;margin-bottom:4px">Job board commission</div>5-12% of job value (paid by worker)
+      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Job board</div>5-12% commission
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="color:var(--text);font-weight:600;margin-bottom:4px">Marketplace commission</div>5% of sale (paid by seller)
+      <div style="color:var(--text);font-weight:600;margin-bottom:2px">Marketplace</div>5% commission
     </div>
   </div>
-
-  <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px">All fees shown before you confirm. No hidden charges. Higher tiers unlock up to 80% fee discounts.</div>
+  <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">No hidden charges. Higher tiers unlock up to 80% off.</div>
 </section>
 
 <section style="max-width:700px;margin:0 auto 48px;padding:0 24px">
