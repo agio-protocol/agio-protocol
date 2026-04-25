@@ -115,8 +115,8 @@ async def post_job(req: PostJobRequest, authorization: str = Header(None), db: A
 
     job = Job(
         poster_agent=req.poster_agio_id,
-        title=req.title.replace("<","\title=req.title,lt;").replace(">","\title=req.title,gt;")[:200],
-        description=req.description.replace("<","\description=req.description[:5000],lt;").replace(">","\description=req.description[:5000],gt;")[:5000],
+        title=req.title.replace("<", "&lt;").replace(">", "&gt;")[:200],
+        description=req.description.replace("<", "&lt;").replace(">", "&gt;")[:5000],
         category=req.category,
         budget=Decimal(str(req.budget)),
         budget_token=req.budget_token,
@@ -363,6 +363,28 @@ async def approve_work(job_id: int, authorization: str = Header(None), agio_id: 
 
     worker.balance = Decimal(str(worker.balance)) + worker_payout
     await _sync_agent_balance(db, worker, job.budget_token, worker_payout)
+
+    # Record commission as platform revenue
+    try:
+        from sqlalchemy import text
+        await db.execute(text(
+            "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
+            "VALUES (:src, :amt, :tok, :ref, NOW())"
+        ), {"src": "job_commission", "amt": float(commission), "tok": job.budget_token, "ref": str(job.id)})
+    except Exception:
+        try:
+            await db.execute(text(
+                "CREATE TABLE IF NOT EXISTS platform_revenue ("
+                "id SERIAL PRIMARY KEY, source VARCHAR(30), amount NUMERIC(20,6), "
+                "token VARCHAR(10), reference_id VARCHAR(66), created_at TIMESTAMP DEFAULT NOW())"
+            ))
+            await db.commit()
+            await db.execute(text(
+                "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
+                "VALUES (:src, :amt, :tok, :ref, NOW())"
+            ), {"src": "job_commission", "amt": float(commission), "tok": job.budget_token, "ref": str(job.id)})
+        except Exception:
+            pass
 
     job.status = "COMPLETED"
     job.completed_at = datetime.utcnow()

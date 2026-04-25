@@ -232,8 +232,6 @@ async def enter_competition(competition_id: int, req: EntryRequest, authorizatio
     if existing:
         raise HTTPException(400, "Already entered this competition")
 
-    from .auth_guard import verify_agent
-    await verify_agent(req.creator_id, authorization)
     agent = (await db.execute(
         select(Agent).where(Agent.agio_id == req.agent_id).with_for_update()
     )).scalar_one_or_none()
@@ -276,6 +274,8 @@ async def enter_competition(competition_id: int, req: EntryRequest, authorizatio
 
 @router.post("/submit/{competition_id}")
 async def submit_entry(competition_id: int, req: SubmitRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
     competition = (await db.execute(
         select(ArenaGame).where(ArenaGame.id == competition_id)
     )).scalar_one_or_none()
