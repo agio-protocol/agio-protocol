@@ -13,8 +13,7 @@ function setSession(data) {
 }
 function clearSession() { localStorage.removeItem('agio_session'); localStorage.removeItem('agiotage_session_token'); }
 function agiotageSignOut() {
-  const token = localStorage.getItem('agiotage_session_token');
-  if (token) fetch(AGIO_API + '/v1/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+  fetch(AGIO_API + '/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   clearSession();
   location.reload();
 }
@@ -115,10 +114,11 @@ async function doSignIn() {
       const r = await fetch(`${AGIO_API}/v1/auth/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agio_id: id, api_key: key }),
+        credentials: 'include',
       });
       const d = await r.json();
       if (d.session_token) {
-        localStorage.setItem('agiotage_session_token', d.session_token);
+        // Token is now in httpOnly cookie (set by server) — no localStorage needed
         setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain });
         const dd = document.getElementById('signin-dropdown');
         if (dd?._pendingCallback) { dd._pendingCallback(getSession()); dd._pendingCallback = null; dd.style.display = 'none'; renderNav(window.AGIO_PAGE || ''); }
