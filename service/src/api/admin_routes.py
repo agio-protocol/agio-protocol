@@ -423,6 +423,77 @@ async def admin_reconciliation(_=Depends(verify_admin)):
         return {"status": "UNKNOWN", "error": str(e)}
 
 
+@router.get("/gas-economics")
+async def admin_gas_economics(_=Depends(verify_admin), db: AsyncSession = Depends(get_db)):
+    """Gas wallet status, burn rate, revenue vs cost, days remaining."""
+    from ..models.payment import Payment
+    from datetime import timedelta
+
+    result = {"deployer": "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051"}
+
+    # Current ETH balance
+    try:
+        from web3 import Web3
+        w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
+        deployer = result["deployer"]
+        eth_bal = w3.eth.get_balance(Web3.to_checksum_address(deployer)) / 1e18
+        result["eth_balance"] = round(eth_bal, 8)
+        result["eth_balance_usd"] = round(eth_bal * 2300, 2)
+    except Exception as e:
+        result["eth_balance"] = None
+        result["error"] = str(e)[:80]
+        eth_bal = 0
+
+    # Payment volume last 7 days
+    now = datetime.utcnow()
+    week_ago = now - timedelta(days=7)
+    try:
+        from sqlalchemy import func
+        payment_count = (await db.execute(
+            select(func.count()).select_from(Payment).where(Payment.created_at >= week_ago)
+        )).scalar() or 0
+        fee_total = (await db.execute(
+            select(func.coalesce(func.sum(Payment.fee), 0)).where(Payment.created_at >= week_ago)
+        )).scalar() or 0
+
+        days_data = min(7, (now - week_ago).days or 1)
+        daily_payments = payment_count / days_data
+        daily_fee_revenue = float(fee_total) / days_data
+
+        # Estimate gas cost: ~0.00004 ETH per batch, ~50 payments per batch
+        batches_per_day = max(1, daily_payments / 50)
+        daily_gas_eth = batches_per_day * 0.00004
+        daily_gas_usd = daily_gas_eth * 2300
+
+        days_remaining = eth_bal / daily_gas_eth if daily_gas_eth > 0 else 999
+
+        result["last_7_days"] = {
+            "total_payments": payment_count,
+            "total_fees_usdc": round(float(fee_total), 4),
+            "daily_avg_payments": round(daily_payments, 1),
+            "daily_avg_fee_revenue_usdc": round(daily_fee_revenue, 4),
+        }
+        result["gas_economics"] = {
+            "est_daily_gas_eth": round(daily_gas_eth, 8),
+            "est_daily_gas_usd": round(daily_gas_usd, 4),
+            "daily_fee_revenue_usdc": round(daily_fee_revenue, 4),
+            "daily_net_usd": round(daily_fee_revenue - daily_gas_usd, 4),
+            "profitable": daily_fee_revenue > daily_gas_usd,
+        }
+        result["days_remaining"] = round(days_remaining, 1)
+        result["status"] = "OK" if days_remaining > 7 else ("LOW" if days_remaining > 3 else "CRITICAL")
+        result["recommendation"] = (
+            "Gas wallet healthy" if days_remaining > 14
+            else f"Refill recommended — ~{round(days_remaining)} days of gas remaining"
+            if days_remaining > 3
+            else f"URGENT: Only ~{round(days_remaining)} days of gas left. Refill deployer wallet immediately."
+        )
+    except Exception as e:
+        result["payment_stats_error"] = str(e)[:80]
+
+    return result
+
+
 # === FEEDBACK ===
 
 class FeedbackRequest(BaseModel):
