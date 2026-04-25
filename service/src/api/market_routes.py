@@ -129,6 +129,28 @@ async def purchase(listing_id: int, authorization: str = Header(None), buyer_id:
     await _sync_market_balance(db, seller, listing.price_token, seller_payout)
     listing.total_sales += 1
 
+    # Record marketplace commission as revenue
+    try:
+        from sqlalchemy import text
+        await db.execute(text(
+            "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
+            "VALUES (:src, :amt, :tok, :ref, NOW())"
+        ), {"src": "marketplace_commission", "amt": float(commission), "tok": listing.price_token, "ref": str(listing_id)})
+    except Exception:
+        try:
+            await db.execute(text(
+                "CREATE TABLE IF NOT EXISTS platform_revenue ("
+                "id SERIAL PRIMARY KEY, source VARCHAR(30), amount NUMERIC(20,6), "
+                "token VARCHAR(10), reference_id VARCHAR(66), created_at TIMESTAMP DEFAULT NOW())"
+            ))
+            await db.commit()
+            await db.execute(text(
+                "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
+                "VALUES (:src, :amt, :tok, :ref, NOW())"
+            ), {"src": "marketplace_commission", "amt": float(commission), "tok": listing.price_token, "ref": str(listing_id)})
+        except Exception:
+            pass
+
     purchase = MarketPurchase(listing_id=listing_id, buyer_agent=buyer_id)
     db.add(purchase)
     await db.commit()

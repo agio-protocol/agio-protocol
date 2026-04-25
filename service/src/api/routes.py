@@ -458,7 +458,7 @@ async def get_approve_instructions(agio_id: str, amount: float = Query(100.0), d
     if not agent:
         raise AgentNotFound(agio_id)
 
-    is_solana = len(agent.wallet_address) > 44
+    is_solana = not agent.wallet_address.startswith("0x")
 
     if is_solana:
         return {
