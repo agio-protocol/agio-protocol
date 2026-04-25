@@ -529,7 +529,7 @@
 
     async function enterDashboard() {
         try {
-            const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`);
+            const res = await authFetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`);
             if (!res.ok) { alert('Agent not found.'); return; }
             agentData = await res.json();
         } catch { alert('Cannot connect to API.'); return; }
@@ -573,6 +573,14 @@
     }
 
     function getTokensForChain() { return agentChain === 'solana' ? SOL_TOKENS : BASE_TOKENS; }
+
+    function authHeaders() {
+        const token = localStorage.getItem('agiotage_session_token');
+        return token ? { 'Authorization': 'Bearer ' + token } : {};
+    }
+    function authFetch(url) {
+        return fetch(url, { headers: authHeaders() });
+    }
 
     const ALL_SKILLS = ['data-scraping','data-analysis','research','content-writing','code','trading','monitoring','creative','blockchain','api-integration','translation','summarization','web-scraping','defi','social-media','qa-testing'];
 
@@ -930,7 +938,7 @@
         if (direction) url += `&direction=${direction}`;
         if (token) url += `&token=${token}`;
         const [ledgerRes, summaryRes] = await Promise.all([
-            fetch(url).then(r => r.json()), fetch(`${API_BASE}/${encodeURIComponent(agioId)}/ledger/summary`).then(r => r.json()),
+            authFetch(url).then(r => r.json()), authFetch(`${API_BASE}/${encodeURIComponent(agioId)}/ledger/summary`).then(r => r.json()),
         ]);
         const s = summaryRes;
         const allTokens = [...new Set([...BASE_TOKENS, ...SOL_TOKENS])];
@@ -967,7 +975,7 @@
     }
 
     async function loadRewards() {
-        const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/rewards`);
+        const res = await authFetch(`${API_BASE}/${encodeURIComponent(agioId)}/rewards`);
         const d = await res.json();
         document.getElementById('page-rewards').innerHTML = `
             <h1>Rewards</h1>
@@ -1139,7 +1147,7 @@
 
     setInterval(async () => {
         if (!agioId || document.getElementById('page-overview').style.display === 'none') return;
-        try { const res = await fetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`); if (res.ok) { agentData = await res.json(); updateSidebar(); loadOverview(); } } catch {}
+        try { const res = await authFetch(`${API_BASE}/${encodeURIComponent(agioId)}/overview`); if (res.ok) { agentData = await res.json(); updateSidebar(); loadOverview(); } } catch {}
     }, 30000);
 
     // Auto-login: only if we have a valid session token (not just an ID)
