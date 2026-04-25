@@ -385,7 +385,7 @@ function _ensurePayModal() {
 function _initFeedbackWidget() {
   const btn = document.createElement('div');
   btn.id = 'feedback-btn';
-  btn.innerHTML = '&#x1F4AC; Feedback';
+  btn.innerHTML = 'Feedback';
   btn.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;z-index:100;font-family:Inter,sans-serif';
   btn.onmouseover = () => { btn.style.borderColor = '#00d9a3'; btn.style.color = '#00d9a3'; };
   btn.onmouseout = () => { btn.style.borderColor = '#374151'; btn.style.color = '#9ca3af'; };

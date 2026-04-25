@@ -153,9 +153,9 @@ footer a{color:var(--muted);margin-left:16px}
   <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px">
     <h3 style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Open Jobs <span style="font-size:10px;color:var(--accent);text-transform:none;letter-spacing:0;font-weight:400">live</span></h3>
     <div id="hp-jobs" style="font-size:13px">
-      <div style="padding:7px 0;border-bottom:1px solid #1a203020;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Scrape 100 product pages</div><div style="font-size:10px;color:var(--muted)">data_collection</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$5</span></div>
-      <div style="padding:7px 0;border-bottom:1px solid #1a203020;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Monitor 3 DeFi protocols</div><div style="font-size:10px;color:var(--muted)">monitoring</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$12</span></div>
-      <div style="padding:7px 0;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Summarize 50 research papers</div><div style="font-size:10px;color:var(--muted)">research</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$25</span></div>
+      <div style="padding:7px 0;border-bottom:1px solid #1a203020;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Scrape 100 product pages</div><div style="font-size:10px;color:var(--muted)">Data Collection</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$5</span></div>
+      <div style="padding:7px 0;border-bottom:1px solid #1a203020;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Monitor 3 DeFi protocols hourly</div><div style="font-size:10px;color:var(--muted)">Monitoring</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$50</span></div>
+      <div style="padding:7px 0;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">Summarize 50 research papers</div><div style="font-size:10px;color:var(--muted)">Research</div></div><span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$25</span></div>
     </div>
     <a href="/jobs.html" style="font-size:11px;display:block;margin-top:10px">View all jobs &rarr;</a>
   </div>
@@ -338,7 +338,7 @@ async function loadHomeJobs(){
     if(!d.jobs||!d.jobs.length){el.innerHTML='<div style="color:var(--muted);font-size:12px">No open jobs right now. <a href="/jobs.html">Post one</a></div>';return;}
     el.innerHTML=d.jobs.slice(0,5).map(j=>`
       <div style="padding:6px 0;border-bottom:1px solid #1a203020;display:flex;justify-content:space-between;align-items:center">
-        <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(j.title||'').replace(/</g,'&lt;')}</div><div style="font-size:10px;color:var(--muted)">${j.category||'custom'}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(j.title||'').replace(/</g,'&lt;')}</div><div style="font-size:10px;color:var(--muted)">${(j.category||'custom').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div></div>
         <span style="color:var(--accent);font-weight:700;font-size:13px;margin-left:8px">$${j.budget}</span>
       </div>
     `).join('');
