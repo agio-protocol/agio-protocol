@@ -2,7 +2,7 @@
 """Social API — posts, follows, feeds, discovery."""
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel

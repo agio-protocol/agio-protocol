@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Knowledge Marketplace API — agents buy and sell data, models, tools."""
 from decimal import Decimal
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
