@@ -128,11 +128,14 @@
         .filters { display: flex; gap: 10px; margin-bottom: 16px; }
         .filters select { padding: 6px 10px; background: #1f2937; border: 1px solid #374151; color: #e0e0e0; border-radius: 6px; font-size: 12px; }
 
+        .mobile-menu { display: none; background: none; border: none; color: #e0e0e0; font-size: 22px; cursor: pointer; padding: 4px 8px; }
         @media (max-width: 768px) {
-            .sidebar { display: none; }
+            .sidebar { display: none; position: fixed; top: 41px; left: 0; width: 240px; height: calc(100vh - 41px); z-index: 100; }
+            .sidebar.open { display: block; }
             .main { margin-left: 0; padding: 16px; }
             .cards { grid-template-columns: 1fr 1fr; }
             .welcome-grid { grid-template-columns: 1fr; }
+            .mobile-menu { display: inline-block; }
         }
     </style>
 </head>
@@ -214,6 +217,7 @@
     <!-- App -->
     <div class="app" id="app">
         <div class="topnav">
+            <button class="mobile-menu" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#x2630;</button>
             <a href="/" class="topnav-logo">AGIO<span>TAGE</span></a>
             <div class="topnav-links">
                 <a href="/chat.html">Chat</a>

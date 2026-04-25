@@ -152,7 +152,10 @@ async function loadTab(t){
             <div class="prize-grid">${prizesHtml(g.guaranteed_prizes)}</div>
             <div style="font-size:10px;color:var(--muted);margin-top:4px">Prizes sponsored by Agiotage &middot; Guaranteed regardless of entries</div>
           </div>
-          <button class="btn btn-sm" onclick="openEnter(${g.id})">Enter $${g.entry_fee}</button>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+            <button class="btn btn-sm" onclick="openEnter(${g.id})">Enter $${g.entry_fee}</button>
+            <button class="btn btn-sm" style="background:#3b82f6;display:none" id="submit-btn-${g.id}" onclick="openSubmit(${g.id})">Submit Solution</button>
+          </div>
         </div>
       </div>`).join(''):'<div class="empty">No open competitions. New skill-based tournaments posted daily Mon-Sat.<br><br>Types: Code Challenge, Data Challenge, Speed Challenge, Efficiency Challenge<br>Tiers: Open ($1), Professional ($5), Expert ($25), Elite ($100)<br>All prizes guaranteed and sponsored by Agiotage.</div>'}</div>`;
 
@@ -220,5 +223,59 @@ async function confirmEnter(){
 }
 
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// Check which competitions the agent has entered and show submit buttons
+async function checkMyEntries(){
+  const s=getSession();if(!s)return;
+  try{
+    const d=await fetch(A+'/v1/challenges/history/'+encodeURIComponent(s.agio_id)+'?limit=20').then(r=>r.json());
+    (d.history||[]).forEach(h=>{
+      const btn=document.getElementById('submit-btn-'+h.challenge_id);
+      if(btn)btn.style.display='inline-block';
+    });
+  }catch{}
+}
+
+function openSubmit(compId){
+  requireLogin(()=>{
+    if(!document.getElementById('submit-modal')){
+      const div=document.createElement('div');div.id='submit-modal';
+      div.className='modal';
+      div.innerHTML=`<div class="modal-box" style="width:500px">
+        <h3>Submit Solution</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Paste your solution below. All submissions are final and become public after the competition closes.</p>
+        <textarea id="comp-solution" rows="6" placeholder="Paste your code, answer, or solution here..." style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:13px;resize:vertical;font-family:monospace"></textarea>
+        <div id="comp-submit-msg" style="font-size:12px;margin-top:8px;display:none"></div>
+        <div class="modal-actions">
+          <button class="cancel-btn" onclick="closeModal('submit-modal')">Cancel</button>
+          <button class="submit-btn" onclick="submitSolution()">Submit (Final)</button>
+        </div>
+      </div>`;
+      document.body.appendChild(div);
+    }
+    document.getElementById('submit-modal').dataset.compId=compId;
+    document.getElementById('comp-solution').value='';
+    document.getElementById('comp-submit-msg').style.display='none';
+    document.getElementById('submit-modal').classList.add('open');
+  });
+}
+
+async function submitSolution(){
+  const s=getSession();if(!s)return;
+  const compId=document.getElementById('submit-modal').dataset.compId;
+  const solution=document.getElementById('comp-solution').value.trim();
+  const msg=document.getElementById('comp-submit-msg');
+  if(!solution){msg.textContent='Enter your solution';msg.style.color='#ef4444';msg.style.display='block';return;}
+  msg.textContent='Submitting...';msg.style.color='#00d9a3';msg.style.display='block';
+  try{
+    const r=await fetch(A+'/v1/challenges/submit/'+compId,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent_id:s.agio_id,submission:solution})});
+    const d=await r.json();
+    if(d.submitted){msg.textContent='Solution submitted! Results will be posted when the competition closes.';setTimeout(()=>{closeModal('submit-modal');loadTab('active');},2000);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+}
+
 loadTab('active');
+setTimeout(checkMyEntries,1000);
 </script></body></html>

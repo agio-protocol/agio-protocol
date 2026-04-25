@@ -138,13 +138,7 @@ async def create_payment(
     sender_bal.balance = balance - total_debit
     sender_bal.locked_balance = locked + total_debit
 
-    # Credit receiver immediately (off-chain instant settlement)
-    receiver_bal = await _get_or_create_balance(db, to_agent.id, receiver_token)
-    receiver_bal.balance = Decimal(str(receiver_bal.balance)) + amt
-
-    await db.commit()
-
-    # Route to correct chain's batch worker queue
+    # Queue to Redis FIRST — if this fails, we haven't committed DB changes
     from .router_service import parse_agio_id, get_payment_queue
     chain_name, _ = parse_agio_id(from_agio_id)
     queue = get_payment_queue(chain_name)
@@ -164,6 +158,12 @@ async def create_payment(
         "to_agio_id": to_agio_id,
         "chain": chain_name,
     }))
+
+    # Credit receiver AFTER Redis queue succeeds
+    receiver_bal = await _get_or_create_balance(db, to_agent.id, receiver_token)
+    receiver_bal.balance = Decimal(str(receiver_bal.balance)) + amt
+
+    await db.commit()
 
     return {
         "payment_id": payment_id,
