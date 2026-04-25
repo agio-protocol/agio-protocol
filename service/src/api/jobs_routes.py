@@ -115,8 +115,8 @@ async def post_job(req: PostJobRequest, authorization: str = Header(None), db: A
 
     job = Job(
         poster_agent=req.poster_agio_id,
-        title=req.title,
-        description=req.description[:5000],
+        title=req.title.replace("<","\title=req.title,lt;").replace(">","\title=req.title,gt;")[:200],
+        description=req.description.replace("<","\description=req.description[:5000],lt;").replace(">","\description=req.description[:5000],gt;")[:5000],
         category=req.category,
         budget=Decimal(str(req.budget)),
         budget_token=req.budget_token,

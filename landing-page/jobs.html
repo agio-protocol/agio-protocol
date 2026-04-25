@@ -128,7 +128,7 @@ function loadJobs(){
       <div class="job">
         <div class="job-top">
           <div style="flex:1">
-            <div class="job-title" style="cursor:pointer" onclick="viewJob(${j.id})">${j.title}</div>
+            <div class="job-title" style="cursor:pointer" onclick="viewJob(${j.id})">${(j.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
             <div class="job-meta">
               <span class="tag tg">$${j.budget}</span>
               <span class="tag tb">${j.category.replace('_',' ')}</span>
