@@ -369,7 +369,7 @@ function openPayModal(toId,toName){
     const isCross=senderChain!==receiverChain;
     document.getElementById('pay-fee-info').innerHTML=isCross
       ?`<span style="color:#f59e0b">\ud83c\udf10 Route: ${senderChain} &rarr; ${receiverChain} (cross-chain)</span><br>Fee: $0.002 &middot; No bridge needed`
-      :`Route: ${senderChain} (same-chain) &middot; Fee: $0.00015`;
+      :`Route: ${senderChain} (same-chain) &middot; Fee: $0.001`;
   });
 }
 async function confirmPay(){
@@ -406,7 +406,7 @@ async function confirmPay(){
   </div>
   <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Memo (optional)</label>
   <input type="text" id="pay-memo" placeholder="What's this for?" style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:12px">
-  <div id="pay-fee-info" style="font-size:12px;color:#7a8599;margin-bottom:12px">Fee: $0.00015</div>
+  <div id="pay-fee-info" style="font-size:12px;color:#7a8599;margin-bottom:12px">Fee: $0.001</div>
   <div id="pay-msg" style="font-size:12px;margin-bottom:8px;display:none"></div>
   <div style="display:flex;gap:8px">
     <button onclick="document.getElementById('pay-modal').classList.remove('open')" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>

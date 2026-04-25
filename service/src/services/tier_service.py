@@ -26,7 +26,7 @@ DEFAULT_TIERS = [
     {
         "tier_name": "SPARK", "display_order": 0,
         "min_lifetime_txns": 0, "min_age_days": 0,
-        "micropayment_fee": Decimal("0.00015"),
+        "micropayment_fee": Decimal("0.001"),
         "small_payment_pct": Decimal("1.500"),
         "large_payment_pct": Decimal("0.500"),
         "cross_chain_surcharge": Decimal("0.002"),
@@ -38,7 +38,7 @@ DEFAULT_TIERS = [
     {
         "tier_name": "ARC", "display_order": 1,
         "min_lifetime_txns": 100, "min_age_days": 7,
-        "micropayment_fee": Decimal("0.00012"),
+        "micropayment_fee": Decimal("0.0008"),
         "small_payment_pct": Decimal("1.200"),
         "large_payment_pct": Decimal("0.400"),
         "cross_chain_surcharge": Decimal("0.0016"),
@@ -50,7 +50,7 @@ DEFAULT_TIERS = [
     {
         "tier_name": "PULSE", "display_order": 2,
         "min_lifetime_txns": 1000, "min_age_days": 30,
-        "micropayment_fee": Decimal("0.00008"),
+        "micropayment_fee": Decimal("0.00053"),
         "small_payment_pct": Decimal("0.800"),
         "large_payment_pct": Decimal("0.300"),
         "cross_chain_surcharge": Decimal("0.001"),
@@ -63,7 +63,7 @@ DEFAULT_TIERS = [
     {
         "tier_name": "CORE", "display_order": 3,
         "min_lifetime_txns": 10000, "min_age_days": 90,
-        "micropayment_fee": Decimal("0.00005"),
+        "micropayment_fee": Decimal("0.00033"),
         "small_payment_pct": Decimal("0.500"),
         "large_payment_pct": Decimal("0.200"),
         "cross_chain_surcharge": Decimal("0.0007"),
@@ -77,7 +77,7 @@ DEFAULT_TIERS = [
     {
         "tier_name": "NEXUS", "display_order": 4,
         "min_lifetime_txns": 100000, "min_age_days": 180,
-        "micropayment_fee": Decimal("0.00003"),
+        "micropayment_fee": Decimal("0.0002"),
         "small_payment_pct": Decimal("0.300"),
         "large_payment_pct": Decimal("0.100"),
         "cross_chain_surcharge": Decimal("0.0004"),

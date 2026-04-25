@@ -101,7 +101,7 @@ async def create_payment(
     if tier:
         fee = calculate_fee(tier, amt, is_cross_chain=False)
     else:
-        fee = Decimal("0.00015")  # SPARK default
+        fee = Decimal("0.001")  # SPARK default
 
     if needs_swap:
         swap_fee = _calculate_swap_fee(amt)
