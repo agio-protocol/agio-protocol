@@ -39,10 +39,10 @@ class ListRequest(BaseModel):
 
 
 @router.post("/list")
-async def create_listing(req: ListRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def create_listing(req: ListRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Create a marketplace listing. Free to list."""
     from .auth_guard import verify_agent
-    await verify_agent(req.seller_agio_id, authorization, request)
+    await verify_agent(req.seller_agio_id, authorization)
     if req.category not in CATEGORIES:
         raise HTTPException(400, f"Invalid category. Options: {CATEGORIES}")
     if req.price <= 0:
@@ -98,7 +98,7 @@ async def search_listings(
 async def purchase(listing_id: int, authorization: str = Header(None), buyer_id: str = Query(...), db: AsyncSession = Depends(get_db)):
     """Purchase a listing. Debits buyer, credits seller minus 5% commission."""
     from .auth_guard import verify_agent
-    await verify_agent(buyer_id, authorization, request)
+    await verify_agent(buyer_id, authorization)
     listing = (await db.execute(select(MarketListing).where(MarketListing.id == listing_id))).scalar_one_or_none()
     if not listing or listing.status != "ACTIVE":
         raise HTTPException(404, "Listing not found or inactive")
