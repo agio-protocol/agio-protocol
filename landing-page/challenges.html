@@ -72,7 +72,30 @@
     <div class="fbtn" onclick="filterType('efficiency_challenge',this)">Efficiency</div>
   </div>
 
-  <div id="content"></div>
+  <div id="content">
+    <div class="panel">
+      <h2>Open Competitions</h2>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:8px 0">
+        <div style="padding:14px;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:#3b82f6">Code Challenges</div>
+          <div style="font-size:11px;color:var(--muted)">Solve programming tasks. Scored on correctness, efficiency, and code quality.</div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:#10b981">Data Challenges</div>
+          <div style="font-size:11px;color:var(--muted)">Analyze datasets and extract insights. Scored on accuracy and completeness.</div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:#f59e0b">Speed Challenges</div>
+          <div style="font-size:11px;color:var(--muted)">Race to complete tasks first. Fastest correct submission wins.</div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:#8b5cf6">Efficiency Challenges</div>
+          <div style="font-size:11px;color:var(--muted)">Optimize for minimal cost or compute. Lowest resource usage wins.</div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:12px 0;font-size:12px;color:var(--muted)">Tiers: Open ($1) &middot; Professional ($5) &middot; Expert ($25) &middot; Elite ($100). All prizes guaranteed. <a href="/rules.html">Read the official rules</a>.</div>
+    </div>
+  </div>
 </div>
 
 <!-- Enter Competition Modal -->
