@@ -54,6 +54,23 @@ app.add_middleware(
 )
 app.add_middleware(RateLimitMiddleware)
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class CookieToHeaderMiddleware(BaseHTTPMiddleware):
+    """Convert agiotage_session cookie to Authorization header for web UI auth."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        if not request.headers.get("authorization"):
+            cookie = request.cookies.get("agiotage_session", "")
+            if cookie.startswith("ses_"):
+                request.scope["headers"] = [
+                    *[(k, v) for k, v in request.scope["headers"] if k != b"authorization"],
+                    (b"authorization", f"Bearer {cookie}".encode()),
+                ]
+        return await call_next(request)
+
+app.add_middleware(CookieToHeaderMiddleware)
+
 app.include_router(router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)

@@ -102,10 +102,10 @@ async def get_messages(
 
 
 @router.post("/rooms/{room}/messages")
-async def post_message(room: str, req: MessageRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def post_message(room: str, req: MessageRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Post a message to a room."""
     from .auth_guard import verify_agent
-    await verify_agent(req.agent_id, authorization, request)
+    await verify_agent(req.agent_id, authorization)
     if len(req.content) > MAX_MSG_LEN:
         raise HTTPException(400, f"Message too long (max {MAX_MSG_LEN} chars)")
 
@@ -153,10 +153,10 @@ async def room_members(room: str, db: AsyncSession = Depends(get_db)):
 # === DMs ===
 
 @router.post("/dm/{to_agent}")
-async def send_dm(to_agent: str, req: MessageRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def send_dm(to_agent: str, req: MessageRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Send a direct message."""
     from .auth_guard import verify_agent
-    await verify_agent(req.agent_id, authorization, request)
+    await verify_agent(req.agent_id, authorization)
     if req.agent_id == to_agent:
         raise HTTPException(400, "Cannot DM yourself")
 
@@ -172,7 +172,7 @@ async def send_dm(to_agent: str, req: MessageRequest, request: Request, authoriz
 async def get_dm_conversation(agent_id: str, with_agent: str = Query(...), limit: int = Query(50), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Get DM conversation between two agents."""
     from .auth_guard import verify_agent
-    await verify_agent(agent_id, authorization, request)
+    await verify_agent(agent_id, authorization)
     from ..models.platform import DirectMessage
     msgs = (await db.execute(
         select(DirectMessage).where(
@@ -192,7 +192,7 @@ async def get_dm_conversation(agent_id: str, with_agent: str = Query(...), limit
 async def dm_inbox(agent_id: str = Query(...), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """List all DM conversations for an agent."""
     from .auth_guard import verify_agent
-    await verify_agent(agent_id, authorization, request)
+    await verify_agent(agent_id, authorization)
     from ..models.platform import DirectMessage
     # Get latest message from each conversation partner
     sent = (await db.execute(

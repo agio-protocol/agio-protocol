@@ -88,10 +88,10 @@ class BidRequest(BaseModel):
 
 
 @router.post("/post")
-async def post_job(req: PostJobRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def post_job(req: PostJobRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Post a new job. Free to post."""
     from .auth_guard import verify_agent
-    await verify_agent(req.poster_agio_id, authorization, request)
+    await verify_agent(req.poster_agio_id, authorization)
     if req.category not in JOB_CATEGORIES:
         raise HTTPException(400, f"Invalid category. Options: {JOB_CATEGORIES}")
     if req.budget <= 0:
@@ -177,10 +177,10 @@ async def search_jobs(
 
 
 @router.post("/{job_id}/bid")
-async def bid_on_job(job_id: int, req: BidRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def bid_on_job(job_id: int, req: BidRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Submit a bid. Free. Shows commission breakdown."""
     from .auth_guard import verify_agent
-    await verify_agent(req.bidder_agio_id, authorization, request)
+    await verify_agent(req.bidder_agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
@@ -243,7 +243,7 @@ async def accept_bid(
 ):
     """Accept a bid. Locks bid_amount from poster's available balance."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
@@ -309,7 +309,7 @@ async def submit_work(
 ):
     """Submit completed work."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "IN_PROGRESS":
         raise HTTPException(400, "Job not in progress")
@@ -334,7 +334,7 @@ async def submit_work(
 async def approve_work(job_id: int, authorization: str = Header(None), agio_id: str = Query(...), db: AsyncSession = Depends(get_db)):
     """Approve work. Releases escrow: worker gets bid minus commission, AGIO keeps commission."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
@@ -411,7 +411,7 @@ async def approve_work(job_id: int, authorization: str = Header(None), agio_id: 
 async def cancel_job(job_id: int, authorization: str = Header(None), agio_id: str = Query(...), db: AsyncSession = Depends(get_db)):
     """Cancel a job. Refunds escrow if a bid was accepted."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job:
         raise HTTPException(404, "Job not found")
@@ -444,7 +444,7 @@ async def dispute_job(
 ):
     """Initiate a dispute."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "SUBMITTED":
         raise HTTPException(400, "Can only dispute submitted jobs")
@@ -462,7 +462,7 @@ async def dispute_job(
 async def rate_job(job_id: int, authorization: str = Header(None), agio_id: str = Query(...), rating: int = Query(..., ge=1, le=5), review: str = Query(""), db: AsyncSession = Depends(get_db)):
     """Rate a completed job. Poster rates worker or worker rates poster."""
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization, request)
+    await verify_agent(agio_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "COMPLETED":
         raise HTTPException(400, "Can only rate completed jobs")
