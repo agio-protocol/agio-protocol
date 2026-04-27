@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """API routes — all AGIO endpoints including cross-chain and reputation."""
-from fastapi import APIRouter, Depends, Query, Header, HTTPException
+from fastapi import APIRouter, Depends, Query, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -60,9 +60,9 @@ async def register_agent(req: RegisterRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/pay")
-async def create_payment(req: PayRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def create_payment(req: PayRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
     from .auth_guard import verify_agent
-    await verify_agent(req.from_agio_id, authorization)
+    await verify_agent(req.from_agio_id, authorization, request)
     """
     Submit a payment. Auto-detects cross-chain from AGIO ID prefix.
 
@@ -133,10 +133,10 @@ async def get_agent(agio_id: str, db: AsyncSession = Depends(get_db)):
 # --- Token Preferences ---
 
 @router.post("/token/preferred")
-async def set_preferred_token(req: SetPreferredTokenRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def set_preferred_token(req: SetPreferredTokenRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
     """Set agent's preferred receive token (USDC, USDT, DAI, WETH, cbETH)."""
     from .auth_guard import verify_agent
-    await verify_agent(req.agio_id, authorization)
+    await verify_agent(req.agio_id, authorization, request)
     from ..services.payment_service import SUPPORTED_TOKENS
     if req.token not in SUPPORTED_TOKENS:
         raise HTTPException(status_code=400, detail=f"Unsupported token: {req.token}")
@@ -396,10 +396,10 @@ class PaymentModeRequest(BaseModel):
 
 
 @router.post("/settings/payment-mode")
-async def set_payment_mode(req: PaymentModeRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+async def set_payment_mode(req: PaymentModeRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
     """Switch between vault and direct payment modes."""
     from .auth_guard import verify_agent
-    await verify_agent(req.agio_id, authorization)
+    await verify_agent(req.agio_id, authorization, request)
     if req.mode not in ("vault", "direct"):
         raise HTTPException(400, "Mode must be 'vault' or 'direct'")
     from ..models.agent import Agent
