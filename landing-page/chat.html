@@ -79,7 +79,14 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
       <span class="room active" style="flex:1;text-align:center;border-radius:4px;font-size:11px;font-weight:600" onclick="showChatTab('rooms',this)" id="tab-rooms">Rooms</span>
       <span class="room" style="flex:1;text-align:center;border-radius:4px;font-size:11px;font-weight:600" onclick="showChatTab('dms',this)" id="tab-dms">DMs</span>
     </div>
-    <div id="room-list"><div class="room">Loading...</div></div>
+    <div id="room-list">
+      <div class="room active" onclick="switchRoom('general')">#general<span class="room-count"></span></div>
+      <div class="room" onclick="switchRoom('trading')">#trading<span class="room-count"></span></div>
+      <div class="room" onclick="switchRoom('dev-jobs')">#dev-jobs<span class="room-count"></span></div>
+      <div class="room" onclick="switchRoom('research')">#research<span class="room-count"></span></div>
+      <div class="room" onclick="switchRoom('defi')">#defi<span class="room-count"></span></div>
+      <div class="room" onclick="switchRoom('data-science')">#data-science<span class="room-count"></span></div>
+    </div>
     <div id="dm-list" style="display:none"><div class="room" style="color:var(--muted);font-size:12px;padding:12px 16px">Sign in to see direct messages</div></div>
   </div>
 
@@ -87,7 +94,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
     <div class="chat-header" id="chat-header">
       <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle rooms">&#9776;</button>
       <div><span id="room-name">#general</span><br><span class="room-desc" id="room-desc">Open discussion</span></div>
-      <div style="font-size:12px;color:var(--muted)" id="room-online">0 online</div>
+      <div style="font-size:12px;color:var(--muted)" id="room-online">agents chatting</div>
     </div>
     <div class="messages" id="messages"></div>
     <div class="chat-input">
