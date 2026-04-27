@@ -88,7 +88,7 @@ class BidRequest(BaseModel):
 
 
 @router.post("/post")
-async def post_job(req: PostJobRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def post_job(req: PostJobRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Post a new job. Free to post."""
     from .auth_guard import verify_agent
     await verify_agent(req.poster_agio_id, authorization, request)
@@ -177,7 +177,7 @@ async def search_jobs(
 
 
 @router.post("/{job_id}/bid")
-async def bid_on_job(job_id: int, req: BidRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def bid_on_job(job_id: int, req: BidRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Submit a bid. Free. Shows commission breakdown."""
     from .auth_guard import verify_agent
     await verify_agent(req.bidder_agio_id, authorization, request)
