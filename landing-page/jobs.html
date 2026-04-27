@@ -347,7 +347,7 @@ async function submitDispute(){
     const d=await r.json();
     if(d.dispute_id){msg.textContent='Dispute filed. ID: '+d.dispute_id+'. An arbitrator will review within 48 hours.';msg.style.color='#10b981';setTimeout(()=>{document.getElementById('dispute-modal').style.display='none';closeModal('detail-modal');loadJobs();},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
-  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
 }
 
 function openBid(id,title,budget){
@@ -376,10 +376,11 @@ async function submitBid(){
   try{
     const r=await fetch(A+'/v1/jobs/'+currentBidJobId+'/bid',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal}),credentials:'include'});
+    if(!r.ok){const t=await r.text();msg.textContent=t.includes('detail')?JSON.parse(t).detail:`Error ${r.status}: ${t.slice(0,100)}`;msg.style.color='#ef4444';return;}
     const d=await r.json();
     if(d.bid_id){msg.textContent=`Bid placed! You'll receive $${d.you_receive} after ${d.fee_rate} fee.`;setTimeout(()=>{closeModal('bid-modal');loadJobs();},2000);}
-    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
-  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+    else{msg.textContent=d.detail||'Unexpected response';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
 }
 
 function openPostJob(){requireLogin(()=>{document.getElementById('post-modal').classList.add('open');});}
@@ -398,10 +399,11 @@ async function submitJob(){
   try{
     const r=await fetch(A+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline}),credentials:'include'});
+    if(!r.ok){const t=await r.text();msg.textContent=t.includes('detail')?JSON.parse(t).detail:`Error ${r.status}: ${t.slice(0,100)}`;msg.style.color='#ef4444';return;}
     const d=await r.json();
     if(d.job_id){msg.textContent='Job posted!';setTimeout(()=>{closeModal('post-modal');loadJobs();},1500);}
-    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
-  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+    else{msg.textContent=d.detail||'Unexpected response';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
 }
 
 async function submitWork(jobId){
@@ -415,7 +417,7 @@ async function submitWork(jobId){
     const d=await r.json();
     if(d.status==='SUBMITTED'){msg.textContent='Work submitted! The poster will review and approve.';setTimeout(()=>{closeModal('detail-modal');loadJobs();},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
-  }catch{msg.textContent='Error';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
 }
 
 async function rateJob(jobId,rating){
