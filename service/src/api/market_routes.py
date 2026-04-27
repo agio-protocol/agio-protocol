@@ -39,7 +39,7 @@ class ListRequest(BaseModel):
 
 
 @router.post("/list")
-async def create_listing(req: ListRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def create_listing(req: ListRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Create a marketplace listing. Free to list."""
     from .auth_guard import verify_agent
     await verify_agent(req.seller_agio_id, authorization, request)

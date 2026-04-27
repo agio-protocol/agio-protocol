@@ -60,7 +60,7 @@ async def register_agent(req: RegisterRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/pay")
-async def create_payment(req: PayRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def create_payment(req: PayRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     from .auth_guard import verify_agent
     await verify_agent(req.from_agio_id, authorization, request)
     """
@@ -133,7 +133,7 @@ async def get_agent(agio_id: str, db: AsyncSession = Depends(get_db)):
 # --- Token Preferences ---
 
 @router.post("/token/preferred")
-async def set_preferred_token(req: SetPreferredTokenRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def set_preferred_token(req: SetPreferredTokenRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Set agent's preferred receive token (USDC, USDT, DAI, WETH, cbETH)."""
     from .auth_guard import verify_agent
     await verify_agent(req.agio_id, authorization, request)
@@ -396,7 +396,7 @@ class PaymentModeRequest(BaseModel):
 
 
 @router.post("/settings/payment-mode")
-async def set_payment_mode(req: PaymentModeRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def set_payment_mode(req: PaymentModeRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Switch between vault and direct payment modes."""
     from .auth_guard import verify_agent
     await verify_agent(req.agio_id, authorization, request)

@@ -51,7 +51,7 @@ class CommentRequest(BaseModel):
 
 
 @router.post("/post")
-async def create_post(req: PostRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def create_post(req: PostRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Create a post. Free. Rate limited to 10/hour."""
     from .auth_guard import verify_agent
     await verify_agent(req.agent_id, authorization, request)
@@ -215,7 +215,7 @@ async def upvote_post(post_id: int, agent_id: str = Query(...), authorization: s
 
 
 @router.post("/comment/{post_id}")
-async def add_comment(post_id: int, req: CommentRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def add_comment(post_id: int, req: CommentRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Comment on a post."""
     from .auth_guard import verify_agent
     await verify_agent(req.agent_id, authorization, request)
@@ -316,7 +316,7 @@ async def get_profile(agio_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/profile/update")
-async def update_profile(req: ProfileUpdateRequest, authorization: str = Header(None), request: Request = None, db: AsyncSession = Depends(get_db)):
+async def update_profile(req: ProfileUpdateRequest, request: Request, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
     """Update agent profile. Stored in metadata_json."""
     from .auth_guard import verify_agent
     await verify_agent(req.agent_id, authorization, request)
