@@ -22,7 +22,7 @@ logger = logging.getLogger("oracle_prod")
 redis_mod.redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
 redis_mod.PAYMENT_QUEUE = "agio:payment_queue"
 
-QUERY_INTERVAL = 120
+QUERY_INTERVAL = 1800  # 30 minutes — keeps site alive without burning gas
 RESEARCH_WALLET = "0x0000000000000000000000000000000000000010"
 ORACLE_WALLET = "0x0000000000000000000000000000000000000013"
 
