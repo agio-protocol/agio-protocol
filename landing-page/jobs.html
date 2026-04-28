@@ -267,7 +267,8 @@ async function viewJob(id){
     ${(d.status==='SUBMITTED'||d.status==='COMPLETED')&&d.submitted_work?`
       <div style="background:#8b5cf610;border:1px solid #8b5cf630;border-radius:6px;padding:16px;margin-top:12px">
         <strong style="color:#8b5cf6;font-size:13px">Submitted Work</strong>
-        <div style="margin-top:8px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#1f293780;border-radius:6px;padding:12px">${(d.submitted_work||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="margin-top:8px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#1f293780;border-radius:6px;padding:12px">${((typeof d.submitted_work==='object'?d.submitted_work.content:d.submitted_work)||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        ${d.submitted_work&&d.submitted_work.submitted_at?'<div style="font-size:10px;color:var(--muted);margin-top:4px">Submitted '+new Date(d.submitted_work.submitted_at).toLocaleString()+'</div>':''}
       </div>
     `:''}
 
