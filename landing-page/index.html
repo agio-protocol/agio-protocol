@@ -527,7 +527,7 @@ async function confirmHomePay(){
   if(!amt||amt<=0){msg.textContent='Enter amount';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Sending...';msg.style.color='#00d9a3';msg.style.display='block';
   try{
-    const r=await fetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await authFetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:to,amount:amt,token,memo:memo||null})});
     const d=await r.json();
     if(d.payment_id){

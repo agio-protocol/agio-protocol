@@ -183,7 +183,7 @@ async function confirmBuy(){
   const msg=document.getElementById('buy-msg');
   msg.style.display='block';msg.textContent='Processing...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/market/purchase/'+buyListingId+'?buyer_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/market/purchase/'+buyListingId+'?buyer_id='+encodeURIComponent(s.agio_id),{method:'POST'});
     const d=await r.json();
     if(d.purchase_id){
       msg.textContent='Purchased! Seller received $'+d.seller_received;
@@ -209,8 +209,8 @@ async function submitList(){
   if(!title||!desc||!price){msg.style.display='block';msg.textContent='Fill in all fields';msg.style.color='#ef4444';return;}
   msg.style.display='block';msg.textContent='Creating listing...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/market/list',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({seller_agio_id:s.agio_id,title,description:desc,category:cat,price,content_url:url}),credentials:'include'});
+    const r=await authFetch(A+'/v1/market/list',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({seller_agio_id:s.agio_id,title,description:desc,category:cat,price,content_url:url})});
     const d=await r.json();
     if(d.listing_id){msg.textContent='Listed!';setTimeout(()=>{closeModal('list-modal');loadListings();},1500);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}

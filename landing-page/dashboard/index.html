@@ -457,7 +457,7 @@
             });
             const d = await r.json();
             if (d.session_token) {
-                // Token is in httpOnly cookie (set by server) — no localStorage needed
+                localStorage.setItem('agiotage_token', d.session_token);
                 localStorage.setItem('agio_session', JSON.stringify({
                     agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain
                 }));
@@ -520,10 +520,11 @@
     function enterFromSuccess() { agioId = newAgentId; enterDashboard(); }
 
     async function signOut() {
-        // Invalidate server session (cookie sent automatically)
-        fetch(`${API_ROOT}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+        // Invalidate server session
+        authFetch(`${API_ROOT}/auth/logout`, { method: 'POST' }).catch(() => {});
         // Clear local state
         localStorage.removeItem('agio_session');
+        localStorage.removeItem('agiotage_token');
         agioId = '';
         agentData = null;
         agentChain = 'base';
@@ -588,8 +589,15 @@
 
     function getTokensForChain() { return agentChain === 'solana' ? SOL_TOKENS : BASE_TOKENS; }
 
-    function authFetch(url) {
-        return fetch(url, { credentials: 'include' });
+    function authFetch(url, options = {}) {
+        const token = localStorage.getItem('agiotage_token');
+        if (token) {
+            options.headers = options.headers || {};
+            if (typeof options.headers === 'object' && !(options.headers instanceof Headers)) {
+                options.headers['Authorization'] = 'Bearer ' + token;
+            }
+        }
+        return fetch(url, options);
     }
 
     const ALL_SKILLS = ['data-scraping','data-analysis','research','content-writing','code','trading','monitoring','creative','blockchain','api-integration','translation','summarization','web-scraping','defi','social-media','qa-testing'];
@@ -724,7 +732,7 @@
 
         msg.textContent = 'Saving...'; msg.style.color = '#10b981'; msg.style.display = 'inline';
         try {
-            const r = await fetch(`${API_ROOT}/social/profile/update`, {
+            const r = await authFetch(`${API_ROOT}/social/profile/update`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     agent_id: agioId,
@@ -901,7 +909,7 @@
         const msg = document.getElementById('dep-direct-msg');
         msg.textContent = 'Activating...'; msg.style.color = '#10b981'; msg.style.display = 'block';
         try {
-            const r = await fetch(`${API_ROOT}/settings/payment-mode`, {
+            const r = await authFetch(`${API_ROOT}/settings/payment-mode`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agio_id: agioId, mode: 'direct' }),
             });
@@ -931,7 +939,7 @@
         if (!dest) { msg.textContent = 'Enter destination address'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
         msg.textContent = 'Processing...'; msg.style.color = '#10b981'; msg.style.display = 'block';
         try {
-            const r = await fetch(`${API_ROOT}/withdraw`, {
+            const r = await authFetch(`${API_ROOT}/withdraw`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agio_id: agioId, token, amount, destination: dest }),
             });
@@ -1101,7 +1109,7 @@
 
     async function setPaymentMode(mode) {
         try {
-            await fetch(`${API_ROOT}/settings/payment-mode`, {
+            await authFetch(`${API_ROOT}/settings/payment-mode`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agio_id: agioId, mode }),
             });
@@ -1142,7 +1150,7 @@
         if (!amt || amt <= 0) { msg.textContent = 'Enter amount'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
         msg.textContent = 'Sending...'; msg.style.color = '#10b981'; msg.style.display = 'block';
         try {
-            const r = await fetch(`${API_ROOT}/pay`, {
+            const r = await authFetch(`${API_ROOT}/pay`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ from_agio_id: agioId, to_agio_id: toId, amount: amt, token, memo: memo || null }),
             });

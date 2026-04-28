@@ -11,9 +11,21 @@ function getSession() {
 function setSession(data) {
   localStorage.setItem('agio_session', JSON.stringify({ ...data, logged_in_at: new Date().toISOString() }));
 }
-function clearSession() { localStorage.removeItem('agio_session'); localStorage.removeItem('agiotage_session_token'); }
+function clearSession() { localStorage.removeItem('agio_session'); localStorage.removeItem('agiotage_session_token'); localStorage.removeItem('agiotage_token'); }
+
+// Authenticated fetch — adds Bearer token from localStorage
+function authFetch(url, options = {}) {
+  const token = localStorage.getItem('agiotage_token');
+  if (token) {
+    options.headers = options.headers || {};
+    if (typeof options.headers === 'object' && !(options.headers instanceof Headers)) {
+      options.headers['Authorization'] = 'Bearer ' + token;
+    }
+  }
+  return fetch(url, options);
+}
 function agiotageSignOut() {
-  fetch(AGIO_API + '/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+  authFetch(AGIO_API + '/v1/auth/logout', { method: 'POST' }).catch(() => {});
   clearSession();
   location.reload();
 }
@@ -119,7 +131,7 @@ async function doSignIn() {
       });
       const d = await r.json();
       if (d.session_token) {
-        // Token is now in httpOnly cookie (set by server) — no localStorage needed
+        localStorage.setItem('agiotage_token', d.session_token);
         setSession({ agio_id: d.agio_id, agent_name: d.agio_id.slice(0, 12), tier: d.tier, chain: d.chain });
         const dd = document.getElementById('signin-dropdown');
         if (dd?._pendingCallback) { dd._pendingCallback(getSession()); dd._pendingCallback = null; dd.style.display = 'none'; renderNav(window.AGIO_PAGE || ''); }
@@ -334,7 +346,7 @@ async function _gpSend() {
   if (!amt || amt <= 0) { msg.textContent = 'Enter amount'; msg.style.color = '#ef4444'; msg.style.display = 'block'; return; }
   msg.textContent = 'Sending...'; msg.style.color = '#00d9a3'; msg.style.display = 'block';
   try {
-    const r = await fetch(AGIO_API + '/v1/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const r = await authFetch(AGIO_API + '/v1/pay', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ from_agio_id: s.agio_id, to_agio_id: to, amount: amt, token, memo: memo || null }) });
     const d = await r.json();
     if (d.payment_id) {

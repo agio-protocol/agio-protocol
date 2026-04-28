@@ -218,12 +218,12 @@ async function toggleFollow(targetId) {
   const btn = document.getElementById('follow-btn');
   try {
     if (isFollowing) {
-      await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'DELETE', credentials: 'include' });
+      await authFetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'DELETE' });
       btn.textContent = 'Follow';
       btn.style.background = '';
       isFollowing = false;
     } else {
-      const r = await fetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'POST', credentials: 'include' });
+      const r = await authFetch(`${API}/v1/social/follow/${encodeURIComponent(targetId)}?agent_id=${encodeURIComponent(s.agio_id)}`, { method: 'POST' });
       const d = await r.json();
       if (d.status === 'following') {
         btn.textContent = 'Following ✓';
@@ -286,8 +286,8 @@ async function submitHire() {
   if (!budget||budget<=0) { msg.textContent='Enter a budget';msg.style.color='#ef4444';msg.style.display='block';return; }
   msg.textContent='Posting...';msg.style.color='#10b981';msg.style.display='block';
   try {
-    const r = await fetch(API+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({poster_agio_id:s.agio_id,title:title+' (for '+targetName+')',description:desc+'\\n\\nPosted for: '+targetId,category:'custom',budget}),credentials:'include'});
+    const r = await authFetch(API+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({poster_agio_id:s.agio_id,title:title+' (for '+targetName+')',description:desc+'\\n\\nPosted for: '+targetId,category:'custom',budget})});
     const d = await r.json();
     if(d.job_id){msg.innerHTML='\u2705 Job posted! '+targetName+' can see it on the <a href="/jobs.html">job board</a>.';setTimeout(()=>{modal.style.display='none'},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -354,8 +354,8 @@ async function saveProfile(){
   if(gh)social.github=gh;if(tw)social.twitter=tw;
   msg.style.display='block';msg.textContent='Saving...';msg.style.color='#10b981';
   try{
-    const r=await fetch(`${API}/v1/social/profile/update`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social,email:document.getElementById('ep-email').value.trim()||null}),credentials:'include'});
+    const r=await authFetch(`${API}/v1/social/profile/update`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social,email:document.getElementById('ep-email').value.trim()||null})});
     const d=await r.json();
     if(d.updated){msg.textContent='Profile saved!';setTimeout(()=>{document.getElementById('edit-profile-modal').style.display='none';loadProfile();},1000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -392,8 +392,8 @@ async function confirmPay(){
   if(!amt||amt<=0){msg.textContent='Enter an amount';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
   try{
-    const r=await fetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:payToId,amount:amt,token:token,memo:memo||null}),credentials:'include'});
+    const r=await authFetch(API+'/v1/pay',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from_agio_id:s.agio_id,to_agio_id:payToId,amount:amt,token:token,memo:memo||null})});
     const d=await r.json();
     if(d.payment_id){
       const isXC=d.routing==='CROSS_CHAIN';
@@ -490,7 +490,7 @@ async function submitReview() {
   msg.style.color = '#10b981';
   msg.style.display = 'block';
   try {
-    const r = await fetch(`${API}/v1/social/review/${encodeURIComponent(agioId)}`, {
+    const r = await authFetch(`${API}/v1/social/review/${encodeURIComponent(agioId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -500,7 +500,6 @@ async function submitReview() {
         content: document.getElementById('review-content').value.trim(),
         context: document.getElementById('review-context').value,
       }),
-      credentials: 'include',
     });
     const d = await r.json();
     if (d.review_id) {

@@ -320,7 +320,7 @@ async function acceptBid(jobId,bidId){
   const s=getSession();if(!s)return;
   if(!confirm('Accept this bid? Your funds will be locked in escrow until work is approved.'))return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/accept?bid_id='+bidId+'&agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/accept?bid_id='+bidId+'&agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
     const d=await r.json();
     if(d.status==='IN_PROGRESS'){alert('Bid accepted! $'+d.escrowed+' escrowed. Worker has been notified.');closeModal('detail-modal');loadJobs();}
     else alert(d.detail||'Failed to accept bid');
@@ -331,7 +331,7 @@ async function approveJob(jobId){
   const s=getSession();if(!s)return;
   if(!confirm('Approve this work and release payment to the worker?'))return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/approve?agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/approve?agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
     const d=await r.json();
     if(d.status==='COMPLETED'){alert('Job completed! Worker received $'+d.worker_received);closeModal('detail-modal');loadJobs();}
     else alert(d.detail||'Failed');
@@ -376,8 +376,8 @@ async function submitDispute(){
   if(!reason||reason.length<10){msg.textContent='Please describe the issue in detail';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Filing...';msg.style.color='#f59e0b';msg.style.display='block';
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({initiated_by:s.agio_id,reason}),credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({initiated_by:s.agio_id,reason})});
     const d=await r.json();
     if(d.dispute_id){msg.textContent='Dispute filed. ID: '+d.dispute_id+'. An arbitrator will review within 48 hours.';msg.style.color='#10b981';setTimeout(()=>{document.getElementById('dispute-modal').style.display='none';closeModal('detail-modal');loadJobs();},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -408,8 +408,8 @@ async function submitBid(){
   if(!amount){msg.style.display='block';msg.textContent='Enter a bid amount';msg.style.color='#ef4444';return;}
   msg.style.display='block';msg.textContent='Submitting...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/jobs/'+currentBidJobId+'/bid',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal}),credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+currentBidJobId+'/bid',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({bidder_agio_id:s.agio_id,bid_amount:amount,estimated_hours:hours,proposal})});
     if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em=`Error ${r.status}: ${t.slice(0,100)}`}
       if(em&&em.includes('nsufficient')){msg.innerHTML=em+' <a href="/dashboard/" style="color:#00d9a3;text-decoration:underline">Deposit funds &rarr;</a>';msg.style.color='#ef4444';}
       else if(em&&em.includes('expired')){msg.innerHTML=em+' <a href="javascript:location.reload()" style="color:#00d9a3;text-decoration:underline">Sign in again</a>';msg.style.color='#ef4444';}
@@ -434,8 +434,8 @@ async function submitJob(){
   if(!title||!desc||!budget){msg.style.display='block';msg.textContent='Fill in all fields';msg.style.color='#ef4444';return;}
   msg.style.display='block';msg.textContent='Posting...';msg.style.color='#00d9a3';
   try{
-    const r=await fetch(A+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline}),credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/post',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({poster_agio_id:s.agio_id,title,description:desc,category:cat,budget,deadline_hours:deadline})});
     if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em=`Error ${r.status}: ${t.slice(0,100)}`}
       if(em&&em.includes('nsufficient')){msg.innerHTML=em+' <a href="/dashboard/" style="color:#00d9a3;text-decoration:underline">Deposit funds &rarr;</a>';msg.style.color='#ef4444';}
       else if(em&&em.includes('expired')){msg.innerHTML=em+' <a href="javascript:location.reload()" style="color:#00d9a3;text-decoration:underline">Sign in again</a>';msg.style.color='#ef4444';}
@@ -453,7 +453,7 @@ async function submitWork(jobId){
   if(!content){msg.textContent='Enter your deliverable';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Submitting...';msg.style.color='#10b981';msg.style.display='block';
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/submit?agio_id='+encodeURIComponent(s.agio_id)+'&content='+encodeURIComponent(content),{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/submit?agio_id='+encodeURIComponent(s.agio_id)+'&content='+encodeURIComponent(content),{method:'POST'});
     const d=await r.json();
     if(d.status==='SUBMITTED'){msg.textContent='Work submitted! The poster will review and approve.';setTimeout(()=>{closeModal('detail-modal');loadJobs();},2000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
@@ -464,7 +464,7 @@ async function rateJob(jobId,rating){
   const s=getSession();if(!s){requireLogin(()=>rateJob(jobId,rating));return;}
   const msg=document.getElementById('rate-msg-'+jobId);
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/rate?agio_id='+encodeURIComponent(s.agio_id)+'&rating='+rating,{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/rate?agio_id='+encodeURIComponent(s.agio_id)+'&rating='+rating,{method:'POST'});
     const d=await r.json();
     if(d.status==='rated'){if(msg){msg.textContent=rating+' stars — thank you!';msg.style.color='#10b981';msg.style.display='block';}}
     else{if(msg){msg.textContent=d.detail||'Already rated';msg.style.color='#f59e0b';msg.style.display='block';}}
@@ -561,7 +561,7 @@ async function cancelJob(jobId){
   const s=getSession();if(!s)return;
   if(!confirm('Cancel this job? All pending bids will be rejected and any escrowed funds will be refunded.'))return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/cancel?agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/cancel?agio_id='+encodeURIComponent(s.agio_id),{method:'POST'});
     if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em='Error '+r.status}alert(em);return;}
     const d=await r.json();
     alert('Job cancelled.'+(d.escrow_refunded?' Escrowed funds refunded.':''));
@@ -586,9 +586,9 @@ async function submitEdit(){
   const msg=document.getElementById('edit-msg');
   msg.textContent='Saving...';msg.style.color='#00d9a3';msg.style.display='block';
   try{
-    const r=await fetch(A+'/v1/jobs/'+editJobId+'/edit',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await authFetch(A+'/v1/jobs/'+editJobId+'/edit',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({agio_id:s.agio_id,title:document.getElementById('edit-title').value.trim(),description:document.getElementById('edit-desc').value.trim(),
-        category:document.getElementById('edit-cat').value,budget:parseFloat(document.getElementById('edit-budget').value)}),credentials:'include'});
+        category:document.getElementById('edit-cat').value,budget:parseFloat(document.getElementById('edit-budget').value)})});
     if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em='Error '+r.status}msg.textContent=em;msg.style.color='#ef4444';return;}
     const d=await r.json();
     if(d.edited){msg.textContent='Saved!';setTimeout(()=>{closeModal('edit-modal');loadMyJobs();loadJobs();},1000);}
@@ -625,8 +625,8 @@ async function sendJobMessage(jobId){
   if(!content)return;
   input.value='';
   try{
-    await fetch(A+'/v1/jobs/'+jobId+'/message',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sender_id:s.agio_id,content}),credentials:'include'});
+    await authFetch(A+'/v1/jobs/'+jobId+'/message',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sender_id:s.agio_id,content})});
     loadJobMessages(jobId);
   }catch{alert('Failed to send message');}
 }
@@ -663,8 +663,8 @@ async function submitRevision(){
   if(!notes||notes.length<5){msg.textContent='Please describe what needs revision';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Requesting...';msg.style.color='#f59e0b';msg.style.display='block';
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/request-revision',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agio_id:s.agio_id,notes}),credentials:'include'});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/request-revision',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agio_id:s.agio_id,notes})});
     const d=await r.json();
     if(d.status==='IN_PROGRESS'||d.status==='REVISION_REQUESTED'||d.revised){
       msg.textContent='Revision requested! The worker has been notified.';msg.style.color='#10b981';

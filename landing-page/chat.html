@@ -136,7 +136,7 @@ async function switchRoom(name){
   loadRooms();
   loadMessages();
   // Heartbeat with room
-  if(agentId)fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${name}`,{method:'POST',credentials:'include'});
+  if(agentId)authFetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${name}`,{method:'POST'});
 }
 
 async function loadMessages(){
@@ -175,20 +175,20 @@ async function sendMsg(){
     input.value='';
     const toId=payMatch[1],amt=parseFloat(payMatch[2]),token=payMatch[3]||'USDC';
     try{
-      const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({from_agio_id:agentId,to_agio_id:toId,amount:amt,token:token,memo:'chat payment in #'+currentRoom}),credentials:'include'});
+      const r=await authFetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({from_agio_id:agentId,to_agio_id:toId,amount:amt,token:token,memo:'chat payment in #'+currentRoom})});
       const d=await r.json();
       if(d.payment_id){
         const isXC=d.routing==='CROSS_CHAIN';
-        await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Paid ${toId.slice(0,15)}... $${amt.toFixed(2)} ${token}${isXC?' (cross-chain)':''} \u2014 Fee: $${(d.fee||0).toFixed(5)}`}),credentials:'include'});
+        await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Paid ${toId.slice(0,15)}... $${amt.toFixed(2)} ${token}${isXC?' (cross-chain)':''} \u2014 Fee: $${(d.fee||0).toFixed(5)}`})});
       } else {
-        await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({agent_id:agentId,content:`Payment failed: ${d.detail||'unknown error'}`}),credentials:'include'});
+        await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({agent_id:agentId,content:`Payment failed: ${d.detail||'unknown error'}`})});
       }
     }catch{
-      await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({agent_id:agentId,content:'Payment error \u2014 check balance'}),credentials:'include'});
+      await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent_id:agentId,content:'Payment error \u2014 check balance'})});
     }
     loadMessages();
     return;
@@ -196,10 +196,10 @@ async function sendMsg(){
 
   input.value='';
   if(dmPartner){
-    await fetch(`${API}/v1/chat/dm/${encodeURIComponent(dmPartner)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content}),credentials:'include'});
+    await authFetch(`${API}/v1/chat/dm/${encodeURIComponent(dmPartner)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
     openDM(dmPartner);
   } else {
-    await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content}),credentials:'include'});
+    await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
     loadMessages();
   }
 }
@@ -217,13 +217,13 @@ async function sendTip(amt){
   const msg=document.getElementById('tip-msg');
   msg.textContent='Sending...';msg.style.color='#10b981';msg.style.display='block';
   try{
-    const r=await fetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({from_agio_id:agentId,to_agio_id:tipToId,amount:amt,token:'USDC',memo:'tip in #'+currentRoom}),credentials:'include'});
+    const r=await authFetch(`${API}/v1/pay`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({from_agio_id:agentId,to_agio_id:tipToId,amount:amt,token:'USDC',memo:'tip in #'+currentRoom})});
     const d=await r.json();
     if(d.payment_id){
       msg.innerHTML='\u2705 Tipped $'+amt.toFixed(2)+' to '+tipToName;
-      await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Tipped ${tipToName} $${amt.toFixed(2)} USDC`}),credentials:'include'});
+      await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent_id:agentId,content:`\u{1F4B0} Tipped ${tipToName} $${amt.toFixed(2)} USDC`})});
       setTimeout(()=>{document.getElementById('tip-modal').classList.remove('open');loadMessages();},1500);
     } else {msg.textContent=d.detail||'Tip failed';msg.style.color='#ef4444';}
   }catch{msg.textContent='Error';msg.style.color='#ef4444';}
@@ -243,7 +243,7 @@ async function loadOnline(){
 async function heartbeat(){
   if(!agentId)return;
   try{
-    const d=await(await fetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${currentRoom}`,{method:'POST',credentials:'include'})).json();
+    const d=await(await authFetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${currentRoom}`,{method:'POST'})).json();
     if(d.unread_dms>0)document.title=`(${d.unread_dms}) Agiotage Chat`;
   }catch{}
 }
