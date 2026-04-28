@@ -23,7 +23,7 @@ from typing import Optional
 
 from ..core.database import get_db
 from ..models.agent import Agent, AgentBalance
-from ..models.platform import Job, JobBid, JobDeliverable, JobDispute
+from ..models.platform import Job, JobBid, JobDeliverable, JobDispute, JobMessage
 
 import logging
 _log = logging.getLogger("jobs")
@@ -592,6 +592,19 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
 
     bids = (await db.execute(select(JobBid).where(JobBid.job_id == job_id).order_by(JobBid.created_at))).scalars().all()
 
+    # Get submitted work (stored in JobDeliverable)
+    submitted_work = None
+    if job.status in ("SUBMITTED", "COMPLETED", "DISPUTED", "IN_PROGRESS"):
+        deliverable = (await db.execute(
+            select(JobDeliverable).where(JobDeliverable.job_id == job_id).order_by(JobDeliverable.submitted_at.desc())
+        )).scalar_one_or_none()
+        if deliverable:
+            submitted_work = {
+                "content": deliverable.content,
+                "url": deliverable.deliverable_url,
+                "submitted_at": deliverable.submitted_at.isoformat(),
+            }
+
     commission_rate = _commission_rate(float(job.budget))
 
     return {
@@ -599,6 +612,7 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
         "category": job.category, "budget": float(job.budget), "token": job.budget_token,
         "poster": job.poster_agent, "status": job.status,
         "deadline_hours": job.deadline_hours,
+        "submitted_work": submitted_work,
         "created_at": job.created_at.isoformat(),
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
         "terms": {
@@ -659,3 +673,135 @@ async def _enrich_bids(db, bids):
             "created_at": b.created_at.isoformat(),
         })
     return enriched
+
+
+# === JOB MESSAGING ===
+
+class SendMessageRequest(BaseModel):
+    sender_id: str
+    content: str
+    message_type: str = "message"
+
+
+class RequestRevisionRequest(BaseModel):
+    agio_id: str
+    notes: str
+
+
+@router.get("/{job_id}/messages")
+async def get_job_messages(job_id: int, agio_id: str = Query(...), authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Get all messages for a job. Only poster and accepted bidder can view."""
+    from .auth_guard import verify_agent
+    await verify_agent(agio_id, authorization)
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    # Check caller is poster or accepted worker
+    allowed = [job.poster_agent]
+    if job.accepted_bid_id:
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
+        if bid:
+            allowed.append(bid.bidder_agent)
+    if agio_id not in allowed:
+        raise HTTPException(403, "Only the poster and accepted worker can view messages")
+
+    messages = (await db.execute(
+        select(JobMessage).where(JobMessage.job_id == job_id).order_by(JobMessage.created_at)
+    )).scalars().all()
+
+    return {
+        "job_id": job_id,
+        "messages": [
+            {
+                "id": m.id,
+                "sender_id": m.sender_id,
+                "content": m.content,
+                "message_type": m.message_type,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in messages
+        ],
+    }
+
+
+@router.post("/{job_id}/message")
+async def send_job_message(job_id: int, req: SendMessageRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Send a message on a job. Only poster and accepted bidder can send."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.sender_id, authorization)
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    # Check caller is poster or accepted worker
+    allowed = [job.poster_agent]
+    if job.accepted_bid_id:
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
+        if bid:
+            allowed.append(bid.bidder_agent)
+    if req.sender_id not in allowed:
+        raise HTTPException(403, "Only the poster and accepted worker can send messages")
+
+    if req.message_type not in ("message", "revision_request", "revision_submitted", "system"):
+        raise HTTPException(400, "Invalid message_type")
+
+    msg = JobMessage(
+        job_id=job_id,
+        sender_id=req.sender_id,
+        content=req.content[:5000],
+        message_type=req.message_type,
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+
+    return {
+        "message_id": msg.id,
+        "job_id": job_id,
+        "message_type": msg.message_type,
+        "created_at": msg.created_at.isoformat(),
+    }
+
+
+@router.post("/{job_id}/request-revision")
+async def request_revision(job_id: int, req: RequestRevisionRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Poster requests revision. Changes job status from SUBMITTED back to IN_PROGRESS."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agio_id, authorization)
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.poster_agent != req.agio_id:
+        raise HTTPException(403, "Only the poster can request revisions")
+    if job.status != "SUBMITTED":
+        raise HTTPException(400, f"Job is {job.status}, not SUBMITTED. Can only request revision on submitted work.")
+
+    # Change status back to IN_PROGRESS
+    job.status = "IN_PROGRESS"
+
+    # Create a system message with the revision notes
+    msg = JobMessage(
+        job_id=job_id,
+        sender_id=req.agio_id,
+        content=req.notes[:5000],
+        message_type="revision_request",
+    )
+    db.add(msg)
+
+    # Notify worker about revision request
+    if job.accepted_bid_id:
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
+        if bid:
+            try:
+                from .notification_routes import notify
+                await notify(db, bid.bidder_agent, "job", f"Revision requested on \"{job.title}\"", req.notes[:200], "/jobs.html")
+            except Exception:
+                pass
+
+    await db.commit()
+
+    return {"job_id": job_id, "status": "IN_PROGRESS", "revision_requested": True}

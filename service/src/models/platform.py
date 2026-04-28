@@ -129,6 +129,17 @@ class JobBid(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class JobMessage(Base):
+    __tablename__ = "job_messages"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    sender_id: Mapped[str] = mapped_column(String(66), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    message_type: Mapped[str] = mapped_column(String(20), default="message")  # message, revision_request, revision_submitted, system
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class JobDeliverable(Base):
     __tablename__ = "job_deliverables"
 
