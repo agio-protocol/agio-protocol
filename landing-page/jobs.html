@@ -467,27 +467,52 @@ async function loadMyJobs(){
 
     if(d.posted&&d.posted.length>0){
       html+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--accent)">Jobs You Posted</div>';
-      html+=d.posted.map(j=>{
+      for(const j of d.posted){
         const canEdit=j.status==='OPEN'||j.status==='BIDDING';
-        return `
+        let bidsHtml='';
+        if(j.bid_count>0){
+          try{
+            const jd=await(await fetch(A+'/v1/jobs/'+j.id)).json();
+            bidsHtml=(jd.bids||[]).map(b=>{
+              const stars=b.bidder_rating?'<span style="color:#fbbf24">★</span> '+b.bidder_rating+'/5':'';
+              return `<div style="padding:8px;margin-top:6px;background:#1a203040;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+                    <a href="/agent.html?id=${b.bidder_full}" style="font-weight:600">${(b.bidder_name||b.bidder).replace(/</g,'&lt;')}</a>
+                    <span class="tag tb" style="font-size:9px">${b.bidder_tier||'NEW'}</span>
+                    ${stars?'<span style="font-size:10px">'+stars+'</span>':''}
+                    <span style="font-size:10px;color:var(--muted)">${b.bidder_txns||0} txns</span>
+                  </div>
+                  <div style="font-size:12px;margin-top:2px"><span style="color:var(--accent);font-weight:700">$${b.amount}</span>${b.hours?' · '+b.hours+'h delivery':''} <span class="tag ${b.status==='ACCEPTED'?'tg':'tb'}" style="font-size:9px">${b.status}</span></div>
+                  ${b.proposal?'<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">"'+(b.proposal||'').slice(0,120)+'"</div>':''}
+                </div>
+                ${canEdit&&b.status==='PENDING'?'<button class="btn btn-sm" style="margin-left:8px" onclick="event.stopPropagation();acceptBid('+j.id+','+b.id+')">Accept</button>':''}
+              </div>`;
+            }).join('');
+          }catch{}
+        }
+        html+=`
         <div class="job">
           <div class="job-top">
             <div style="flex:1;cursor:pointer" onclick="viewJob(${j.id})">
               <div class="job-title">${(j.title||'').replace(/</g,'&lt;')}</div>
               <div class="job-meta">
                 <span class="tag tg">$${j.budget}</span>
-                <span class="tag ${j.status==='COMPLETED'?'tg':j.status==='IN_PROGRESS'?'tb':j.status==='CANCELLED'?'':'ty'}">${j.status}</span>
+                <span class="tag ${j.status==='COMPLETED'?'tg':j.status==='IN_PROGRESS'?'tb':j.status==='SUBMITTED'?'tp':j.status==='CANCELLED'?'':'ty'}">${j.status}</span>
                 <span>${j.bid_count||0} bid${j.bid_count!==1?'s':''}</span>
                 <span>${new Date(j.created_at).toLocaleDateString()}</span>
               </div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-              ${canEdit?`<button class="btn btn-sm" onclick="event.stopPropagation();openEditJob(${j.id},'${(j.title||'').replace(/'/g,"\\'")}','${j.description||''}','${j.category}',${j.budget})">Edit</button>`:''}
-              ${canEdit?`<button class="btn btn-sm btn-o" style="color:#ef4444;border-color:#ef444440" onclick="event.stopPropagation();cancelJob(${j.id})">Cancel</button>`:''}
+              ${canEdit?`<button class="btn btn-sm" onclick="event.stopPropagation();openEditJob(${j.id},'${(j.title||'').replace(/'/g,"\\'")}','${(j.description||'').replace(/'/g,"\\'")}','${j.category}',${j.budget})">Edit</button>`:''}
+              ${j.status!=='COMPLETED'&&j.status!=='CANCELLED'?`<button class="btn btn-sm btn-o" style="color:#ef4444;border-color:#ef444440" onclick="event.stopPropagation();cancelJob(${j.id})">Cancel</button>`:''}
               <button class="btn btn-sm btn-o" onclick="event.stopPropagation();viewJob(${j.id})">View</button>
             </div>
           </div>
-        </div>`}).join('');
+          ${bidsHtml?'<div style="margin-top:4px">'+bidsHtml+'</div>':''}
+          ${j.status==='SUBMITTED'?'<div style="margin-top:8px;padding:10px;background:#8b5cf610;border:1px solid #8b5cf630;border-radius:6px;font-size:12px"><strong style="color:#8b5cf6">Work submitted!</strong> <button class="btn btn-sm" style="margin-left:8px" onclick="viewJob('+j.id+')">Review &amp; Approve</button></div>':''}
+        </div>`;
+      }
     }
 
     if(d.bids&&d.bids.length>0){
