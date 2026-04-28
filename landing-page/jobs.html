@@ -599,7 +599,8 @@ async function submitEdit(){
 async function loadJobMessages(jobId){
   const el=document.getElementById('job-messages');if(!el)return;
   try{
-    const r=await fetch(A+'/v1/jobs/'+jobId+'/messages');
+    const s=getSession();
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/messages?agio_id='+encodeURIComponent(s?.agio_id||''));
     const d=await r.json();
     const msgs=d.messages||d||[];
     if(!msgs.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">No messages yet. Start the conversation!</div>';return;}
