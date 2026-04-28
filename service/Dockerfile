@@ -28,6 +28,8 @@ CMD sh -c '\
     python -m src.workers.oracle_prod; \
   elif [ "$WORKER_CMD" = "arena" ] || [ "$WORKER_CMD" = "challenges" ]; then \
     python -m src.workers.challenges_worker; \
+  elif [ "$WORKER_CMD" = "deposit_watcher" ]; then \
+    python -m src.workers.deposit_watcher; \
   elif [ "$WORKER_CMD" = "rebalancer" ]; then \
     python -m src.workers.rebalancer; \
   elif [ "$WORKER_CMD" = "overseer" ]; then \

@@ -423,6 +423,43 @@ async def admin_reconciliation(_=Depends(verify_admin)):
         return {"status": "UNKNOWN", "error": str(e)}
 
 
+@router.get("/deposits")
+async def admin_deposits(
+    limit: int = Query(50, ge=1, le=200),
+    credited_only: bool = Query(False),
+    _=Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """View the deposit ledger — every deposit detected on-chain."""
+    try:
+        from ..workers.deposit_watcher import DepositLedger
+        query = select(DepositLedger)
+        if credited_only:
+            query = query.where(DepositLedger.credited == True)
+        query = query.order_by(DepositLedger.detected_at.desc()).limit(limit)
+        deposits = (await db.execute(query)).scalars().all()
+        return {
+            "total": len(deposits),
+            "deposits": [
+                {
+                    "tx_hash": d.tx_hash,
+                    "block": d.block_number,
+                    "depositor": d.depositor_address,
+                    "agio_id": d.agio_id,
+                    "token": d.token_symbol,
+                    "amount": float(d.amount_human),
+                    "credited": d.credited,
+                    "credited_at": d.credited_at.isoformat() if d.credited_at else None,
+                    "error": d.error,
+                    "detected_at": d.detected_at.isoformat() if d.detected_at else None,
+                }
+                for d in deposits
+            ],
+        }
+    except Exception as e:
+        return {"error": str(e), "deposits": []}
+
+
 @router.get("/gas-economics")
 async def admin_gas_economics(_=Depends(verify_admin), db: AsyncSession = Depends(get_db)):
     """Gas wallet status, burn rate, revenue vs cost, days remaining."""
