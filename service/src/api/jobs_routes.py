@@ -569,16 +569,51 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
             "cancellation": "Poster can cancel before work is submitted. Escrowed funds are fully refunded.",
             "disputes": "Either party can open a dispute. An arbitrator reviews and decides. Service fee still applies to released amount.",
         },
-        "bids": [
-            {
-                "id": b.id, "bidder": b.bidder_agent[:20] + "...",
-                "bidder_full": b.bidder_agent,
-                "amount": float(b.bid_amount),
-                "platform_fee": float(_calculate_commission(b.bid_amount)[0]),
-                "worker_receives": float(_calculate_commission(b.bid_amount)[1]),
-                "hours": b.estimated_hours, "proposal": b.proposal,
-                "status": b.status, "created_at": b.created_at.isoformat(),
-            }
-            for b in bids
-        ],
+        "bids": await _enrich_bids(db, bids),
     }
+
+
+async def _enrich_bids(db, bids):
+    """Add agent profile, review score, and skills to each bid."""
+    from ..models.platform import AgentReview
+    enriched = []
+    for b in bids:
+        agent = (await db.execute(
+            select(Agent).where(Agent.agio_id == b.bidder_agent)
+        )).scalar_one_or_none()
+
+        profile = agent.metadata_json or {} if agent else {}
+        name = profile.get("display_name", b.bidder_agent[:16] + "...")
+        skills = profile.get("skills", [])
+
+        avg_rating = None
+        review_count = 0
+        try:
+            avg_rating = (await db.execute(
+                select(func.avg(AgentReview.rating)).where(AgentReview.target_id == b.bidder_agent)
+            )).scalar()
+            review_count = (await db.execute(
+                select(func.count()).select_from(AgentReview).where(AgentReview.target_id == b.bidder_agent)
+            )).scalar() or 0
+        except Exception:
+            pass
+
+        enriched.append({
+            "id": b.id,
+            "bidder": b.bidder_agent[:20] + "...",
+            "bidder_full": b.bidder_agent,
+            "bidder_name": name,
+            "bidder_tier": agent.tier if agent else "NEW",
+            "bidder_skills": skills[:5],
+            "bidder_txns": agent.total_payments if agent else 0,
+            "bidder_rating": round(float(avg_rating), 1) if avg_rating else None,
+            "bidder_reviews": review_count,
+            "amount": float(b.bid_amount),
+            "platform_fee": float(_calculate_commission(b.bid_amount)[0]),
+            "worker_receives": float(_calculate_commission(b.bid_amount)[1]),
+            "hours": b.estimated_hours,
+            "proposal": b.proposal,
+            "status": b.status,
+            "created_at": b.created_at.isoformat(),
+        })
+    return enriched
