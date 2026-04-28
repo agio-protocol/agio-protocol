@@ -593,6 +593,23 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
                 "submitted_at": deliverable.submitted_at.isoformat(),
             }
 
+    # Dispute info (if any)
+    dispute_info = None
+    if job.status == "DISPUTED":
+        dispute = (await db.execute(
+            select(JobDispute).where(JobDispute.job_id == job_id).order_by(JobDispute.created_at.desc()).limit(1)
+        )).scalar_one_or_none()
+        if dispute:
+            dispute_info = {
+                "id": dispute.id,
+                "initiated_by": dispute.initiated_by,
+                "reason": dispute.reason,
+                "resolution": dispute.resolution,
+                "resolution_reason": dispute.resolution_reason,
+                "created_at": dispute.created_at.isoformat(),
+                "resolved_at": dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+            }
+
     commission_rate = _commission_rate(float(job.budget))
 
     return {
@@ -613,6 +630,7 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
             "cancellation": "Poster can cancel before work is submitted. Escrowed funds are fully refunded.",
             "disputes": "Either party can open a dispute. An arbitrator reviews and decides. Service fee still applies to released amount.",
         },
+        "dispute": dispute_info,
         "bids": await _enrich_bids(db, bids),
     }
 

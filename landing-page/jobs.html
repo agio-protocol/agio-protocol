@@ -288,6 +288,18 @@ async function viewJob(id){
         <div id="rate-msg-${d.id}" style="font-size:11px;margin-top:4px;display:none"></div>
       </div>
     `:''}
+    ${d.dispute?`
+      <div style="background:#ef444410;border:1px solid #ef444430;border-radius:6px;padding:16px;margin-top:12px">
+        <strong style="color:#ef4444">&#x26A0; Job Under Dispute</strong>
+        <div style="margin-top:8px;font-size:13px;color:var(--text)">Reason: ${(d.dispute.reason||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Filed by: ${d.dispute.initiated_by}</div>
+        ${d.dispute.resolution?'<div style="margin-top:8px;font-size:13px;color:#10b981"><strong>Resolution:</strong> '+d.dispute.resolution+'</div>'+
+          (d.dispute.resolution_reason?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+d.dispute.resolution_reason.replace(/</g,'&lt;')+'</div>':'')+
+          (d.dispute.resolved_at?'<div style="font-size:10px;color:var(--muted);margin-top:2px">Resolved '+new Date(d.dispute.resolved_at).toLocaleString()+'</div>':'')
+          :'<div style="margin-top:8px;font-size:12px;color:#f59e0b">An arbitrator will review within 48 hours.</div>'}
+      </div>
+    `:''}
+
     ${d.status==='SUBMITTED'&&isPoster?`
       <div style="background:#10b98110;border:1px solid #10b98130;border-radius:6px;padding:12px;margin-top:12px;text-align:center">
         <strong style="color:#10b981">Work submitted!</strong> Review and approve to release payment.<br>

@@ -71,6 +71,7 @@
             <a href="#" onclick="showPage('revenue')">Revenue</a>
             <a href="#" onclick="showPage('reconciliation')">Reconciliation</a>
             <a href="#" onclick="showPage('wallets')">Wallets</a>
+            <a href="#" onclick="showPage('disputes')" style="color:#ef4444">Disputes</a>
             <a href="#" onclick="showPage('feedback')" style="color:#f59e0b">Feedback</a>
         </div>
         <div class="main">
@@ -81,6 +82,7 @@
             <div id="page-revenue" style="display:none"></div>
             <div id="page-reconciliation" style="display:none"></div>
             <div id="page-wallets" style="display:none"></div>
+            <div id="page-disputes" style="display:none"></div>
             <div id="page-feedback" style="display:none"></div>
         </div>
     </div>
@@ -121,6 +123,7 @@
         if (page === 'revenue') loadRevenue();
         if (page === 'reconciliation') loadReconciliation();
         if (page === 'wallets') loadWallets();
+        if (page === 'disputes') loadDisputes();
         if (page === 'feedback') loadFeedback();
     }
 
@@ -398,6 +401,83 @@
                 </div>
             </div>
         `;
+    }
+
+    async function apiPost(path, body) {
+        const res = await fetch(`${API_BASE}${path}`, {
+            method: 'POST',
+            headers: { 'x-admin-key': adminKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (res.status === 401) { alert('Invalid API key'); return null; }
+        return await res.json();
+    }
+
+    async function loadDisputes() {
+        const d = await api('/disputes');
+        if (!d) return;
+        const openRows = (d.open || []).map(dp => `
+            <tr>
+                <td>${dp.id}</td>
+                <td>${dp.job_id}</td>
+                <td>${(dp.job_title || '').slice(0, 40)}</td>
+                <td style="font-family:monospace;font-size:11px" title="${dp.initiated_by}">${dp.initiated_by.slice(0, 16)}...</td>
+                <td style="max-width:300px;font-size:12px">${(dp.reason || '').replace(/</g, '&lt;')}</td>
+                <td style="font-size:11px">${dp.created_at ? new Date(dp.created_at).toLocaleString() : '?'}</td>
+                <td>
+                    <select id="res-type-${dp.id}" style="background:#1f2937;color:#e0e0e0;border:1px solid #374151;border-radius:4px;padding:2px 4px;font-size:11px">
+                        <option value="refund_poster">Refund Poster</option>
+                        <option value="pay_worker">Pay Worker</option>
+                        <option value="split">Split</option>
+                    </select>
+                    <input id="res-reason-${dp.id}" placeholder="Reason..." style="width:120px;background:#1f2937;color:#e0e0e0;border:1px solid #374151;border-radius:4px;padding:2px 4px;font-size:11px;margin-left:4px">
+                    <button onclick="resolveDispute(${dp.id})" style="background:#10b981;color:#000;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;margin-left:4px;font-weight:600">Resolve</button>
+                </td>
+            </tr>
+        `).join('');
+        const resolvedRows = (d.resolved || []).map(dp => `
+            <tr>
+                <td>${dp.id}</td>
+                <td>${dp.job_id}</td>
+                <td>${(dp.job_title || '').slice(0, 40)}</td>
+                <td style="font-family:monospace;font-size:11px" title="${dp.initiated_by}">${dp.initiated_by.slice(0, 16)}...</td>
+                <td style="max-width:300px;font-size:12px">${(dp.reason || '').replace(/</g, '&lt;')}</td>
+                <td><span class="badge settled">${dp.resolution}</span></td>
+                <td style="font-size:11px">${(dp.resolution_reason || '').replace(/</g, '&lt;')}</td>
+                <td style="font-size:11px">${dp.resolved_at ? new Date(dp.resolved_at).toLocaleString() : '?'}</td>
+            </tr>
+        `).join('');
+        document.getElementById('page-disputes').innerHTML = `
+            <h1>Disputes (${d.total_open} open)</h1>
+            <div class="refresh"><a href="#" onclick="loadDisputes()" style="color:#10b981">Refresh</a></div>
+            <div class="section">
+                <h3>Open Disputes</h3>
+                ${d.open.length ? `<table>
+                    <tr><th>ID</th><th>Job</th><th>Title</th><th>Filed By</th><th>Reason</th><th>Filed</th><th>Action</th></tr>
+                    ${openRows}
+                </table>` : '<p style="color:#10b981">No open disputes.</p>'}
+            </div>
+            <div class="section">
+                <h3>Resolved Disputes</h3>
+                ${d.resolved.length ? `<table>
+                    <tr><th>ID</th><th>Job</th><th>Title</th><th>Filed By</th><th>Reason</th><th>Resolution</th><th>Reason</th><th>Resolved</th></tr>
+                    ${resolvedRows}
+                </table>` : '<p style="color:#6b7280">No resolved disputes yet.</p>'}
+            </div>
+        `;
+    }
+
+    async function resolveDispute(id) {
+        const resolution = document.getElementById('res-type-' + id).value;
+        const reason = document.getElementById('res-reason-' + id).value;
+        if (!reason || reason.trim().length < 3) { alert('Please enter a resolution reason (min 3 chars)'); return; }
+        const d = await apiPost('/disputes/' + id + '/resolve', { resolution, resolution_reason: reason });
+        if (d && d.status === 'resolved') {
+            alert('Dispute #' + id + ' resolved: ' + d.resolution);
+            loadDisputes();
+        } else {
+            alert('Error: ' + JSON.stringify(d));
+        }
     }
 
     async function loadFeedback() {

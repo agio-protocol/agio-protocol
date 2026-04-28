@@ -14,6 +14,7 @@ from ..models.payment import Payment
 from ..models.batch import Batch
 from ..models.chain import SupportedChain
 from ..models.loyalty import FeeTier
+from ..models.platform import Job, JobDispute
 
 from pydantic import BaseModel
 from typing import Optional
@@ -620,6 +621,83 @@ async def list_feedback(limit: int = Query(50), db: AsyncSession = Depends(get_d
         ))
         await db.commit()
         return {"feedback": []}
+
+
+# === DISPUTES ===
+
+@router.get("/disputes")
+async def admin_disputes(db: AsyncSession = Depends(get_db), _=Depends(verify_admin)):
+    """All disputes grouped by open/resolved, with job details."""
+    rows = (await db.execute(
+        select(JobDispute, Job.title)
+        .join(Job, Job.id == JobDispute.job_id)
+        .order_by(JobDispute.created_at.desc())
+    )).all()
+
+    open_disputes = []
+    resolved_disputes = []
+    for dispute, job_title in rows:
+        entry = {
+            "id": dispute.id,
+            "job_id": dispute.job_id,
+            "job_title": job_title,
+            "initiated_by": dispute.initiated_by,
+            "reason": dispute.reason,
+            "resolution": dispute.resolution,
+            "resolution_reason": dispute.resolution_reason,
+            "created_at": dispute.created_at.isoformat(),
+            "resolved_at": dispute.resolved_at.isoformat() if dispute.resolved_at else None,
+        }
+        if dispute.resolution is None:
+            open_disputes.append(entry)
+        else:
+            resolved_disputes.append(entry)
+
+    return {
+        "open": open_disputes,
+        "resolved": resolved_disputes,
+        "total_open": len(open_disputes),
+    }
+
+
+class ResolveDisputeRequest(BaseModel):
+    resolution: str  # refund_poster, pay_worker, split
+    resolution_reason: str
+
+
+@router.post("/disputes/{dispute_id}/resolve")
+async def resolve_dispute(
+    dispute_id: int,
+    req: ResolveDisputeRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin resolves a dispute."""
+    if req.resolution not in ("refund_poster", "pay_worker", "split"):
+        raise HTTPException(400, "resolution must be one of: refund_poster, pay_worker, split")
+    if not req.resolution_reason or len(req.resolution_reason.strip()) < 3:
+        raise HTTPException(400, "resolution_reason is required")
+
+    dispute = (await db.execute(
+        select(JobDispute).where(JobDispute.id == dispute_id)
+    )).scalar_one_or_none()
+    if not dispute:
+        raise HTTPException(404, "Dispute not found")
+    if dispute.resolution is not None:
+        raise HTTPException(400, "Dispute already resolved")
+
+    dispute.resolution = req.resolution
+    dispute.resolution_reason = req.resolution_reason.strip()
+    dispute.resolved_at = datetime.utcnow()
+    await db.commit()
+
+    return {
+        "status": "resolved",
+        "dispute_id": dispute.id,
+        "resolution": dispute.resolution,
+        "resolution_reason": dispute.resolution_reason,
+        "resolved_at": dispute.resolved_at.isoformat(),
+    }
 
 
 @router.get("/revenue")
