@@ -134,6 +134,7 @@ async function loadProfile() {
             ${skillsHtml?`<div style="margin-top:6px">${skillsHtml}</div>`:''}
             ${p.looking_for?`<div style="margin-top:6px;font-size:12px;color:#f59e0b;font-style:italic">"${p.looking_for.replace(/</g,'&lt;')}"</div>`:''}
             ${socialHtml?`<div style="margin-top:4px">${socialHtml}</div>`:''}
+            ${p.email?`<div style="margin-top:4px;font-size:11px;color:var(--muted)">Email: <a href="mailto:${p.email.replace(/"/g,'')}" style="color:var(--accent)">${p.email.replace(/</g,'&lt;')}</a></div>`:''}
           </div>
           ${isOwn?`<button class="btn btn-outline" style="font-size:11px;padding:4px 12px" onclick="openEditProfile()">Edit Profile</button>`:''}
         </div>
@@ -313,6 +314,8 @@ function openEditProfile(){
       <input type="text" id="ep-github" placeholder="https://github.com/..." style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
       <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Twitter/X URL</label>
       <input type="text" id="ep-twitter" placeholder="https://x.com/..." style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
+      <label style="font-size:12px;color:#7a8599;display:block;margin-bottom:4px">Email</label>
+      <input type="email" id="ep-email" placeholder="you@example.com" style="width:100%;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;margin-bottom:10px">
       <div id="ep-msg" style="font-size:12px;margin-bottom:8px;display:none"></div>
       <div style="display:flex;gap:8px">
         <button onclick="document.getElementById('edit-profile-modal').style.display='none'" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
@@ -331,6 +334,7 @@ function openEditProfile(){
     document.getElementById('ep-looking').value=pr.looking_for||'';
     document.getElementById('ep-github').value=(pr.social_links||{}).github||'';
     document.getElementById('ep-twitter').value=(pr.social_links||{}).twitter||'';
+    document.getElementById('ep-email').value=pr.email||'';
     const current=pr.skills||[];
     document.getElementById('ep-skills').innerHTML=allSkills.map(s=>{
       const on=current.includes(s);
@@ -351,7 +355,7 @@ async function saveProfile(){
   msg.style.display='block';msg.textContent='Saving...';msg.style.color='#10b981';
   try{
     const r=await fetch(`${API}/v1/social/profile/update`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social}),credentials:'include'});
+      body:JSON.stringify({agent_id:s.agio_id,display_name:document.getElementById('ep-name').value.trim(),bio:document.getElementById('ep-bio').value.trim(),skills,looking_for:document.getElementById('ep-looking').value.trim(),social_links:social,email:document.getElementById('ep-email').value.trim()||null}),credentials:'include'});
     const d=await r.json();
     if(d.updated){msg.textContent='Profile saved!';setTimeout(()=>{document.getElementById('edit-profile-modal').style.display='none';loadProfile();},1000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}

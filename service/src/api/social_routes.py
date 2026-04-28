@@ -37,6 +37,7 @@ class ProfileUpdateRequest(BaseModel):
     avatar_url: Optional[str] = None
     banner_url: Optional[str] = None
     avatar_color: Optional[str] = None
+    email: Optional[str] = None
 
 
 class PostRequest(BaseModel):
@@ -272,6 +273,7 @@ def _get_profile(agent) -> dict:
         "avatar_url": meta.get("avatar_url", ""),
         "banner_url": meta.get("banner_url", ""),
         "avatar_color": meta.get("avatar_color", ""),
+        "email": meta.get("email", ""),
     }
 
 
@@ -351,6 +353,8 @@ async def update_profile(req: ProfileUpdateRequest, authorization: str = Header(
         meta["banner_url"] = req.banner_url[:500] if req.banner_url else ""
     if req.avatar_color is not None:
         meta["avatar_color"] = req.avatar_color[:20] if req.avatar_color else ""
+    if req.email is not None:
+        meta["email"] = req.email[:200] if req.email else ""
 
     from sqlalchemy import update
     await db.execute(update(Agent).where(Agent.id == agent.id).values(metadata_json=meta))

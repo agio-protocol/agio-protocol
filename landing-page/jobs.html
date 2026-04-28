@@ -264,6 +264,13 @@ async function viewJob(id){
       <div class="bid-list">${bids||'<div class="bid-item">No bids yet — be the first!</div>'}</div>
     </div>
 
+    ${(d.status==='SUBMITTED'||d.status==='COMPLETED')&&d.submitted_work?`
+      <div style="background:#8b5cf610;border:1px solid #8b5cf630;border-radius:6px;padding:16px;margin-top:12px">
+        <strong style="color:#8b5cf6;font-size:13px">Submitted Work</strong>
+        <div style="margin-top:8px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#1f293780;border-radius:6px;padding:12px">${(d.submitted_work||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>
+    `:''}
+
     ${d.status==='IN_PROGRESS'&&!isPoster&&s&&d.bids.some(b=>b.bidder_full===s.agio_id&&b.status==='ACCEPTED')?`
       <div style="background:#3b82f610;border:1px solid #3b82f630;border-radius:6px;padding:16px;margin-top:12px">
         <strong style="color:#3b82f6">Your bid was accepted! Submit your work:</strong>
@@ -284,11 +291,27 @@ async function viewJob(id){
       <div style="background:#10b98110;border:1px solid #10b98130;border-radius:6px;padding:12px;margin-top:12px;text-align:center">
         <strong style="color:#10b981">Work submitted!</strong> Review and approve to release payment.<br>
         <button class="btn" style="margin-top:8px" onclick="approveJob(${d.id})">Approve &amp; Pay</button>
+        <button class="btn btn-o" style="margin-top:8px;margin-left:8px;color:#f59e0b;border-color:#f59e0b40" onclick="openRevisionModal(${d.id})">Request Revision</button>
         <button class="btn btn-o" style="margin-top:8px;margin-left:8px" onclick="disputeJob(${d.id})">Dispute</button>
+      </div>
+    `:''}
+
+    ${['IN_PROGRESS','SUBMITTED','COMPLETED'].includes(d.status)?`
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px">
+        <strong style="font-size:13px">Messages</strong>
+        <div id="job-messages" style="margin-top:8px;max-height:240px;overflow-y:auto;padding-right:4px">
+          <div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Loading messages...</div>
+        </div>
+        ${s?`
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="text" id="msg-input" placeholder="Type a message..." style="flex:1;padding:8px 10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:12px" onkeydown="if(event.key==='Enter')sendJobMessage(${d.id})">
+          <button class="btn btn-sm" onclick="sendJobMessage(${d.id})">Send</button>
+        </div>`:''}
       </div>
     `:''}
   `;
   currentBidJobId=id;
+  if(['IN_PROGRESS','SUBMITTED','COMPLETED'].includes(d.status))loadJobMessages(id);
   document.getElementById('detail-bid-btn').style.display=canBid&&!isPoster?'':'none';
   document.getElementById('detail-modal').classList.add('open');
 }
@@ -570,6 +593,83 @@ async function submitEdit(){
     const d=await r.json();
     if(d.edited){msg.textContent='Saved!';setTimeout(()=>{closeModal('edit-modal');loadMyJobs();loadJobs();},1000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
+}
+
+async function loadJobMessages(jobId){
+  const el=document.getElementById('job-messages');if(!el)return;
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/messages');
+    const d=await r.json();
+    const msgs=d.messages||d||[];
+    if(!msgs.length){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">No messages yet. Start the conversation!</div>';return;}
+    el.innerHTML=msgs.map(m=>{
+      const time=m.created_at?new Date(m.created_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+      const name=(m.sender_name||m.sender||'').replace(/</g,'&lt;');
+      return `<div style="padding:6px 0;border-bottom:1px solid #1a203040">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;font-weight:600;color:var(--accent)">${name}</span>
+          <span style="font-size:10px;color:var(--muted)">${time}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text);margin-top:2px;line-height:1.5">${(m.content||'').replace(/</g,'&lt;')}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+  }catch{el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Could not load messages</div>';}
+}
+
+async function sendJobMessage(jobId){
+  const s=getSession();if(!s)return;
+  const input=document.getElementById('msg-input');
+  const content=input.value.trim();
+  if(!content)return;
+  input.value='';
+  try{
+    await fetch(A+'/v1/jobs/'+jobId+'/message',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sender_id:s.agio_id,content}),credentials:'include'});
+    loadJobMessages(jobId);
+  }catch{alert('Failed to send message');}
+}
+
+function openRevisionModal(jobId){
+  const s=getSession();if(!s)return;
+  if(!document.getElementById('revision-modal')){
+    const div=document.createElement('div');div.id='revision-modal';
+    div.style.cssText='display:none;position:fixed;inset:0;background:#00000080;z-index:250;align-items:center;justify-content:center';
+    div.innerHTML=`<div style="background:#111827;border:1px solid #1a2030;border-radius:12px;padding:24px;width:440px;max-width:90vw">
+      <h3 style="font-size:16px;color:#f59e0b;margin-bottom:12px">Request Revision</h3>
+      <p style="font-size:12px;color:#7a8599;margin-bottom:12px">Describe what needs to be changed or improved. The worker will be notified.</p>
+      <textarea id="revision-notes" rows="4" placeholder="What needs to be revised..." style="width:100%;padding:10px;background:#1f2937;border:1px solid #374151;color:#e0e6ef;border-radius:6px;font-size:13px;resize:vertical;font-family:inherit;margin-bottom:8px"></textarea>
+      <div id="revision-msg" style="font-size:12px;display:none;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="document.getElementById('revision-modal').style.display='none'" style="flex:1;padding:10px;background:#374151;color:#9ca3af;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+        <button onclick="submitRevision()" style="flex:1;padding:10px;background:#f59e0b;color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer">Request Revision</button>
+      </div>
+    </div>`;
+    document.body.appendChild(div);
+    const st=document.createElement('style');st.textContent='#revision-modal[style*="flex"]{display:flex!important}';document.head.appendChild(st);
+  }
+  document.getElementById('revision-modal').dataset.jobId=jobId;
+  document.getElementById('revision-notes').value='';
+  document.getElementById('revision-msg').style.display='none';
+  document.getElementById('revision-modal').style.display='flex';
+}
+
+async function submitRevision(){
+  const s=getSession();if(!s)return;
+  const jobId=document.getElementById('revision-modal').dataset.jobId;
+  const notes=document.getElementById('revision-notes').value.trim();
+  const msg=document.getElementById('revision-msg');
+  if(!notes||notes.length<5){msg.textContent='Please describe what needs revision';msg.style.color='#ef4444';msg.style.display='block';return;}
+  msg.textContent='Requesting...';msg.style.color='#f59e0b';msg.style.display='block';
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/request-revision',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agio_id:s.agio_id,notes}),credentials:'include'});
+    const d=await r.json();
+    if(d.status==='IN_PROGRESS'||d.status==='REVISION_REQUESTED'||d.revised){
+      msg.textContent='Revision requested! The worker has been notified.';msg.style.color='#10b981';
+      setTimeout(()=>{document.getElementById('revision-modal').style.display='none';closeModal('detail-modal');loadJobs();},2000);
+    }else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
   }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
 }
 
