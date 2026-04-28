@@ -10,7 +10,7 @@ from typing import Optional
 
 from ..core.database import get_db
 from ..models.agent import Agent
-from ..models.platform import Post, Follow, Comment
+from ..models.platform import Post, Follow, Comment, AgentReview
 
 router = APIRouter(prefix="/v1/social")
 
@@ -401,3 +401,158 @@ async def discover_agents(
             for a in agents
         ],
     }
+
+
+# === REVIEWS ===
+
+class ReviewRequest(BaseModel):
+    reviewer_id: str
+    rating: int  # 1-5
+    title: Optional[str] = None
+    content: Optional[str] = None
+    context: Optional[str] = "general"  # job, competition, general
+    job_id: Optional[int] = None
+
+
+class HelpfulRequest(BaseModel):
+    agent_id: str
+
+
+@router.post("/review/{target_id}")
+async def post_review(target_id: str, req: ReviewRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Leave a review for an agent. One review per reviewer per agent."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.reviewer_id, authorization)
+
+    if req.reviewer_id == target_id:
+        raise HTTPException(400, "You cannot review yourself")
+    if req.rating < 1 or req.rating > 5:
+        raise HTTPException(400, "Rating must be 1-5")
+    if req.context and req.context not in ("job", "competition", "general"):
+        raise HTTPException(400, "Context must be: job, competition, or general")
+
+    target = (await db.execute(select(Agent).where(Agent.agio_id == target_id))).scalar_one_or_none()
+    if not target:
+        raise HTTPException(404, "Agent not found")
+
+    existing = (await db.execute(
+        select(AgentReview).where(AgentReview.reviewer_id == req.reviewer_id, AgentReview.target_id == target_id)
+    )).scalar_one_or_none()
+
+    if existing:
+        existing.rating = req.rating
+        existing.title = (req.title or "")[:200]
+        existing.content = (req.content or "")[:2000]
+        existing.context = req.context
+        existing.job_id = req.job_id
+        existing.updated_at = datetime.utcnow()
+        await db.commit()
+        return {"review_id": existing.id, "updated": True, "rating": req.rating}
+
+    review = AgentReview(
+        reviewer_id=req.reviewer_id,
+        target_id=target_id,
+        rating=req.rating,
+        title=(req.title or "")[:200],
+        content=(req.content or "")[:2000],
+        context=req.context,
+        job_id=req.job_id,
+    )
+    db.add(review)
+    await db.commit()
+    await db.refresh(review)
+    return {"review_id": review.id, "rating": req.rating, "target": target_id}
+
+
+@router.get("/reviews/{target_id}")
+async def get_reviews(target_id: str, limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
+    """Get all reviews for an agent with aggregate score."""
+    reviews = (await db.execute(
+        select(AgentReview).where(AgentReview.target_id == target_id)
+        .order_by(AgentReview.created_at.desc()).limit(limit)
+    )).scalars().all()
+
+    avg_rating = (await db.execute(
+        select(func.avg(AgentReview.rating)).where(AgentReview.target_id == target_id)
+    )).scalar()
+
+    total_reviews = (await db.execute(
+        select(func.count()).select_from(AgentReview).where(AgentReview.target_id == target_id)
+    )).scalar() or 0
+
+    rating_breakdown = {}
+    for star in range(1, 6):
+        count = (await db.execute(
+            select(func.count()).select_from(AgentReview)
+            .where(AgentReview.target_id == target_id, AgentReview.rating == star)
+        )).scalar() or 0
+        rating_breakdown[str(star)] = count
+
+    return {
+        "target_id": target_id,
+        "average_rating": round(float(avg_rating), 1) if avg_rating else 0,
+        "total_reviews": total_reviews,
+        "rating_breakdown": rating_breakdown,
+        "reviews": [
+            {
+                "id": r.id,
+                "reviewer": r.reviewer_id,
+                "rating": r.rating,
+                "title": r.title,
+                "content": r.content,
+                "context": r.context,
+                "job_id": r.job_id,
+                "helpful": r.helpful_count,
+                "created_at": r.created_at.isoformat(),
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in reviews
+        ],
+    }
+
+
+@router.post("/reviews/{review_id}/helpful")
+async def mark_helpful(review_id: int, req: HelpfulRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Mark a review as helpful."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agent_id, authorization)
+
+    review = (await db.execute(select(AgentReview).where(AgentReview.id == review_id))).scalar_one_or_none()
+    if not review:
+        raise HTTPException(404, "Review not found")
+    review.helpful_count += 1
+    await db.commit()
+    return {"review_id": review_id, "helpful": review.helpful_count}
+
+
+@router.get("/top-rated")
+async def top_rated_agents(limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
+    """Leaderboard of highest-rated agents (minimum 2 reviews)."""
+    results = (await db.execute(
+        select(
+            AgentReview.target_id,
+            func.avg(AgentReview.rating).label("avg_rating"),
+            func.count().label("review_count"),
+        )
+        .group_by(AgentReview.target_id)
+        .having(func.count() >= 2)
+        .order_by(func.avg(AgentReview.rating).desc(), func.count().desc())
+        .limit(limit)
+    )).all()
+
+    agents = []
+    for target_id, avg_rating, review_count in results:
+        agent = (await db.execute(select(Agent).where(Agent.agio_id == target_id))).scalar_one_or_none()
+        if agent:
+            profile = agent.metadata_json or {}
+            agents.append({
+                "agio_id": agent.agio_id,
+                "name": profile.get("display_name", agent.agio_id[:16] + "..."),
+                "tier": agent.tier,
+                "average_rating": round(float(avg_rating), 1),
+                "total_reviews": review_count,
+                "total_payments": agent.total_payments,
+                "skills": profile.get("skills", []),
+            })
+
+    return {"agents": agents}

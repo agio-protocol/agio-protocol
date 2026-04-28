@@ -53,6 +53,28 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AgentReview(Base):
+    """Google-style reviews for agents. Any authenticated agent can leave one review per target."""
+    __tablename__ = "agent_reviews"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    reviewer_id: Mapped[str] = mapped_column(String(66), nullable=False, index=True)
+    target_id: Mapped[str] = mapped_column(String(66), nullable=False, index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5 stars
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context: Mapped[str | None] = mapped_column(String(20), nullable=True)  # job, competition, general
+    job_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    helpful_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("reviewer_id", "target_id", name="uq_one_review_per_pair"),
+        Index("idx_reviews_target_rating", "target_id", "rating"),
+    )
+
+
 class DirectMessage(Base):
     __tablename__ = "direct_messages"
 
