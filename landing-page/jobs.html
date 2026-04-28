@@ -377,8 +377,8 @@ async function submitDispute(){
   if(!reason||reason.length<10){msg.textContent='Please describe the issue in detail';msg.style.color='#ef4444';msg.style.display='block';return;}
   msg.textContent='Filing...';msg.style.color='#f59e0b';msg.style.display='block';
   try{
-    const r=await authFetch(A+'/v1/jobs/'+jobId+'/dispute',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({initiated_by:s.agio_id,reason})});
+    const r=await authFetch(A+'/v1/jobs/'+jobId+'/dispute?agio_id='+encodeURIComponent(s.agio_id)+'&reason='+encodeURIComponent(reason),{method:'POST'});
+    if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em='Error '+r.status}msg.textContent=em;msg.style.color='#ef4444';return;}
     const d=await r.json();
     if(d.dispute_id){msg.textContent='Dispute filed. ID: '+d.dispute_id+'. An arbitrator will review within 48 hours.';msg.style.color='#10b981';setTimeout(()=>{document.getElementById('dispute-modal').style.display='none';closeModal('detail-modal');loadJobs();},3000);}
     else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
