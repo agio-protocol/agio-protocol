@@ -437,6 +437,40 @@ async def cancel_job(job_id: int, authorization: str = Header(None), agio_id: st
     return {"job_id": job_id, "status": "CANCELLED", "escrow_refunded": job.accepted_bid_id is not None}
 
 
+class EditJobRequest(BaseModel):
+    agio_id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    budget: Optional[float] = None
+
+
+@router.post("/{job_id}/edit")
+async def edit_job(job_id: int, req: EditJobRequest, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    """Edit a job. Only allowed before a bid is accepted."""
+    from .auth_guard import verify_agent
+    await verify_agent(req.agio_id, authorization)
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.poster_agent != req.agio_id:
+        raise HTTPException(403, "Only the poster can edit")
+    if job.status not in ("OPEN", "BIDDING"):
+        raise HTTPException(400, f"Cannot edit a {job.status} job — only OPEN or BIDDING jobs can be edited")
+
+    if req.title:
+        job.title = req.title.replace("<", "&lt;").replace(">", "&gt;")[:200]
+    if req.description:
+        job.description = req.description.replace("<", "&lt;").replace(">", "&gt;")[:5000]
+    if req.category and req.category in JOB_CATEGORIES:
+        job.category = req.category
+    if req.budget and req.budget > 0:
+        job.budget = Decimal(str(req.budget))
+
+    await db.commit()
+    return {"job_id": job_id, "title": job.title, "budget": float(job.budget), "status": job.status, "edited": True}
+
+
 @router.post("/{job_id}/dispute")
 async def dispute_job(
     job_id: int, agio_id: str = Query(...), reason: str = Query(...),
@@ -525,10 +559,18 @@ async def my_jobs(agio_id: str, db: AsyncSession = Depends(get_db)):
         .where(JobBid.bidder_agent == agio_id).order_by(JobBid.created_at.desc()).limit(20)
     )).all()
 
+    bid_counts = {}
+    for j in posted:
+        count = (await db.execute(
+            select(func.count()).select_from(JobBid).where(JobBid.job_id == j.id)
+        )).scalar() or 0
+        bid_counts[j.id] = count
+
     return {
         "posted": [
-            {"id": j.id, "title": j.title, "budget": float(j.budget), "status": j.status,
-             "bid_count": 0, "created_at": j.created_at.isoformat()}
+            {"id": j.id, "title": j.title, "description": (j.description or "")[:200], "category": j.category,
+             "budget": float(j.budget), "status": j.status,
+             "bid_count": bid_counts.get(j.id, 0), "created_at": j.created_at.isoformat()}
             for j in posted
         ],
         "bids": [

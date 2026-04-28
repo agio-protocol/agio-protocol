@@ -467,15 +467,27 @@ async function loadMyJobs(){
 
     if(d.posted&&d.posted.length>0){
       html+='<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--accent)">Jobs You Posted</div>';
-      html+=d.posted.map(j=>`
-        <div class="job" style="cursor:pointer" onclick="viewJob(${j.id})">
-          <div class="job-title">${j.title}</div>
-          <div class="job-meta">
-            <span class="tag tg">$${j.budget}</span>
-            <span class="tag ${j.status==='COMPLETED'?'tg':j.status==='IN_PROGRESS'?'tb':'ty'}">${j.status}</span>
-            <span>${new Date(j.created_at).toLocaleDateString()}</span>
+      html+=d.posted.map(j=>{
+        const canEdit=j.status==='OPEN'||j.status==='BIDDING';
+        return `
+        <div class="job">
+          <div class="job-top">
+            <div style="flex:1;cursor:pointer" onclick="viewJob(${j.id})">
+              <div class="job-title">${(j.title||'').replace(/</g,'&lt;')}</div>
+              <div class="job-meta">
+                <span class="tag tg">$${j.budget}</span>
+                <span class="tag ${j.status==='COMPLETED'?'tg':j.status==='IN_PROGRESS'?'tb':j.status==='CANCELLED'?'':'ty'}">${j.status}</span>
+                <span>${j.bid_count||0} bid${j.bid_count!==1?'s':''}</span>
+                <span>${new Date(j.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+              ${canEdit?`<button class="btn btn-sm" onclick="event.stopPropagation();openEditJob(${j.id},'${(j.title||'').replace(/'/g,"\\'")}','${j.description||''}','${j.category}',${j.budget})">Edit</button>`:''}
+              ${canEdit?`<button class="btn btn-sm btn-o" style="color:#ef4444;border-color:#ef444440" onclick="event.stopPropagation();cancelJob(${j.id})">Cancel</button>`:''}
+              <button class="btn btn-sm btn-o" onclick="event.stopPropagation();viewJob(${j.id})">View</button>
+            </div>
           </div>
-        </div>`).join('');
+        </div>`}).join('');
     }
 
     if(d.bids&&d.bids.length>0){
@@ -497,5 +509,75 @@ async function loadMyJobs(){
   }catch{document.getElementById('my-jobs').innerHTML='<div class="empty">Error loading</div>';}
 }
 
+async function cancelJob(jobId){
+  const s=getSession();if(!s)return;
+  if(!confirm('Cancel this job? All pending bids will be rejected and any escrowed funds will be refunded.'))return;
+  try{
+    const r=await fetch(A+'/v1/jobs/'+jobId+'/cancel?agio_id='+encodeURIComponent(s.agio_id),{method:'POST',credentials:'include'});
+    if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em='Error '+r.status}alert(em);return;}
+    const d=await r.json();
+    alert('Job cancelled.'+(d.escrow_refunded?' Escrowed funds refunded.':''));
+    loadMyJobs();
+  }catch(e){alert('Error: '+(e.message||'Network issue'));}
+}
+
+let editJobId=null;
+function openEditJob(id,title,desc,cat,budget){
+  const s=getSession();if(!s){requireLogin(()=>openEditJob(id,title,desc,cat,budget));return;}
+  editJobId=id;
+  document.getElementById('edit-title').value=title;
+  document.getElementById('edit-desc').value=desc;
+  document.getElementById('edit-cat').value=cat;
+  document.getElementById('edit-budget').value=budget;
+  document.getElementById('edit-msg').style.display='none';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+async function submitEdit(){
+  const s=getSession();if(!s)return;
+  const msg=document.getElementById('edit-msg');
+  msg.textContent='Saving...';msg.style.color='#00d9a3';msg.style.display='block';
+  try{
+    const r=await fetch(A+'/v1/jobs/'+editJobId+'/edit',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agio_id:s.agio_id,title:document.getElementById('edit-title').value.trim(),description:document.getElementById('edit-desc').value.trim(),
+        category:document.getElementById('edit-cat').value,budget:parseFloat(document.getElementById('edit-budget').value)}),credentials:'include'});
+    if(!r.ok){const t=await r.text();let em;try{em=JSON.parse(t).detail}catch{em='Error '+r.status}msg.textContent=em;msg.style.color='#ef4444';return;}
+    const d=await r.json();
+    if(d.edited){msg.textContent='Saved!';setTimeout(()=>{closeModal('edit-modal');loadMyJobs();loadJobs();},1000);}
+    else{msg.textContent=d.detail||'Failed';msg.style.color='#ef4444';}
+  }catch(e){msg.textContent='Error: '+(e.message||'Network issue');msg.style.color='#ef4444';}
+}
+
 loadJobs();
-</script></body></html>
+</script>
+
+<div class="modal" id="edit-modal">
+  <div class="modal-box">
+    <h3>Edit Job</h3>
+    <label>Title</label>
+    <input type="text" id="edit-title">
+    <label>Description</label>
+    <textarea id="edit-desc"></textarea>
+    <label>Category</label>
+    <select id="edit-cat">
+      <option value="data_collection">Data Collection</option>
+      <option value="data_analysis">Data Analysis</option>
+      <option value="content_creation">Content Creation</option>
+      <option value="code">Code</option>
+      <option value="research">Research</option>
+      <option value="monitoring">Monitoring</option>
+      <option value="trading">Trading</option>
+      <option value="creative">Creative</option>
+      <option value="custom">Custom</option>
+    </select>
+    <label>Budget (USDC)</label>
+    <input type="number" id="edit-budget" step="0.01" min="0.01">
+    <div id="edit-msg" class="msg" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="submit-btn" onclick="submitEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+</body></html>
