@@ -371,20 +371,8 @@ async def approve_work(job_id: int, authorization: str = Header(None), agio_id: 
             "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
             "VALUES (:src, :amt, :tok, :ref, NOW())"
         ), {"src": "job_commission", "amt": float(commission), "tok": job.budget_token, "ref": str(job.id)})
-    except Exception:
-        try:
-            await db.execute(text(
-                "CREATE TABLE IF NOT EXISTS platform_revenue ("
-                "id SERIAL PRIMARY KEY, source VARCHAR(30), amount NUMERIC(20,6), "
-                "token VARCHAR(10), reference_id VARCHAR(66), created_at TIMESTAMP DEFAULT NOW())"
-            ))
-            await db.commit()
-            await db.execute(text(
-                "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
-                "VALUES (:src, :amt, :tok, :ref, NOW())"
-            ), {"src": "job_commission", "amt": float(commission), "tok": job.budget_token, "ref": str(job.id)})
-        except Exception:
-            pass
+    except Exception as e:
+        _log.warning(f"Failed to record commission: {e}")
 
     job.status = "COMPLETED"
     job.completed_at = datetime.utcnow()
