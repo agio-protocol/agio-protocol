@@ -584,7 +584,7 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
     submitted_work = None
     if job.status in ("SUBMITTED", "COMPLETED", "DISPUTED", "IN_PROGRESS"):
         deliverable = (await db.execute(
-            select(JobDeliverable).where(JobDeliverable.job_id == job_id).order_by(JobDeliverable.submitted_at.desc())
+            select(JobDeliverable).where(JobDeliverable.job_id == job_id).order_by(JobDeliverable.submitted_at.desc()).limit(1)
         )).scalar_one_or_none()
         if deliverable:
             submitted_work = {
