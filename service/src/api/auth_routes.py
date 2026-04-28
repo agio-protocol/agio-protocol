@@ -193,7 +193,7 @@ async def login(req: LoginRequest, response: Response = None, db: AsyncSession =
             value=session["session_token"],
             httponly=True,
             secure=True,
-            samesite="strict",
+            samesite="none",
             max_age=SESSION_TTL,
             path="/",
         )
