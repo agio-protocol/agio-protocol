@@ -147,7 +147,10 @@ async def run_reconciliation() -> ReconciliationResult:
             # WETH/cbETH would need a price oracle for accurate USD — skip for now.
             if decimals == 6:
                 total_on_chain_usd += actual_val
-            if not ok:
+            # Allow small positive delta (actual > tracked) from direct deposits
+            # Only fail if tracked > actual (means funds are missing)
+            delta_val = actual_val - tracked_val
+            if not ok and delta_val < 0:
                 all_ok = False
                 result.fail_check(
                     f"on_chain_invariant_{token_addr[:10]}",

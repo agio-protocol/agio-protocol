@@ -424,6 +424,18 @@ async def admin_reconciliation(_=Depends(verify_admin)):
         return {"status": "UNKNOWN", "error": str(e)}
 
 
+@router.post("/unpause")
+async def admin_unpause(_=Depends(verify_admin)):
+    """Manually unpause payments. Use after resolving reconciliation issues."""
+    try:
+        from ..core.redis import redis_client
+        await redis_client.set("AGIO:payments_paused", "0")
+        await redis_client.set("AGIO:pause_reason", "")
+        return {"status": "UNPAUSED", "message": "Payments are now flowing. Monitor reconciliation."}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to unpause: {e}")
+
+
 @router.get("/deposits")
 async def admin_deposits(
     limit: int = Query(50, ge=1, le=200),
