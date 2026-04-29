@@ -93,7 +93,7 @@ async def check_all():
 
         # Reconciliation
         try:
-            r = await c.get(f"{API}/v1/admin/reconciliation", headers={"x-admin-key": "agio-admin-2026"})
+            r = await c.get(f"{API}/v1/admin/reconciliation", headers={"x-admin-key": ADMIN_KEY})
             d = r.json()
             if d.get("status") == "OK":
                 passed.append("Reconciliation: OK")

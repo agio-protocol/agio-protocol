@@ -25,7 +25,7 @@ agiotage.finance (Netlify) ──→ api.agiotage.finance (Railway)
 
 ### Check the admin dashboard
 1. Open admin.agiotage.finance (or localhost:3000)
-2. Enter API key: `agio-admin-2026`
+2. Enter API key: `[SET VIA RAILWAY ENV VAR]`
 3. Check: is reconciliation green? Are transactions flowing? Is queue depth low?
 
 ### If you get an alert email
