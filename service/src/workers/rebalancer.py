@@ -69,6 +69,10 @@ SWAP_ROUTER_ABI = [
 
 ALERT_EMAIL = os.getenv("ALERT_EMAIL", "jeffrey_wylie@yahoo.com")
 
+# Cooldown: only attempt gas top-up once per hour to prevent burn loops
+_last_topup_attempt = None
+TOPUP_COOLDOWN_SECONDS = 3600
+
 
 def _get_w3():
     from web3 import Web3
@@ -245,10 +249,23 @@ async def initiate_cctp_transfer(from_chain: str, to_chain: str, amount: float) 
 # ──────────────────────────────────────────────
 
 async def check_and_topup_gas():
-    """If deployer ETH is low, swap a small amount of USDC → ETH via Uniswap."""
+    """If deployer ETH is low, swap a small amount of USDC → ETH via Uniswap.
+
+    Safety: only attempts once per hour to prevent burn loops where failed
+    swaps consume gas without receiving ETH.
+    """
+    global _last_topup_attempt
     account = _get_account()
     if not account:
         return
+
+    # Cooldown: don't retry within 1 hour of last attempt
+    if _last_topup_attempt:
+        import time
+        elapsed = time.time() - _last_topup_attempt
+        if elapsed < TOPUP_COOLDOWN_SECONDS:
+            logger.debug(f"Gas top-up on cooldown ({int(TOPUP_COOLDOWN_SECONDS - elapsed)}s remaining)")
+            return
 
     try:
         from web3 import Web3
@@ -260,9 +277,16 @@ async def check_and_topup_gas():
             logger.debug(f"Gas wallet OK: {eth_balance:.6f} ETH (${eth_balance * 2300:.2f})")
             return
 
+        # Need minimum ETH to pay for the swap itself (~0.0001 ETH)
+        if eth_balance < 0.00005:
+            logger.warning(f"ETH too low even for swap gas ({eth_balance:.8f}). Need manual ETH deposit.")
+            _send_gas_alert(eth_balance, 0)
+            _last_topup_attempt = time.time()
+            return
+
         eth_needed = GAS_TARGET_ETH - eth_balance
-        eth_price = 2300  # conservative estimate
-        usdc_needed = min(eth_needed * eth_price * 1.05, GAS_SWAP_MAX_USDC)  # 5% buffer for slippage
+        eth_price = 2300
+        usdc_needed = min(eth_needed * eth_price * 1.05, GAS_SWAP_MAX_USDC)
 
         usdc = w3.eth.contract(address=Web3.to_checksum_address(USDC_BASE), abi=ERC20_ABI)
         usdc_balance = usdc.functions.balanceOf(account.address).call() / 1e6
@@ -270,8 +294,11 @@ async def check_and_topup_gas():
         if usdc_balance < usdc_needed:
             logger.warning(f"Gas top-up needed but insufficient USDC: ${usdc_balance:.2f} < ${usdc_needed:.2f}")
             _send_gas_alert(eth_balance, usdc_balance)
+            _last_topup_attempt = time.time()
             return
 
+        import time
+        _last_topup_attempt = time.time()
         logger.info(f"Gas low ({eth_balance:.6f} ETH). Swapping ${usdc_needed:.2f} USDC → ETH")
 
         router = w3.eth.contract(address=Web3.to_checksum_address(UNISWAP_ROUTER), abi=SWAP_ROUTER_ABI)
