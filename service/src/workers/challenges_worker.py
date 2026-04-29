@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
-"""Competition engine — creates weekly skill-based competitions with guaranteed sponsored prizes.
+"""Competition engine — creates daily skill-based competitions with dynamic prize pools.
 
-Prizes are funded by Agiotage, not by entry fees. Entry fees are service revenue.
+Prize pool = 50% of total entry fees collected. Platform keeps 50% as revenue.
 """
 import asyncio
 import logging
@@ -22,11 +22,13 @@ logger = logging.getLogger("competition_engine")
 CHECK_INTERVAL = 300
 DAILY_CREATE_INTERVAL = 86400
 
+PRIZE_POOL_PCT = Decimal("0.50")  # 50% of entry fees go to prize pool
+
 TIER_CONFIG = {
-    "open": {"entry_fee": Decimal("1"), "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")}, "min_entrants": 3, "label": "Open"},
-    "professional": {"entry_fee": Decimal("5"), "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")}, "min_entrants": 3, "label": "Professional"},
-    "expert": {"entry_fee": Decimal("25"), "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")}, "min_entrants": 3, "label": "Expert"},
-    "elite": {"entry_fee": Decimal("100"), "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")}, "min_entrants": 5, "label": "Elite"},
+    "open": {"entry_fee": Decimal("1"), "base_prizes": {1: Decimal("2.50"), 2: Decimal("1.50"), 3: Decimal("1")}, "min_entrants": 10, "label": "Open"},
+    "professional": {"entry_fee": Decimal("5"), "base_prizes": {1: Decimal("10"), 2: Decimal("6"), 3: Decimal("4")}, "min_entrants": 8, "label": "Professional"},
+    "expert": {"entry_fee": Decimal("25"), "base_prizes": {1: Decimal("37.50"), 2: Decimal("22.50"), 3: Decimal("15")}, "min_entrants": 6, "label": "Expert"},
+    "elite": {"entry_fee": Decimal("100"), "base_prizes": {1: Decimal("125"), 2: Decimal("75"), 3: Decimal("50")}, "min_entrants": 5, "label": "Elite"},
 }
 
 
@@ -150,17 +152,17 @@ async def create_daily_competitions():
 
         for tier_key in tiers_to_create:
             tier = TIER_CONFIG[tier_key]
-            total_prize = sum(tier["prizes"].values())
-            prizes_str = ", ".join(f"#{k}: ${v}" for k, v in tier["prizes"].items())
+            base_total = sum(tier["base_prizes"].values())
+            base_str = ", ".join(f"#{k}: ${v}" for k, v in tier["base_prizes"].items())
 
             desc = (
                 f"{template['desc']}\n\n"
                 f"Scoring: {scoring}\n"
                 f"Tier: {tier['label']} (${tier['entry_fee']} entry fee)\n"
-                f"Guaranteed prizes: {prizes_str}\n"
-                f"Prizes sponsored by Agiotage Protocol — not funded by entry fees.\n"
-                f"Entry fee covers compute, scoring, and settlement infrastructure.\n"
-                f"Minimum {tier.get('min_entrants', 3)} entries to proceed. Full rules: agiotage.finance/rules"
+                f"Prize pool grows with entries. Platform takes 50%, rest goes to top 3.\n"
+                f"Base prizes (at min entries): {base_str}\n"
+                f"More entrants = bigger prizes.\n"
+                f"Minimum {tier['min_entrants']} entries to proceed. Full rules: agiotage.finance/rules"
             )
 
             competition = ArenaGame(
@@ -170,8 +172,8 @@ async def create_daily_competitions():
                 entry_fee=tier["entry_fee"],
                 max_participants=9999,
                 current_participants=0,
-                prize_pool=total_prize,
-                rake_pct=Decimal("0"),
+                prize_pool=base_total,
+                rake_pct=Decimal("50"),
                 status="OPEN",
                 end_time=end_time,
             )

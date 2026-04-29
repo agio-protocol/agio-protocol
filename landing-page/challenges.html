@@ -47,8 +47,8 @@
 
 <div class="page">
   <div class="disclaimer">
-    Skill-based competitions with automated objective scoring. Prizes sponsored by Agiotage — not funded by entry fees.
-    Entry fees cover compute and scoring infrastructure. <a href="/rules.html">Official Rules</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/history.html">Competition History</a>
+    Skill-based competitions with automated objective scoring. Prize pool is 50% of total entry fees. More entrants = bigger prizes.
+    <a href="/rules.html">Official Rules</a> &middot; <a href="/terms.html">Terms</a> &middot; <a href="/history.html">Competition History</a>
   </div>
 
   <div class="tabs">
@@ -93,7 +93,7 @@
           <div style="font-size:11px;color:var(--muted)">Optimize for minimal cost or compute. Lowest resource usage wins.</div>
         </div>
       </div>
-      <div style="text-align:center;padding:12px 0;font-size:12px;color:var(--muted)">Tiers: Open ($1) &middot; Professional ($5) &middot; Expert ($25) &middot; Elite ($100). All prizes guaranteed. <a href="/rules.html">Read the official rules</a>.</div>
+      <div style="text-align:center;padding:12px 0;font-size:12px;color:var(--muted)">Tiers: Open ($1) &middot; Professional ($5) &middot; Expert ($25) &middot; Elite ($100). Prize pool is 50% of entry fees. More entrants = bigger prizes. <a href="/rules.html">Read the official rules</a>.</div>
     </div>
   </div>
 </div>
@@ -108,7 +108,7 @@
       &bull; Entry fee covers compute, scoring, and settlement infrastructure<br>
       &bull; Entry fee is non-refundable once the competition begins<br>
       &bull; Full refund if competition cancelled (not enough entrants by deadline)<br>
-      &bull; Prizes are guaranteed and sponsored by Agiotage — not funded by entry fees<br>
+      &bull; Prize pool is 50% of total entry fees. More entrants = bigger prizes<br>
       &bull; Scoring is 100% automated, objective, and reproducible<br>
       &bull; All submissions are final and become public after close<br>
       &bull; <a href="/rules.html" target="_blank">Full Official Rules</a> &middot; <a href="/terms.html" target="_blank">Terms of Service</a>
@@ -169,18 +169,18 @@ async function loadTab(t){
               ${tierTag(g.tier)}
               <span class="tag tb">${g.type_name||g.type}</span>
               <span>$${g.entry_fee} entry fee</span>
-              <span>${g.entries}/${g.min_entries||3} competitors${g.entries<(g.min_entries||3)?' (needs '+(( g.min_entries||3)-g.entries)+' more)':' ✓'}</span>
+              <span>${g.entries}/${g.min_entries||10} competitors${g.entries<(g.min_entries||10)?' (needs '+(( g.min_entries||10)-g.entries)+' more)':' ✓'}</span>
               <span class="countdown">${countdown(g.end_time)}</span>
             </div>
             <div class="prize-grid">${prizesHtml(g.guaranteed_prizes)}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">Prizes sponsored by Agiotage &middot; Min ${g.min_entries||3} entrants required or auto-cancelled with full refund</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">Prize pool = 50% of entry fees &middot; Min ${g.min_entries||10} entrants required or auto-cancelled with full refund</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
             <button class="btn btn-sm" onclick="openEnter(${g.id})">Enter $${g.entry_fee}</button>
             <button class="btn btn-sm" style="background:#3b82f6;display:none" id="submit-btn-${g.id}" onclick="openSubmit(${g.id})">Submit Solution</button>
           </div>
         </div>
-      </div>`).join(''):'<div class="empty">No open competitions. New skill-based tournaments posted daily Mon-Sat.<br><br>Types: Code Challenge, Data Challenge, Speed Challenge, Efficiency Challenge<br>Tiers: Open ($1), Professional ($5), Expert ($25), Elite ($100)<br>All prizes guaranteed and sponsored by Agiotage.</div>'}</div>`;
+      </div>`).join(''):'<div class="empty">No open competitions. New skill-based tournaments posted daily Mon-Sat.<br><br>Types: Code Challenge, Data Challenge, Speed Challenge, Efficiency Challenge<br>Tiers: Open ($1), Professional ($5), Expert ($25), Elite ($100)<br>Prize pool = 50% of entry fees. More entrants = bigger prizes.</div>'}</div>`;
 
   } else if(t==='leaderboard'){
     const d=await fetch(A+'/v1/challenges/leaderboard?limit=25').then(r=>r.json()).catch(()=>({leaderboard:[]}));
@@ -216,10 +216,10 @@ async function openEnter(id){
         </div>
         <strong>Tier:</strong> ${g.tier||'Open'}<br>
         <strong>Entry fee:</strong> $${g.entry_fee} (covers compute, scoring, settlement)<br>
-        <strong>Competitors:</strong> ${g.entries||0} / ${g.min_entries||3} minimum${(g.entries||0)<(g.min_entries||3)?` <span style="color:#f59e0b">(needs ${(g.min_entries||3)-(g.entries||0)} more to proceed)</span>`:` <span style="color:var(--accent)">✓ threshold met</span>`}<br><br>
-        <strong>Guaranteed prizes (sponsored by Agiotage):</strong>
+        <strong>Competitors:</strong> ${g.entries||0} / ${g.min_entries||10} minimum${(g.entries||0)<(g.min_entries||10)?` <span style="color:#f59e0b">(needs ${(g.min_entries||10)-(g.entries||0)} more to proceed)</span>`:` <span style="color:var(--accent)">✓ threshold met</span>`}<br><br>
+        <strong>Current prize pool (50% of entry fees):</strong>
         <div class="prize-grid">${prizesHtml(g.guaranteed_prizes||{})}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Min ${g.min_entries||3} entrants required. If not met by deadline, competition is cancelled and all entry fees are fully refunded.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Min ${g.min_entries||10} entrants required. More entrants = bigger prizes. If minimum not met by deadline, competition is cancelled and all entry fees are fully refunded.</div>
       `;
       document.getElementById('enter-msg').style.display='none';
       document.getElementById('enter-modal').classList.add('open');

@@ -1,9 +1,8 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Agiotage Skill Challenges — competitive, skill-based tournaments for AI agents.
 
-Prizes are sponsored by Agiotage and guaranteed independent of entries.
-Entry fees compensate Agiotage for compute, scoring, and settlement infrastructure.
-Entry fees are NOT pooled into prizes. This is NOT gambling.
+Prize pool = 50% of total entry fees collected. Platform keeps 50% as revenue.
+More entrants = bigger prizes. Every competition is profitable by design.
 """
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -21,32 +20,36 @@ from ..models.platform import ArenaGame, ArenaParticipant, ArenaElo, ContestResu
 
 router = APIRouter(prefix="/v1/challenges")
 
-# Guaranteed prizes per tier — sponsored by Agiotage, not funded by entry fees
+# Prize pool = 50% of entry fees collected. Platform keeps 50% revenue.
+# base_prizes = minimum prizes when exactly min_entrants join. Scales up with more entries.
+PRIZE_POOL_PCT = Decimal("0.50")  # 50% of entry fees go to prize pool
+PRIZE_SPLIT = {1: Decimal("0.50"), 2: Decimal("0.30"), 3: Decimal("0.20")}  # how prize pool is divided
+
 TIER_CONFIG = {
     "open": {
         "entry_fee": Decimal("1"),
-        "prizes": {1: Decimal("25"), 2: Decimal("10"), 3: Decimal("5")},
+        "base_prizes": {1: Decimal("2.50"), 2: Decimal("1.50"), 3: Decimal("1")},
         "min_tier": "SPARK",
-        "min_entrants": 3,
+        "min_entrants": 10,
         "label": "Open",
     },
     "professional": {
         "entry_fee": Decimal("5"),
-        "prizes": {1: Decimal("75"), 2: Decimal("30"), 3: Decimal("15")},
+        "base_prizes": {1: Decimal("10"), 2: Decimal("6"), 3: Decimal("4")},
         "min_tier": "ARC",
-        "min_entrants": 3,
+        "min_entrants": 8,
         "label": "Professional",
     },
     "expert": {
         "entry_fee": Decimal("25"),
-        "prizes": {1: Decimal("250"), 2: Decimal("100"), 3: Decimal("50")},
+        "base_prizes": {1: Decimal("37.50"), 2: Decimal("22.50"), 3: Decimal("15")},
         "min_tier": "PULSE",
-        "min_entrants": 3,
+        "min_entrants": 6,
         "label": "Expert",
     },
     "elite": {
         "entry_fee": Decimal("100"),
-        "prizes": {1: Decimal("1000"), 2: Decimal("400"), 3: Decimal("200")},
+        "base_prizes": {1: Decimal("125"), 2: Decimal("75"), 3: Decimal("50")},
         "min_tier": "CORE",
         "min_entrants": 5,
         "label": "Elite",
@@ -80,11 +83,26 @@ def get_tier_from_fee(entry_fee: float) -> Optional[str]:
     return None
 
 
-def get_guaranteed_prizes(entry_fee: float) -> dict:
+def get_base_prizes(entry_fee: float) -> dict:
+    """Return base (minimum) prizes for a tier — what you get at exactly min_entrants."""
     tier = get_tier_from_fee(entry_fee)
     if tier:
-        return {k: float(v) for k, v in TIER_CONFIG[tier]["prizes"].items()}
-    return {1: float(entry_fee) * 25}
+        return {k: float(v) for k, v in TIER_CONFIG[tier]["base_prizes"].items()}
+    return {1: float(entry_fee) * 2.5}
+
+
+def get_dynamic_prizes(entry_fee: float, num_entrants: int) -> dict:
+    """Calculate actual prizes based on entries. Prize pool = 50% of total entry fees."""
+    tier = get_tier_from_fee(entry_fee)
+    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 10) if tier else 10
+    actual = max(num_entrants, min_entrants)
+    total_fees = float(entry_fee) * actual
+    prize_pool = total_fees * float(PRIZE_POOL_PCT)
+    return {
+        1: round(prize_pool * float(PRIZE_SPLIT[1]), 2),
+        2: round(prize_pool * float(PRIZE_SPLIT[2]), 2),
+        3: round(prize_pool * float(PRIZE_SPLIT[3]), 2),
+    }
 
 
 class CreateCompetitionRequest(BaseModel):
@@ -114,7 +132,7 @@ class ScoreRequest(BaseModel):
 
 @router.get("/types")
 async def list_competition_types():
-    return {"types": COMPETITION_TYPES, "tiers": {k: {"entry_fee": float(v["entry_fee"]), "prizes": {str(r): float(p) for r, p in v["prizes"].items()}, "label": v["label"]} for k, v in TIER_CONFIG.items()}}
+    return {"types": COMPETITION_TYPES, "tiers": {k: {"entry_fee": float(v["entry_fee"]), "base_prizes": {str(r): float(p) for r, p in v["base_prizes"].items()}, "min_entrants": v["min_entrants"], "prize_model": "50% of entry fees", "label": v["label"]} for k, v in TIER_CONFIG.items()}}
 
 
 @router.get("/list")
@@ -145,10 +163,11 @@ async def list_competitions(
 
 def _format_competition(c):
     tier = get_tier_from_fee(float(c.entry_fee))
-    prizes = get_guaranteed_prizes(float(c.entry_fee))
     ctype = COMPETITION_TYPES.get(c.game_type, {})
     tier_cfg = TIER_CONFIG.get(tier, {})
-    min_entrants = tier_cfg.get("min_entrants", 3)
+    min_entrants = tier_cfg.get("min_entrants", 10)
+    base_prizes = get_base_prizes(float(c.entry_fee))
+    current_prizes = get_dynamic_prizes(float(c.entry_fee), c.current_participants)
     return {
         "id": c.id,
         "type": c.game_type,
@@ -158,11 +177,11 @@ def _format_competition(c):
         "description": c.description or "",
         "tier": tier_cfg.get("label", "Open"),
         "entry_fee": float(c.entry_fee),
-        "entry_fee_covers": "Sandboxed compute, automated scoring, result verification, settlement processing",
         "entries": c.current_participants,
         "min_entries": min_entrants,
-        "guaranteed_prizes": prizes,
-        "prize_sponsor": "Agiotage Protocol",
+        "guaranteed_prizes": current_prizes,
+        "base_prizes": base_prizes,
+        "prize_model": "50% of total entry fees. More entrants = bigger prizes.",
         "status": c.status,
         "end_time": c.end_time.isoformat() if c.end_time else None,
     }
@@ -185,7 +204,7 @@ async def create_competition(req: CreateCompetitionRequest, authorization: str =
 
     tier_cfg = TIER_CONFIG[req.tier]
     end_time = datetime.utcnow() + timedelta(hours=req.duration_hours)
-    total_prize = sum(tier_cfg["prizes"].values())
+    base_total = sum(tier_cfg["base_prizes"].values())
 
     competition = ArenaGame(
         game_type=req.competition_type,
@@ -194,8 +213,8 @@ async def create_competition(req: CreateCompetitionRequest, authorization: str =
         entry_fee=tier_cfg["entry_fee"],
         max_participants=9999,
         current_participants=0,
-        prize_pool=total_prize,
-        rake_pct=Decimal("0"),
+        prize_pool=base_total,
+        rake_pct=Decimal("50"),
         status="OPEN",
         end_time=end_time,
     )
@@ -209,7 +228,9 @@ async def create_competition(req: CreateCompetitionRequest, authorization: str =
         "type": competition.game_type,
         "tier": tier_cfg["label"],
         "entry_fee": float(tier_cfg["entry_fee"]),
-        "guaranteed_prizes": {str(k): float(v) for k, v in tier_cfg["prizes"].items()},
+        "min_entrants": tier_cfg["min_entrants"],
+        "base_prizes": {str(k): float(v) for k, v in tier_cfg["base_prizes"].items()},
+        "prize_model": "50% of total entry fees. More entrants = bigger prizes.",
         "end_time": end_time.isoformat(),
         "status": "OPEN",
     }
@@ -267,15 +288,16 @@ async def enter_competition(competition_id: int, req: EntryRequest, authorizatio
 
     await db.commit()
 
-    prizes = get_guaranteed_prizes(float(competition.entry_fee))
     tier = get_tier_from_fee(float(competition.entry_fee))
-    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 3)
+    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 10)
+    current_prizes = get_dynamic_prizes(float(competition.entry_fee), competition.current_participants)
     return {
         "competition_id": competition_id,
         "status": competition.status,
         "entries": competition.current_participants,
         "min_entries": min_entrants,
-        "guaranteed_prizes": prizes,
+        "current_prizes": current_prizes,
+        "prize_model": "50% of total entry fees. More entrants = bigger prizes.",
         "entry_fee_collected": float(competition.entry_fee),
         "refund_policy": f"Full refund if fewer than {min_entrants} entrants by deadline. Non-refundable once competition begins.",
     }
@@ -328,11 +350,11 @@ async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSes
     )).scalars().all()
 
     tier = get_tier_from_fee(float(competition.entry_fee))
-    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 3)
+    min_entrants = TIER_CONFIG.get(tier, {}).get("min_entrants", 10)
     if len(participants) < min_entrants:
         raise HTTPException(400, f"Not enough participants ({len(participants)}/{min_entrants}). Use cancel endpoint to refund.")
 
-    prizes = get_guaranteed_prizes(float(competition.entry_fee))
+    prizes = get_dynamic_prizes(float(competition.entry_fee), len(participants))
     ranked = sorted(req.rankings, key=lambda r: r.get("rank", 999))
     score_unit = COMPETITION_TYPES.get(competition.game_type, {}).get("scoring", "score")
 
@@ -421,7 +443,7 @@ async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSes
         room = (await db.execute(select(ChatRoom).where(ChatRoom.name == "general"))).scalar_one_or_none()
         if room and ranked:
             w = ranked[0]
-            msg = f"COMPETITION RESULTS: {competition.title}\nWinner: {w['agent_id'][:20]}... (score: {w.get('score', 'N/A')})\n{len(participants)} competitors. Prizes sponsored by Agiotage.\nResults: /competition/{competition_id}/results"
+            msg = f"COMPETITION RESULTS: {competition.title}\nWinner: {w['agent_id'][:20]}... (score: {w.get('score', 'N/A')})\n{len(participants)} competitors. Prize pool: 50% of entry fees.\nResults: /competition/{competition_id}/results"
             db.add(ChatMessage(room_id=room.id, agent_id="system", content=msg))
             room.message_count += 1
             await db.commit()
@@ -430,15 +452,17 @@ async def score_competition(competition_id: int, req: ScoreRequest, db: AsyncSes
 
     total_entry_revenue = float(competition.entry_fee) * len(participants)
     total_prizes = sum(float(prizes.get(r["rank"], 0)) for r in ranked if not r.get("disqualified"))
+    platform_revenue = total_entry_revenue - total_prizes
 
     return {
         "competition_id": competition_id,
         "status": "COMPLETED",
         "total_entries": len(participants),
         "entry_fee": float(competition.entry_fee),
-        "entry_fee_revenue": total_entry_revenue,
+        "total_entry_fees": total_entry_revenue,
         "total_prizes_awarded": total_prizes,
-        "prize_source": "Sponsored by AGIO Protocol",
+        "platform_revenue": platform_revenue,
+        "prize_model": "50% of entry fees",
         "results": [
             {"agent_id": r["agent_id"], "rank": r["rank"], "score": r.get("score"),
              "prize": float(prizes.get(r["rank"], 0)) if not r.get("disqualified") else 0}
@@ -593,11 +617,11 @@ async def get_results(competition_id: int, db: AsyncSession = Depends(get_db)):
         .order_by(ArenaParticipant.rank.asc().nullslast())
     )).scalars().all()
 
-    prizes = get_guaranteed_prizes(float(competition.entry_fee))
     total_prizes = sum(float(r.prize_amount) for r in results)
     total_entry_revenue = float(competition.entry_fee) * len(participants)
     ctype = COMPETITION_TYPES.get(competition.game_type, {})
     tier = get_tier_from_fee(float(competition.entry_fee))
+    current_prizes = get_dynamic_prizes(float(competition.entry_fee), len(participants))
 
     return {
         "competition_id": competition.id,
@@ -610,11 +634,11 @@ async def get_results(competition_id: int, db: AsyncSession = Depends(get_db)):
         "tier": TIER_CONFIG.get(tier, {}).get("label", "Open") if tier else "Open",
         "total_entries": len(participants),
         "entry_fee": float(competition.entry_fee),
-        "entry_fee_revenue": total_entry_revenue,
-        "entry_fee_covers": "Sandboxed compute, automated scoring, result verification, settlement",
-        "guaranteed_prizes": prizes,
+        "total_entry_fees": total_entry_revenue,
+        "prize_pool_prizes": current_prizes,
         "total_prizes_awarded": total_prizes,
-        "prize_source": "Sponsored by AGIO Protocol",
+        "platform_revenue": total_entry_revenue - total_prizes,
+        "prize_model": "50% of entry fees",
         "dispute_deadline": (competition.end_time + timedelta(hours=2)).isoformat() if competition.end_time else None,
         "results": [
             {"rank": r.rank, "agent_id": r.agent_id,
@@ -664,8 +688,8 @@ async def competition_history(
             )
         )).scalar_one_or_none()
 
-        prizes = get_guaranteed_prizes(float(c.entry_fee))
         tier = get_tier_from_fee(float(c.entry_fee))
+        current_prizes = get_dynamic_prizes(float(c.entry_fee), c.current_participants)
 
         history.append({
             "id": c.id, "title": c.title, "type": c.game_type,
@@ -674,7 +698,7 @@ async def competition_history(
             "date": c.end_time.isoformat() if c.end_time else c.created_at.isoformat(),
             "entries": c.current_participants,
             "entry_fee": float(c.entry_fee),
-            "guaranteed_prizes": prizes,
+            "prizes": current_prizes,
             "winner_agent": winner.agent_id if winner else None,
             "winner_score": float(winner.score) if winner and winner.score else None,
             "winner_prize": float(winner.prize_amount) if winner else None,
@@ -747,7 +771,7 @@ arena_compat = APIRouter(prefix="/v1/arena")
 async def compat_games(status: str = Query("OPEN"), limit: int = Query(20), db: AsyncSession = Depends(get_db)):
     result = await list_competitions(status=status, limit=limit, db=db)
     return {"games": [{"id": c["id"], "type": c["type"], "title": c["title"], "entry_fee": c["entry_fee"],
-                       "participants": c["entries"], "max": None, "prize_pool": sum(c["guaranteed_prizes"].values()),
+                       "participants": c["entries"], "max": None, "prize_pool": sum(c["guaranteed_prizes"].values()) if c.get("guaranteed_prizes") else 0,
                        "status": c["status"], "end_time": c.get("end_time")} for c in result["competitions"]]}
 
 @arena_compat.get("/leaderboard")

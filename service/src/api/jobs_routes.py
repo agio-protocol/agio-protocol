@@ -217,7 +217,8 @@ async def bid_on_job(job_id: int, req: BidRequest, authorization: str = Header(N
     try:
         from .notification_routes import notify
         await notify(db, job.poster_agent, "job", f"New bid on \"{job.title}\"", f"${float(req.bid_amount)} bid received", f"/jobs.html")
-    except Exception: pass
+    except Exception as e:
+        _log.warning(f"Notification failed: {e}")
     await db.commit()
     await db.refresh(bid)
 
@@ -280,7 +281,8 @@ async def accept_bid(
     try:
         from .notification_routes import notify
         await notify(db, bid.bidder_agent, "job", f"Your bid on \"{job.title}\" was accepted!", f"${float(bid.bid_amount)} escrowed. Start working!", f"/jobs.html")
-    except Exception: pass
+    except Exception as e:
+        _log.warning(f"Notification failed: {e}")
     job.accepted_bid_id = bid.id
     bid.status = "ACCEPTED"
 
@@ -343,6 +345,8 @@ async def approve_work(job_id: int, authorization: str = Header(None), agio_id: 
     if job.status != "SUBMITTED":
         raise HTTPException(400, f"Job is {job.status}, not SUBMITTED")
 
+    if not job.accepted_bid_id:
+        raise HTTPException(400, "No accepted bid for this job")
     bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one()
     amount = Decimal(str(bid.bid_amount))
 
@@ -381,7 +385,8 @@ async def approve_work(job_id: int, authorization: str = Header(None), agio_id: 
     try:
         from .notification_routes import notify
         await notify(db, bid.bidder_agent, "payment", f"Payment received for \"{job.title}\"", f"${float(worker_payout)} credited to your balance", f"/dashboard/")
-    except Exception: pass
+    except Exception as e:
+        _log.warning(f"Notification failed: {e}")
 
     await db.commit()
 
@@ -498,16 +503,10 @@ async def rate_job(job_id: int, authorization: str = Header(None), agio_id: str 
             "INSERT INTO job_ratings (job_id, rater_id, rating, review, created_at) VALUES (:jid, :rid, :rat, :rev, NOW())"
         ), {"jid": job_id, "rid": agio_id, "rat": rating, "rev": review[:500]})
         await db.commit()
-    except Exception:
+    except Exception as e:
         await db.rollback()
-        await db.execute(text(
-            "CREATE TABLE IF NOT EXISTS job_ratings (id SERIAL PRIMARY KEY, job_id INTEGER, rater_id VARCHAR(66), rating INTEGER, review TEXT, created_at TIMESTAMP DEFAULT NOW())"
-        ))
-        await db.commit()
-        await db.execute(text(
-            "INSERT INTO job_ratings (job_id, rater_id, rating, review, created_at) VALUES (:jid, :rid, :rat, :rev, NOW())"
-        ), {"jid": job_id, "rid": agio_id, "rat": rating, "rev": review[:500]})
-        await db.commit()
+        _log.warning(f"Failed to insert job rating for job {job_id}: {e}")
+        raise HTTPException(500, "Failed to save rating")
     return {"job_id": job_id, "rating": rating, "status": "rated"}
 
 
@@ -657,8 +656,8 @@ async def _enrich_bids(db, bids):
             review_count = (await db.execute(
                 select(func.count()).select_from(AgentReview).where(AgentReview.target_id == b.bidder_agent)
             )).scalar() or 0
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning(f"Failed to fetch bidder reviews: {e}")
 
         enriched.append({
             "id": b.id,
@@ -805,8 +804,8 @@ async def request_revision(job_id: int, req: RequestRevisionRequest, authorizati
             try:
                 from .notification_routes import notify
                 await notify(db, bid.bidder_agent, "job", f"Revision requested on \"{job.title}\"", req.notes[:200], "/jobs.html")
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning(f"Notification failed: {e}")
 
     await db.commit()
 

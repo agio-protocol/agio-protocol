@@ -34,6 +34,8 @@ CMD sh -c '\
     python -m src.workers.rebalancer; \
   elif [ "$WORKER_CMD" = "overseer" ]; then \
     python -m src.workers.overseer; \
+  elif [ "$WORKER_CMD" = "job_expiry" ]; then \
+    python -m src.workers.job_expiry_worker; \
   else \
     gunicorn src.main:app --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile -; \
   fi'
