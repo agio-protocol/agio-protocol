@@ -103,6 +103,71 @@ def _headers():
     return {"Authorization": f"Bearer {MOLTBOOK_KEY}", "Content-Type": "application/json"}
 
 
+async def _solve_verification(client, verification):
+    """Auto-solve Moltbook's math verification challenges."""
+    try:
+        challenge = verification.get("challenge_text", "")
+        code = verification.get("verification_code", "")
+        # Clean up the obfuscated text
+        clean = ""
+        for ch in challenge:
+            if ch.isalpha() or ch.isdigit() or ch in " .,?!'-":
+                clean += ch.lower()
+        logger.info(f"Verification challenge: {clean[:80]}")
+
+        # Parse simple math from the challenge
+        import re
+        numbers = re.findall(r'\b(\w+)\b', clean)
+        word_to_num = {
+            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12, "fifteen": 15, "twenty": 20,
+            "twenty-five": 25, "thirty": 30, "forty": 40, "fifty": 50,
+            "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+            "hundred": 100, "thousand": 1000,
+        }
+        nums = []
+        for w in numbers:
+            if w in word_to_num:
+                nums.append(word_to_num[w])
+            elif w.isdigit():
+                nums.append(int(w))
+
+        # Try to compute based on keywords
+        answer = None
+        if "multiplied" in clean or "times" in clean or "multiply" in clean:
+            if len(nums) >= 2:
+                answer = nums[0] * nums[1]
+        elif "plus" in clean or "added" in clean or "add" in clean or "total" in clean:
+            if len(nums) >= 2:
+                answer = sum(nums[:2])
+        elif "minus" in clean or "subtract" in clean:
+            if len(nums) >= 2:
+                answer = nums[0] - nums[1]
+        elif "divided" in clean:
+            if len(nums) >= 2 and nums[1] != 0:
+                answer = nums[0] / nums[1]
+
+        if answer is None and len(nums) >= 2:
+            answer = nums[0] * nums[1]
+
+        if answer is not None:
+            answer_str = f"{answer:.2f}"
+            r = await client.post(
+                f"{MOLTBOOK_API}/verify",
+                headers=_headers(),
+                json={"verification_code": code, "answer": answer_str},
+            )
+            if r.status_code == 200:
+                logger.info(f"Verification solved: {answer_str}")
+            else:
+                logger.warning(f"Verification failed: {r.text[:100]}")
+        else:
+            logger.warning(f"Could not solve verification: {clean[:80]}")
+    except Exception as e:
+        logger.error(f"Verification error: {e}")
+
+
 async def get_platform_stats():
     """Fetch live stats from Agiotage API."""
     try:
@@ -142,7 +207,14 @@ async def post_to_moltbook(title, content, submolt="ai-agents"):
             )
             if r.status_code in (200, 201):
                 data = r.json()
-                logger.info(f"Posted to m/{submolt}: {title[:50]}... (id: {data.get('id', '?')})")
+                post_data = data.get("post", data)
+                logger.info(f"Posted to m/{submolt}: {title[:50]}... (id: {post_data.get('id', '?')})")
+
+                # Auto-solve verification challenge if present
+                verification = post_data.get("verification", {})
+                if verification.get("verification_code"):
+                    await _solve_verification(c, verification)
+
                 return data
             else:
                 logger.warning(f"Moltbook post failed: {r.status_code} {r.text[:100]}")
