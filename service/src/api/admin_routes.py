@@ -424,6 +424,30 @@ async def admin_reconciliation(_=Depends(verify_admin)):
         return {"status": "UNKNOWN", "error": str(e)}
 
 
+@router.post("/pause")
+async def admin_pause(_=Depends(verify_admin)):
+    """Pause all payments. Batch worker will stop settling."""
+    try:
+        from ..core.redis import redis_client
+        await redis_client.set("AGIO:payments_paused", "1")
+        await redis_client.set("AGIO:pause_reason", "Admin manual pause")
+        return {"status": "PAUSED", "message": "All payments paused. Use POST /unpause to resume."}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to pause: {e}")
+
+
+@router.post("/flush-queue")
+async def admin_flush_queue(_=Depends(verify_admin)):
+    """Flush the payment queue. Use when queue is full of stale/failed payments."""
+    try:
+        from ..core.redis import redis_client
+        queue_len = await redis_client.llen("agio:payment_queue")
+        await redis_client.delete("agio:payment_queue")
+        return {"status": "FLUSHED", "payments_removed": queue_len}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to flush: {e}")
+
+
 @router.post("/unpause")
 async def admin_unpause(_=Depends(verify_admin)):
     """Manually unpause payments. Use after resolving reconciliation issues."""

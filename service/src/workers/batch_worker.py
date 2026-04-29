@@ -116,6 +116,13 @@ async def run_worker():
 
     while True:
         try:
+            # Check if payments are paused (by reconciler or wallet monitor)
+            paused = await redis_client.get("AGIO:payments_paused")
+            if paused == "1":
+                logger.info("Payments paused — skipping batch settlement")
+                await asyncio.sleep(60)
+                continue
+
             # Check queue depth for dynamic interval
             queue_depth = await redis_client.llen(PAYMENT_QUEUE)
 
