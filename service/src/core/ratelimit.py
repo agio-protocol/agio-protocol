@@ -3,7 +3,7 @@
 from .redis import redis_client
 
 MAX_REGISTRATIONS_PER_HOUR = 1000  # global
-MAX_REGISTRATIONS_PER_IP_HOUR = 10
+MAX_REGISTRATIONS_PER_IP_HOUR = 50
 
 
 async def check_registration_limit(ip: str = "global") -> bool:
