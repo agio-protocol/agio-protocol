@@ -2,8 +2,8 @@
 """Rate limiting via Redis counters."""
 from .redis import redis_client
 
-MAX_REGISTRATIONS_PER_HOUR = 1000  # global
-MAX_REGISTRATIONS_PER_IP_HOUR = 10
+MAX_REGISTRATIONS_PER_HOUR = 10000  # global — handle viral spikes
+MAX_REGISTRATIONS_PER_IP_HOUR = 30   # per IP — generous for shared IPs/VPNs
 
 
 async def check_registration_limit(ip: str = "global") -> bool:

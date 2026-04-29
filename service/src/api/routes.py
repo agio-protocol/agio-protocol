@@ -47,13 +47,18 @@ class ReputationQueryRequest(BaseModel):
 # --- Core Endpoints ---
 
 @router.post("/register")
-async def register_agent(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register_agent(req: RegisterRequest, request: Request = None, db: AsyncSession = Depends(get_db)):
     """Register a new agent with AGIO."""
     if not req.wallet_address or len(req.wallet_address) < 10:
         raise HTTPException(400, "Invalid wallet address (minimum 10 characters)")
     from ..core.ratelimit import check_registration_limit
-    if not await check_registration_limit():
-        raise HTTPException(429, "Registration rate limit exceeded. Try again later.")
+    client_ip = "unknown"
+    if request:
+        client_ip = request.headers.get("x-forwarded-for", request.headers.get("x-real-ip", request.client.host if request.client else "unknown"))
+        if "," in client_ip:
+            client_ip = client_ip.split(",")[0].strip()
+    if not await check_registration_limit(client_ip):
+        raise HTTPException(429, "Registration rate limit exceeded. Try again in a few minutes.")
     return await registry_service.register_agent(
         db, req.wallet_address, req.name, req.metadata
     )
