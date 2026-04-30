@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 COPY . .
-RUN pip install --no-cache-dir . gunicorn "uvicorn[standard]" solders solana bcrypt web3 eth-account || true
+RUN pip install --no-cache-dir . gunicorn "uvicorn[standard]" solders solana bcrypt web3 eth-account "x402[fastapi]" || true
 
 EXPOSE 8000
 
