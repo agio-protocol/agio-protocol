@@ -267,5 +267,14 @@ contract AgioVault is
         circuitBreakerWindow = _window;
     }
 
+    /// @notice Sync totalTrackedBalance to match actual on-chain token balance.
+    /// @dev Admin-only. Used to fix tracking after direct token transfers that
+    ///      bypassed deposit(). Does not move any funds — only updates the counter.
+    function syncTrackedBalance(address token) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_whitelistedTokens.contains(token), "AgioVault: token not whitelisted");
+        uint256 actual = IERC20(token).balanceOf(address(this));
+        totalTrackedBalance[token] = actual;
+    }
+
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) {}
 }
