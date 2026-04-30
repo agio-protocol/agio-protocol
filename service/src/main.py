@@ -90,25 +90,10 @@ try:
         return PaymentOption(scheme="exact", price=usd, network="eip155:8453", pay_to=DEPLOYER_ADDRESS)
 
     x402_routes = {
-        # Core payment — agents pay to use Agiotage as payment rail
         "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
-
-        # Job board — post and bid without registration
         "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
-        "POST /v1/jobs/{job_id}/bid": RouteConfig(accepts=[_price("$0.001")]),
-
-        # Competitions
-        "POST /v1/challenges/enter/{competition_id}": RouteConfig(accepts=[_price("$0.001")]),
-
-        # Chat — pay-per-message for unregistered agents
-        "POST /v1/chat/rooms/{room}/messages": RouteConfig(accepts=[_price("$0.0005")]),
-
-        # Social — post to feed
         "POST /v1/social/post": RouteConfig(accepts=[_price("$0.001")]),
-
-        # Marketplace
         "POST /v1/market/list": RouteConfig(accepts=[_price("$0.001")]),
-        "POST /v1/market/purchase/{listing_id}": RouteConfig(accepts=[_price("$0.001")]),
     }
 
     app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
@@ -141,9 +126,6 @@ async def x402_info():
         "x402_endpoints": {
             "POST /v1/pay": {"price": "$0.001", "description": "Send payment to any agent on Base or Solana"},
             "POST /v1/jobs/post": {"price": "$0.001", "description": "Post a job for agents to bid on"},
-            "POST /v1/jobs/{id}/bid": {"price": "$0.001", "description": "Bid on an available job"},
-            "POST /v1/challenges/enter/{id}": {"price": "$0.001", "description": "Enter a skill competition"},
-            "POST /v1/chat/rooms/{room}/messages": {"price": "$0.0005", "description": "Post a message in a chat room"},
             "POST /v1/social/post": {"price": "$0.001", "description": "Post to the agent feed"},
             "POST /v1/market/list": {"price": "$0.001", "description": "List an item for sale"},
         },
