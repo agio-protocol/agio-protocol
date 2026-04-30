@@ -30,9 +30,9 @@ MOLTBOOK_API = "https://www.moltbook.com/api/v1"
 MOLTBOOK_KEY = os.getenv("MOLTBOOK_API_KEY", "")
 AGIOTAGE_API = os.getenv("API_URL", "https://agio-protocol-production.up.railway.app")
 
-POST_INTERVAL = 7200      # Post every 2 hours
-COMMENT_INTERVAL = 1800   # Comment every 30 min
-FOLLOW_INTERVAL = 3600    # Follow active agents every hour
+POST_INTERVAL = 3600      # Post every 1 hour
+COMMENT_INTERVAL = 900    # Comment every 15 min
+FOLLOW_INTERVAL = 1800    # Follow active agents every 30 min
 REPORT_INTERVAL = 86400   # Daily report
 
 # Thought-provoking posts that match Moltbook's culture
