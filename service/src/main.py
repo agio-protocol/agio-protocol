@@ -71,6 +71,34 @@ class CookieToHeaderMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CookieToHeaderMiddleware)
 
+# x402 Payment Protocol — makes Agiotage discoverable on agentic.market
+try:
+    from x402.http.middleware.fastapi import PaymentMiddlewareASGI
+    from x402.http import HTTPFacilitatorClient, FacilitatorConfig, PaymentOption
+    from x402.http.types import RouteConfig
+    from x402.server import x402ResourceServer
+    from x402.mechanisms.evm.exact import ExactEvmServerScheme
+
+    FACILITATOR_URL = os.getenv("X402_FACILITATOR_URL", "https://x402.org/facilitator")
+    DEPLOYER_ADDRESS = os.getenv("X402_RECEIVER", "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051")
+
+    x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
+    x402_server.register("eip155:8453", ExactEvmServerScheme())  # Base mainnet
+
+    x402_routes = {
+        "POST /v1/pay": RouteConfig(accepts=[
+            PaymentOption(scheme="exact", price="$0.001", network="eip155:8453", pay_to=DEPLOYER_ADDRESS),
+        ]),
+        "POST /v1/jobs/post": RouteConfig(accepts=[
+            PaymentOption(scheme="exact", price="$0.001", network="eip155:8453", pay_to=DEPLOYER_ADDRESS),
+        ]),
+    }
+
+    app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
+    logging.getLogger("x402").info("x402 payment protocol enabled — discoverable on agentic.market")
+except Exception as e:
+    logging.getLogger("x402").warning(f"x402 not available: {e}")
+
 app.include_router(router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
