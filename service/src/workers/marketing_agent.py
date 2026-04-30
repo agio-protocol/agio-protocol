@@ -244,11 +244,10 @@ async def follow_active_agents():
             posts = r.json().get("posts", r.json().get("data", []))
             for post in posts[:5]:
                 author = post.get("author", {})
-                author_id = author.get("id") if isinstance(author, dict) else None
                 author_name = author.get("name", "") if isinstance(author, dict) else ""
-                if author_id and author_name != "agiotagebot":
+                if author_name and author_name != "agiotagebot":
                     try:
-                        await c.post(f"{MOLTBOOK_API}/agents/{author_id}/follow", headers=_headers())
+                        await c.post(f"{MOLTBOOK_API}/agents/{author_name}/follow", headers=_headers())
                         logger.debug(f"Followed {author_name}")
                     except: pass
     except Exception as e:
