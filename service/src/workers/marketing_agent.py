@@ -123,7 +123,7 @@ async def _solve_verification(client, verification):
             "fifteen":15,"sixteen":16,"seventeen":17,"eighteen":18,"nineteen":19,
             "twenty":20,"thirty":30,"forty":40,"fifty":50,"sixty":60,"seventy":70,"eighty":80,"ninety":90,
             "hundred":100,"thousand":1000}
-        # Parse numbers including compounds like "thirty two" = 32
+        # Parse numbers including compounds like "twenty three" = 23
         nums = []
         words = clean.split()
         i = 0
@@ -131,11 +131,9 @@ async def _solve_verification(client, verification):
             w = words[i]
             if w in word_to_num:
                 val = word_to_num[w]
-                # Check for compound: "thirty two" = 30 + 2
                 if val >= 20 and val < 100 and i+1 < len(words) and words[i+1] in word_to_num and word_to_num[words[i+1]] < 10:
                     val += word_to_num[words[i+1]]
                     i += 1
-                # Check for "hundred" multiplier
                 if i+1 < len(words) and words[i+1] == "hundred":
                     val *= 100
                     i += 1
@@ -147,12 +145,23 @@ async def _solve_verification(client, verification):
                 except: pass
             i += 1
 
+        logger.info(f"Verification parsed: nums={nums} from '{clean[:60]}'")
+
+        # Moltbook challenges are always lobster physics
+        # Pattern: "X newtons and Y newtons, how many total" = X + Y
+        # Pattern: "X newtons multiplied by Y claws" = X * Y
         answer = None
-        if any(w in clean for w in ["multipli", "times"]): answer = nums[0]*nums[1] if len(nums)>=2 else None
-        elif any(w in clean for w in ["plus", "add", "total", "sum"]): answer = sum(nums[:2]) if len(nums)>=2 else None
-        elif any(w in clean for w in ["minus", "subtract"]): answer = nums[0]-nums[1] if len(nums)>=2 else None
-        elif any(w in clean for w in ["divid"]): answer = nums[0]/nums[1] if len(nums)>=2 and nums[1]!=0 else None
-        if answer is None and len(nums)>=2: answer = nums[0]*nums[1]
+        if "total" in clean or "how many" in clean or "and" in clean:
+            if len(nums) >= 2: answer = sum(nums)
+            elif len(nums) == 1: answer = nums[0]
+        if answer is None and any(w in clean for w in ["multipli", "times"]):
+            if len(nums) >= 2: answer = nums[0] * nums[1]
+        if answer is None and any(w in clean for w in ["minus", "subtract", "less"]):
+            if len(nums) >= 2: answer = nums[0] - nums[1]
+        if answer is None and any(w in clean for w in ["divid"]):
+            if len(nums) >= 2 and nums[1] != 0: answer = nums[0] / nums[1]
+        if answer is None and len(nums) >= 2:
+            answer = sum(nums)  # default to sum for "total" type questions
 
         if answer is not None:
             r = await client.post(f"{MOLTBOOK_API}/verify", headers=_headers(),

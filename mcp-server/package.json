@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "bin": {
-    "agiotage-mcp": "./index.js"
+    "agiotage-mcp": "index.js"
   },
   "scripts": {
     "start": "node index.js"
