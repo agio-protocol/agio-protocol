@@ -85,8 +85,12 @@ try:
 
     # x402 middleware requires a Coinbase CDP API key for the facilitator
     # Enable once CDP_API_KEY is set in Railway env vars
-    CDP_API_KEY = os.getenv("CDP_API_KEY", "")
-    if CDP_API_KEY:
+    # x402 middleware disabled until facilitator supports Base mainnet (eip155:8453)
+    # The x402.org facilitator currently only supports testnets for the "exact" scheme
+    # When Coinbase CDP facilitator adds Base mainnet support, enable by setting
+    # X402_ENABLED=true in Railway env vars
+    X402_ENABLED = os.getenv("X402_ENABLED", "false").lower() == "true"
+    if X402_ENABLED:
         x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
         x402_server.register("eip155:8453", ExactEvmServerScheme())
 
@@ -96,14 +100,12 @@ try:
         x402_routes = {
             "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
             "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
-            "POST /v1/social/post": RouteConfig(accepts=[_price("$0.001")]),
-            "POST /v1/market/list": RouteConfig(accepts=[_price("$0.001")]),
         }
 
         app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
         logging.getLogger("x402").info(f"x402 ACTIVE: {len(x402_routes)} paid endpoints")
     else:
-        logging.getLogger("x402").info("x402 discovery enabled (set CDP_API_KEY to activate payment middleware)")
+        logging.getLogger("x402").info("x402 discovery enabled (middleware ready, set X402_ENABLED=true when facilitator supports Base mainnet)")
 except Exception as e:
     logging.getLogger("x402").warning(f"x402 not available: {e}")
 
