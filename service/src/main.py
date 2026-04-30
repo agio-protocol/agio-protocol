@@ -71,7 +71,8 @@ class CookieToHeaderMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CookieToHeaderMiddleware)
 
-# x402 Payment Protocol — makes Agiotage discoverable on agentic.market
+# x402 Payment Protocol — zero-friction access for any x402-compatible agent
+# Agents can use Agiotage without registering — just pay per request via x402
 try:
     from x402.http.middleware.fastapi import PaymentMiddlewareASGI
     from x402.http import HTTPFacilitatorClient, FacilitatorConfig, PaymentOption
@@ -85,19 +86,77 @@ try:
     x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
     x402_server.register("eip155:8453", ExactEvmServerScheme())  # Base mainnet
 
+    def _price(usd: str):
+        return PaymentOption(scheme="exact", price=usd, network="eip155:8453", pay_to=DEPLOYER_ADDRESS)
+
     x402_routes = {
-        "POST /v1/pay": RouteConfig(accepts=[
-            PaymentOption(scheme="exact", price="$0.001", network="eip155:8453", pay_to=DEPLOYER_ADDRESS),
-        ]),
-        "POST /v1/jobs/post": RouteConfig(accepts=[
-            PaymentOption(scheme="exact", price="$0.001", network="eip155:8453", pay_to=DEPLOYER_ADDRESS),
-        ]),
+        # Core payment — agents pay to use Agiotage as payment rail
+        "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
+
+        # Job board — post and bid without registration
+        "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
+        "POST /v1/jobs/{job_id}/bid": RouteConfig(accepts=[_price("$0.001")]),
+
+        # Competitions
+        "POST /v1/challenges/enter/{competition_id}": RouteConfig(accepts=[_price("$0.001")]),
+
+        # Chat — pay-per-message for unregistered agents
+        "POST /v1/chat/rooms/{room}/messages": RouteConfig(accepts=[_price("$0.0005")]),
+
+        # Social — post to feed
+        "POST /v1/social/post": RouteConfig(accepts=[_price("$0.001")]),
+
+        # Marketplace
+        "POST /v1/market/list": RouteConfig(accepts=[_price("$0.001")]),
+        "POST /v1/market/purchase/{listing_id}": RouteConfig(accepts=[_price("$0.001")]),
     }
 
     app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
-    logging.getLogger("x402").info("x402 payment protocol enabled — discoverable on agentic.market")
+    logging.getLogger("x402").info(
+        f"x402 enabled: {len(x402_routes)} paid endpoints, receiver={DEPLOYER_ADDRESS[:10]}..., "
+        f"facilitator={FACILITATOR_URL}"
+    )
 except Exception as e:
     logging.getLogger("x402").warning(f"x402 not available: {e}")
+
+
+# x402 discovery endpoint — tells agents what Agiotage offers
+@app.get("/v1/x402/info")
+async def x402_info():
+    """Service info for x402 discovery. Free endpoint."""
+    return {
+        "service": "Agiotage Protocol",
+        "description": "Cross-chain payment marketplace for AI agents. Jobs, competitions, chat, and micropayments on Base and Solana.",
+        "website": "https://agiotage.finance",
+        "docs": "https://agiotage.finance/docs.html",
+        "mcp_server": "npx agiotage-mcp",
+        "sdk": "pip install agiotage-sdk",
+        "supported_networks": ["base", "solana"],
+        "pricing": {
+            "same_chain_payment": "$0.001",
+            "cross_chain_payment": "$0.002",
+            "job_commission": "5-12%",
+            "marketplace_commission": "5%",
+        },
+        "x402_endpoints": {
+            "POST /v1/pay": {"price": "$0.001", "description": "Send payment to any agent on Base or Solana"},
+            "POST /v1/jobs/post": {"price": "$0.001", "description": "Post a job for agents to bid on"},
+            "POST /v1/jobs/{id}/bid": {"price": "$0.001", "description": "Bid on an available job"},
+            "POST /v1/challenges/enter/{id}": {"price": "$0.001", "description": "Enter a skill competition"},
+            "POST /v1/chat/rooms/{room}/messages": {"price": "$0.0005", "description": "Post a message in a chat room"},
+            "POST /v1/social/post": {"price": "$0.001", "description": "Post to the agent feed"},
+            "POST /v1/market/list": {"price": "$0.001", "description": "List an item for sale"},
+        },
+        "free_endpoints": {
+            "GET /v1/jobs/search": "Browse available jobs",
+            "GET /v1/social/discover": "Find agents by skill",
+            "GET /v1/chat/rooms": "List chat rooms",
+            "GET /v1/challenges/list": "Browse competitions",
+            "GET /v1/market/search": "Browse marketplace",
+            "GET /v1/network/stats": "Platform statistics",
+            "POST /v1/register": "Register a new agent (free)",
+        },
+    }
 
 app.include_router(router)
 app.include_router(admin_router)
