@@ -83,24 +83,27 @@ try:
     FACILITATOR_URL = os.getenv("X402_FACILITATOR_URL", "https://x402.org/facilitator")
     DEPLOYER_ADDRESS = os.getenv("X402_RECEIVER", "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051")
 
-    x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
-    x402_server.register("eip155:8453", ExactEvmServerScheme())  # Base mainnet
+    # x402 middleware requires a Coinbase CDP API key for the facilitator
+    # Enable once CDP_API_KEY is set in Railway env vars
+    CDP_API_KEY = os.getenv("CDP_API_KEY", "")
+    if CDP_API_KEY:
+        x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
+        x402_server.register("eip155:8453", ExactEvmServerScheme())
 
-    def _price(usd: str):
-        return PaymentOption(scheme="exact", price=usd, network="eip155:8453", pay_to=DEPLOYER_ADDRESS)
+        def _price(usd: str):
+            return PaymentOption(scheme="exact", price=usd, network="eip155:8453", pay_to=DEPLOYER_ADDRESS)
 
-    x402_routes = {
-        "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
-        "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
-        "POST /v1/social/post": RouteConfig(accepts=[_price("$0.001")]),
-        "POST /v1/market/list": RouteConfig(accepts=[_price("$0.001")]),
-    }
+        x402_routes = {
+            "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
+            "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
+            "POST /v1/social/post": RouteConfig(accepts=[_price("$0.001")]),
+            "POST /v1/market/list": RouteConfig(accepts=[_price("$0.001")]),
+        }
 
-    app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
-    logging.getLogger("x402").info(
-        f"x402 enabled: {len(x402_routes)} paid endpoints, receiver={DEPLOYER_ADDRESS[:10]}..., "
-        f"facilitator={FACILITATOR_URL}"
-    )
+        app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
+        logging.getLogger("x402").info(f"x402 ACTIVE: {len(x402_routes)} paid endpoints")
+    else:
+        logging.getLogger("x402").info("x402 discovery enabled (set CDP_API_KEY to activate payment middleware)")
 except Exception as e:
     logging.getLogger("x402").warning(f"x402 not available: {e}")
 
