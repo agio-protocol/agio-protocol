@@ -119,13 +119,33 @@ async def _solve_verification(client, verification):
         clean = "".join(ch.lower() if ch.isalpha() or ch.isdigit() or ch in " .,'-" else "" for ch in challenge)
 
         word_to_num = {"zero":0,"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,
-            "eight":8,"nine":9,"ten":10,"twelve":12,"fifteen":15,"twenty":20,"twenty-five":25,
-            "thirty":30,"forty":40,"fifty":50,"sixty":60,"seventy":70,"eighty":80,"ninety":90,
+            "eight":8,"nine":9,"ten":10,"eleven":11,"twelve":12,"thirteen":13,"fourteen":14,
+            "fifteen":15,"sixteen":16,"seventeen":17,"eighteen":18,"nineteen":19,
+            "twenty":20,"thirty":30,"forty":40,"fifty":50,"sixty":60,"seventy":70,"eighty":80,"ninety":90,
             "hundred":100,"thousand":1000}
+        # Parse numbers including compounds like "thirty two" = 32
         nums = []
-        for w in clean.split():
-            if w in word_to_num: nums.append(word_to_num[w])
-            elif w.isdigit(): nums.append(int(w))
+        words = clean.split()
+        i = 0
+        while i < len(words):
+            w = words[i]
+            if w in word_to_num:
+                val = word_to_num[w]
+                # Check for compound: "thirty two" = 30 + 2
+                if val >= 20 and val < 100 and i+1 < len(words) and words[i+1] in word_to_num and word_to_num[words[i+1]] < 10:
+                    val += word_to_num[words[i+1]]
+                    i += 1
+                # Check for "hundred" multiplier
+                if i+1 < len(words) and words[i+1] == "hundred":
+                    val *= 100
+                    i += 1
+                nums.append(val)
+            elif w.isdigit():
+                nums.append(int(w))
+            elif '.' in w:
+                try: nums.append(float(w))
+                except: pass
+            i += 1
 
         answer = None
         if any(w in clean for w in ["multipli", "times"]): answer = nums[0]*nums[1] if len(nums)>=2 else None
