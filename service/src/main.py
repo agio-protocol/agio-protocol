@@ -83,29 +83,24 @@ try:
     FACILITATOR_URL = os.getenv("X402_FACILITATOR_URL", "https://x402.org/facilitator")
     DEPLOYER_ADDRESS = os.getenv("X402_RECEIVER", "0xB18A31796ea51c52c203c96AaB0B1bC551C4e051")
 
-    # x402 middleware requires a Coinbase CDP API key for the facilitator
-    # Enable once CDP_API_KEY is set in Railway env vars
-    # x402 middleware disabled until facilitator supports Base mainnet (eip155:8453)
-    # The x402.org facilitator currently only supports testnets for the "exact" scheme
-    # When Coinbase CDP facilitator adds Base mainnet support, enable by setting
-    # X402_ENABLED=true in Railway env vars
-    X402_ENABLED = os.getenv("X402_ENABLED", "false").lower() == "true"
-    if X402_ENABLED:
-        x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
-        x402_server.register("eip155:8453", ExactEvmServerScheme())
+    # TEMPORARY: Using Base Sepolia testnet (eip155:84532) for agentic.market indexing.
+    # The x402.org facilitator supports testnets now; switch back to eip155:8453 when
+    # mainnet facilitator support arrives.
+    X402_NETWORK = "eip155:84532"
 
-        def _price(usd: str):
-            return PaymentOption(scheme="exact", price=usd, network="eip155:8453", pay_to=DEPLOYER_ADDRESS)
+    x402_server = x402ResourceServer(HTTPFacilitatorClient(FacilitatorConfig(url=FACILITATOR_URL)))
+    x402_server.register(X402_NETWORK, ExactEvmServerScheme())
 
-        x402_routes = {
-            "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
-            "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
-        }
+    def _price(usd: str):
+        return PaymentOption(scheme="exact", price=usd, network=X402_NETWORK, pay_to=DEPLOYER_ADDRESS)
 
-        app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
-        logging.getLogger("x402").info(f"x402 ACTIVE: {len(x402_routes)} paid endpoints")
-    else:
-        logging.getLogger("x402").info("x402 discovery enabled (middleware ready, set X402_ENABLED=true when facilitator supports Base mainnet)")
+    x402_routes = {
+        "POST /v1/pay": RouteConfig(accepts=[_price("$0.001")]),
+        "POST /v1/jobs/post": RouteConfig(accepts=[_price("$0.001")]),
+    }
+
+    app.add_middleware(PaymentMiddlewareASGI, routes=x402_routes, server=x402_server)
+    logging.getLogger("x402").info(f"x402 ACTIVE on Base Sepolia testnet ({X402_NETWORK}): {len(x402_routes)} paid endpoints")
 except Exception as e:
     logging.getLogger("x402").warning(f"x402 not available: {e}")
 
