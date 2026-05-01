@@ -78,7 +78,7 @@ Best regards,
 Jeffrey Wylie
 JWHC LLC
 Texas, USA
-j2422144@gmail.com
+contact@agiotage.finance
 
 ---
 
