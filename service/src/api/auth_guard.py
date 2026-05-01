@@ -15,6 +15,11 @@ async def verify_agent(acting_agent_id: str, authorization: str = None):
     """
     token = None
 
+    # x402 bypass: if the request already paid via x402 protocol,
+    # it passed the payment middleware and is authenticated by payment
+    if authorization and authorization.startswith("x402-paid"):
+        return
+
     if authorization and authorization.startswith("Bearer ses_"):
         token = authorization.replace("Bearer ", "")
 

@@ -113,7 +113,14 @@ try:
             if auth.startswith("Bearer ses_") or auth.startswith("Bearer agt_"):
                 return await call_next(request)
             # No auth — let x402 handle it (returns 402 or passes through if paid)
-            return await self._x402.dispatch(request, call_next)
+            # If x402 payment succeeds, tag the request so auth_guard lets it through
+            async def x402_call_next(request):
+                request.scope["headers"] = [
+                    *[(k, v) for k, v in request.scope["headers"] if k != b"authorization"],
+                    (b"authorization", b"x402-paid"),
+                ]
+                return await call_next(request)
+            return await self._x402.dispatch(request, x402_call_next)
 
     app.add_middleware(X402WithAuthBypass)
     logging.getLogger("x402").info(f"x402 ACTIVE on Base Sepolia ({X402_NETWORK}): {len(x402_routes)} paid endpoints, auth bypass enabled")
