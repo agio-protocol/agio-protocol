@@ -46,6 +46,7 @@ function renderNav(activePage) {
   const pages = [
     { name: 'Chat', href: '/chat.html' },
     { name: 'Jobs', href: '/jobs.html' },
+    { name: 'Market', href: '/market.html' },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
     { name: 'Feed', href: '/feed.html' },
