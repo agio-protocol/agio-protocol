@@ -17,6 +17,17 @@ from .api.market_routes import router as market_router
 from .api.notification_routes import router as notif_router
 from .api.chat_routes import router as chat_router
 from .api.auth_routes import router as auth_router
+from .api.meme_routes import router as meme_router
+from .api.smart_money_routes import router as smart_money_router
+from .api.whale_routes import router as whale_router
+from .api.sentiment_routes import router as sentiment_router
+from .api.wallet_follow_routes import router as wallet_follow_router
+from .api.correlation_routes import router as correlation_router
+from .api.unusual_whales_routes import router as uw_router
+from .api.alpha_routes import router as alpha_router
+from .api.paper_trader_routes import router as paper_trader_router
+from .api.crypto_trader_routes import router as crypto_trader_router
+from .api.stock_trader_routes import router as stock_trader_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -30,9 +41,90 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create tables on startup (dev only — use Alembic for production)."""
+    import asyncio
+    # Import all models so create_all picks them up
+    from .workers.smart_money_tracker import SmartMoneyWallet, SmartMoneyTrade, ClusterSignal  # noqa
+    from .workers.whale_tracker import WhaleTransaction, CryptoSignal  # noqa
+    from .workers.stocks_tracker import StockWhaleMove, StockSignal  # noqa
+    from .workers.sentiment_tracker import SocialMention, SentimentSignal  # noqa
+    from .workers.wallet_follow import FollowedWallet, WalletTrade, WalletSignal  # noqa
+    from .workers.correlation_engine import CorrelatedSignal  # noqa
+    from .workers.paper_trader import PaperPosition, PaperTrade  # noqa
+    from .workers.crypto_paper_trader import CryptoPaperPosition, CryptoPaperTrade  # noqa
+    from .workers.stock_paper_trader import StockPaperPosition, StockPaperTrade  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Add new columns to meme_deployments if missing
+        for col_sql in [
+            "ALTER TABLE meme_deployments ADD COLUMN IF NOT EXISTS peak_fdv NUMERIC(18,2)",
+            "ALTER TABLE meme_deployments ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP",
+            "ALTER TABLE meme_deployments ADD COLUMN IF NOT EXISTS peak_liquidity NUMERIC(18,2)",
+            "ALTER TABLE meme_deployments ADD COLUMN IF NOT EXISTS is_rugged BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE meme_deployments ADD COLUMN IF NOT EXISTS rugged_at TIMESTAMP",
+            "ALTER TABLE top_deployers ADD COLUMN IF NOT EXISTS rug_count INTEGER DEFAULT 0",
+            "ALTER TABLE smart_money_trades ADD COLUMN IF NOT EXISTS wallet_name VARCHAR(100)",
+            "ALTER TABLE smart_money_trades ADD COLUMN IF NOT EXISTS wallet_twitter VARCHAR(100)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS weighted_score NUMERIC(8,2)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS avg_wallet_winrate NUMERIC(5,2)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS is_deployer_token BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS price_at_signal NUMERIC(18,10)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS price_1h NUMERIC(18,10)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS price_6h NUMERIC(18,10)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS price_24h NUMERIC(18,10)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS pct_change_1h NUMERIC(8,4)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS pct_change_6h NUMERIC(8,4)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS pct_change_24h NUMERIC(8,4)",
+            "ALTER TABLE cluster_signals ADD COLUMN IF NOT EXISTS outcome VARCHAR(20)",
+            "ALTER TABLE social_mentions ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT 'crypto'",
+            "ALTER TABLE sentiment_signals ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT 'crypto'",
+            "ALTER TABLE social_mentions ADD COLUMN IF NOT EXISTS sentiment_score INTEGER",
+            "ALTER TABLE social_mentions ADD COLUMN IF NOT EXISTS conviction INTEGER",
+        ]:
+            try:
+                await conn.execute(__import__('sqlalchemy').text(col_sql))
+            except Exception:
+                pass
+    # Start background workers
+    from .workers.meme_tracker import run as meme_tracker_run
+    from .workers.marketing_agent import run_agent as moltbook_run
+    from .workers.meme_backfill import run as meme_backfill_run
+    from .workers.smart_money_tracker import run as smart_money_run, SmartMoneyWallet, SmartMoneyTrade, ClusterSignal  # noqa
+    from .workers.whale_tracker import run as whale_run, WhaleTransaction, CryptoSignal  # noqa
+    from .workers.stocks_tracker import run as stocks_run, StockWhaleMove, StockSignal  # noqa
+    from .workers.sentiment_tracker import run as sentiment_run, SocialMention, SentimentSignal  # noqa
+    from .workers.wallet_follow import run as wallet_follow_run, FollowedWallet, WalletTrade, WalletSignal  # noqa
+    meme_task = asyncio.create_task(meme_tracker_run())
+    moltbook_task = asyncio.create_task(moltbook_run())
+    backfill_task = asyncio.create_task(meme_backfill_run())
+    smart_money_task = asyncio.create_task(smart_money_run())
+    whale_task = asyncio.create_task(whale_run())
+    stocks_task = asyncio.create_task(stocks_run())
+    sentiment_task = asyncio.create_task(sentiment_run())
+    wallet_follow_task = asyncio.create_task(wallet_follow_run())
+    from .workers.correlation_engine import run as correlation_run
+    from .workers.telegram_alerts import run as telegram_run
+    from .workers.paper_trader import run as paper_trader_run
+    from .workers.crypto_paper_trader import run as crypto_trader_run
+    from .workers.stock_paper_trader import run as stock_trader_run
+    correlation_task = asyncio.create_task(correlation_run())
+    telegram_task = asyncio.create_task(telegram_run())
+    paper_task = asyncio.create_task(paper_trader_run())
+    crypto_trader_task = asyncio.create_task(crypto_trader_run())
+    stock_trader_task = asyncio.create_task(stock_trader_run())
     yield
+    meme_task.cancel()
+    moltbook_task.cancel()
+    backfill_task.cancel()
+    smart_money_task.cancel()
+    whale_task.cancel()
+    stocks_task.cancel()
+    sentiment_task.cancel()
+    wallet_follow_task.cancel()
+    correlation_task.cancel()
+    telegram_task.cancel()
+    paper_task.cancel()
+    crypto_trader_task.cancel()
+    stock_trader_task.cancel()
     await engine.dispose()
 
 
@@ -174,5 +266,16 @@ app.include_router(market_router)
 app.include_router(notif_router)
 app.include_router(chat_router)
 app.include_router(auth_router)
+app.include_router(meme_router)
+app.include_router(smart_money_router)
+app.include_router(whale_router)
+app.include_router(sentiment_router)
+app.include_router(wallet_follow_router)
+app.include_router(correlation_router)
+app.include_router(uw_router)
+app.include_router(alpha_router)
+app.include_router(paper_trader_router)
+app.include_router(crypto_trader_router)
+app.include_router(stock_trader_router)
 # v1777325742
 # 1777579990
