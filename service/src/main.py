@@ -28,6 +28,7 @@ from .api.alpha_routes import router as alpha_router
 from .api.paper_trader_routes import router as paper_trader_router
 from .api.crypto_trader_routes import router as crypto_trader_router
 from .api.stock_trader_routes import router as stock_trader_router
+from .api.momentum_routes import router as momentum_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI):
     from .workers.paper_trader import PaperPosition, PaperTrade  # noqa
     from .workers.crypto_paper_trader import CryptoPaperPosition, CryptoPaperTrade  # noqa
     from .workers.stock_paper_trader import StockPaperPosition, StockPaperTrade  # noqa
+    from .workers.momentum_scanner import MomentumSignal, VolumeBaseline  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Add new columns to meme_deployments if missing
@@ -106,11 +108,13 @@ async def lifespan(app: FastAPI):
     from .workers.paper_trader import run as paper_trader_run
     from .workers.crypto_paper_trader import run as crypto_trader_run
     from .workers.stock_paper_trader import run as stock_trader_run
+    from .workers.momentum_scanner import run as momentum_run
     correlation_task = asyncio.create_task(correlation_run())
     telegram_task = asyncio.create_task(telegram_run())
     paper_task = asyncio.create_task(paper_trader_run())
     crypto_trader_task = asyncio.create_task(crypto_trader_run())
     stock_trader_task = asyncio.create_task(stock_trader_run())
+    momentum_task = asyncio.create_task(momentum_run())
     yield
     meme_task.cancel()
     moltbook_task.cancel()
@@ -125,6 +129,7 @@ async def lifespan(app: FastAPI):
     paper_task.cancel()
     crypto_trader_task.cancel()
     stock_trader_task.cancel()
+    momentum_task.cancel()
     await engine.dispose()
 
 
@@ -277,5 +282,6 @@ app.include_router(alpha_router)
 app.include_router(paper_trader_router)
 app.include_router(crypto_trader_router)
 app.include_router(stock_trader_router)
+app.include_router(momentum_router)
 # v1777325742
 # 1777579990

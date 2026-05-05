@@ -192,7 +192,21 @@ async def _check_for_entries():
             .limit(20)
         )).scalars().all()
 
+        # Get recent momentum signals (volume spikes, breakouts)
+        from .momentum_scanner import MomentumSignal
+        momentum_signals = (await db.execute(
+            select(MomentumSignal)
+            .where(
+                MomentumSignal.detected_at >= cutoff,
+                MomentumSignal.strength.in_(["STRONG", "VERY_STRONG"]),
+                MomentumSignal.signal_type.in_(["volume_spike", "momentum_up", "breakout"]),
+            )
+            .order_by(MomentumSignal.detected_at.desc())
+            .limit(20)
+        )).scalars().all()
+
         # Build a map of symbols with their signals
+        _empty = lambda: {"whale_signals": [], "correlated": [], "momentum": [], "score": 0, "sources": []}
         symbol_data = {}
 
         for sig in whale_signals:
@@ -200,7 +214,7 @@ async def _check_for_entries():
             if sym not in config["allowed_symbols"] or sym in config["skip_symbols"]:
                 continue
             if sym not in symbol_data:
-                symbol_data[sym] = {"whale_signals": [], "correlated": [], "score": 0, "sources": []}
+                symbol_data[sym] = _empty()
             symbol_data[sym]["whale_signals"].append(sig)
 
         for sig in correlated_signals:
@@ -208,8 +222,16 @@ async def _check_for_entries():
             if sym not in config["allowed_symbols"] or sym in config["skip_symbols"]:
                 continue
             if sym not in symbol_data:
-                symbol_data[sym] = {"whale_signals": [], "correlated": [], "score": 0, "sources": []}
+                symbol_data[sym] = _empty()
             symbol_data[sym]["correlated"].append(sig)
+
+        for sig in momentum_signals:
+            sym = (sig.symbol or "").upper()
+            if sym not in config["allowed_symbols"] or sym in config["skip_symbols"]:
+                continue
+            if sym not in symbol_data:
+                symbol_data[sym] = _empty()
+            symbol_data[sym]["momentum"].append(sig)
 
         for symbol, data in symbol_data.items():
             # Check if we already have a position in this symbol
@@ -242,6 +264,19 @@ async def _check_for_entries():
                 sources.append("correlated")
                 best_corr = max(data["correlated"], key=lambda s: s.confidence)
                 score += best_corr.confidence // 2
+
+            # Momentum signal scoring
+            if data["momentum"]:
+                sources.append("momentum")
+                best_mom = data["momentum"][0]
+                if best_mom.strength == "VERY_STRONG":
+                    score += 25
+                elif best_mom.strength == "STRONG":
+                    score += 15
+                if best_mom.signal_type == "breakout":
+                    score += 10
+                if best_mom.volume_ratio and float(best_mom.volume_ratio) >= 5:
+                    score += 5
 
             # Check for social mentions (sentiment)
             try:
