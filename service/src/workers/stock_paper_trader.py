@@ -318,7 +318,7 @@ async def _live_buy(symbol: str, amount_usd: float) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.tastytrade_exchange import buy
+        from ..services.kraken_exchange import buy
         result = await buy(symbol, amount_usd)
         if result.get("success"):
             _log.info(f"LIVE BUY: ${symbol} ${amount_usd:.2f} order={result.get('order_id')}")
@@ -335,7 +335,7 @@ async def _live_sell(symbol: str, amount_usd: float) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.tastytrade_exchange import sell
+        from ..services.kraken_exchange import sell
         result = await sell(symbol, amount_usd)
         if result.get("success"):
             _log.info(f"LIVE SELL: ${symbol} ${amount_usd:.2f} order={result.get('order_id')}")
@@ -352,7 +352,7 @@ async def _live_sell_all(symbol: str) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.tastytrade_exchange import sell_all
+        from ..services.kraken_exchange import sell_all
         result = await sell_all(symbol)
         if result.get("success"):
             _log.info(f"LIVE SELL ALL: ${symbol} order={result.get('order_id')}")
