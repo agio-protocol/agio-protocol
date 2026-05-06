@@ -239,17 +239,7 @@ def _is_market_hours() -> bool:
 # === PRICE FETCHING ===
 
 async def _get_stock_price(ticker: str) -> float:
-    """Get current stock price. Try Alpaca data API first, Yahoo Finance fallback."""
-    # Try Alpaca if credentials are set
-    try:
-        from ..services.alpaca_exchange import get_price as alpaca_get_price
-        price = await alpaca_get_price(ticker)
-        if price > 0:
-            return price
-    except:
-        pass
-
-    # Yahoo Finance fallback
+    """Get current stock price from Yahoo Finance."""
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -328,7 +318,7 @@ async def _live_buy(symbol: str, amount_usd: float) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.alpaca_exchange import buy
+        from ..services.kraken_exchange import buy
         result = await buy(symbol, amount_usd)
         if result.get("success"):
             _log.info(f"LIVE BUY: ${symbol} ${amount_usd:.2f} order={result.get('order_id')}")
@@ -345,7 +335,7 @@ async def _live_sell(symbol: str, amount_usd: float) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.alpaca_exchange import sell
+        from ..services.kraken_exchange import sell
         result = await sell(symbol, amount_usd)
         if result.get("success"):
             _log.info(f"LIVE SELL: ${symbol} ${amount_usd:.2f} order={result.get('order_id')}")
@@ -362,7 +352,7 @@ async def _live_sell_all(symbol: str) -> dict | None:
     if not await _is_live_mode():
         return None
     try:
-        from ..services.alpaca_exchange import sell_all
+        from ..services.kraken_exchange import sell_all
         result = await sell_all(symbol)
         if result.get("success"):
             _log.info(f"LIVE SELL ALL: ${symbol} order={result.get('order_id')}")
