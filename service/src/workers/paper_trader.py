@@ -172,7 +172,7 @@ async def _get_daily_loss() -> float:
         key = f"paper_trader:daily_loss:{datetime.utcnow().strftime('%Y-%m-%d')}"
         return float(await redis_client.get(key) or 0)
     except:
-        return 0
+        return 9999  # Redis down = assume limit hit, block new entries
 
 
 # === PRICE FETCHING ===
