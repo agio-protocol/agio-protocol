@@ -18,19 +18,45 @@ _cached_account = None
 
 
 async def _login() -> str:
-    """Login to Tastytrade and get session token."""
+    """Login to Tastytrade via OAuth2 (bypasses device challenge) or session fallback."""
     global _session_token, _session_expires
 
-    # Return cached token if still valid
     if _session_token and time.time() < _session_expires:
         return _session_token
 
+    client_id = os.getenv("TASTYTRADE_CLIENT_ID", "")
+    client_secret = os.getenv("TASTYTRADE_CLIENT_SECRET", "")
     username = os.getenv("TASTYTRADE_USERNAME", "")
     password = os.getenv("TASTYTRADE_PASSWORD", "")
-    if not username or not password:
-        raise ValueError("TASTYTRADE_USERNAME and TASTYTRADE_PASSWORD not set")
 
     async with httpx.AsyncClient() as client:
+        # Try OAuth2 first (bypasses device challenge)
+        if client_id and client_secret and username and password:
+            try:
+                resp = await client.post(f"{TASTYTRADE_API}/oauth/token", data={
+                    "grant_type": "password",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "username": username,
+                    "password": password,
+                }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=15)
+
+                if resp.status_code in (200, 201):
+                    data = resp.json()
+                    _session_token = data.get("access_token") or data.get("session-token") or data.get("token")
+                    expires_in = data.get("expires_in", 86000)
+                    _session_expires = time.time() + expires_in - 60
+                    _log.info("Tastytrade OAuth2 session established")
+                    return _session_token
+                else:
+                    _log.warning("Tastytrade OAuth2 failed (%s), trying session login", resp.status_code)
+            except Exception as e:
+                _log.warning("Tastytrade OAuth2 error: %s, trying session login", e)
+
+        # Fallback to session-based login
+        if not username or not password:
+            raise ValueError("TASTYTRADE credentials not set")
+
         resp = await client.post(f"{TASTYTRADE_API}/sessions", json={
             "login": username,
             "password": password,
@@ -39,11 +65,12 @@ async def _login() -> str:
         if resp.status_code == 201:
             data = resp.json().get("data", {})
             _session_token = data.get("session-token")
-            _session_expires = time.time() + 86000  # ~24 hours
+            _session_expires = time.time() + 86000
             _log.info("Tastytrade session established")
             return _session_token
         else:
-            raise ValueError(f"Tastytrade login failed: {resp.status_code}")
+            error = resp.json() if resp.status_code < 500 else {}
+            raise ValueError(f"Tastytrade login failed: {resp.status_code} {error.get('error', {}).get('code', '')}")
 
 
 async def _auth_headers() -> dict:
