@@ -11,7 +11,7 @@ import httpx
 
 _log = logging.getLogger("jupiter-swap")
 
-JUPITER_API = "https://api.jup.ag"
+JUPITER_API = "https://api.jup.ag/swap/v1"
 SOLANA_RPC = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
 
 # Common token mints
