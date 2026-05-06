@@ -230,7 +230,7 @@ async def _check_for_entries():
                 .where(StockWhaleMove.ticker == ticker,
                        StockWhaleMove.source == "insider",
                        StockWhaleMove.action == "Purchase",
-                       StockWhaleMove.detected_at >= cutoff_7d)
+                       StockWhaleMove.created_at >= cutoff_7d)
             )).scalar() or 0
             if insider_buys > 0:
                 score += min(insider_buys * 5, 20)
@@ -242,7 +242,7 @@ async def _check_for_entries():
                 .where(StockWhaleMove.ticker == ticker,
                        StockWhaleMove.source == "congress",
                        StockWhaleMove.action == "Purchase",
-                       StockWhaleMove.detected_at >= cutoff_7d)
+                       StockWhaleMove.created_at >= cutoff_7d)
             )).scalar() or 0
             if congress_buys > 0:
                 score += min(congress_buys * 8, 24)
@@ -253,7 +253,7 @@ async def _check_for_entries():
                 select(func.count()).select_from(StockWhaleMove)
                 .where(StockWhaleMove.ticker == ticker,
                        StockWhaleMove.source == "13f",
-                       StockWhaleMove.detected_at >= cutoff_7d)
+                       StockWhaleMove.created_at >= cutoff_7d)
             )).scalar() or 0
             if has_13f > 0:
                 sources.append("13f")
@@ -269,7 +269,7 @@ async def _check_for_entries():
                     .where(StockWhaleMove.ticker == ticker,
                            StockWhaleMove.source == "insider",
                            StockWhaleMove.action == "Purchase",
-                           StockWhaleMove.detected_at >= cutoff_7d)
+                           StockWhaleMove.created_at >= cutoff_7d)
                 )).scalar() or 0
                 if float(max_value) < config["min_insider_value"]:
                     # Remove insider from sources if below threshold
@@ -309,7 +309,7 @@ async def _check_for_entries():
                     select(StockWhaleMove.filer_name)
                     .where(StockWhaleMove.ticker == ticker,
                            StockWhaleMove.action == "Purchase",
-                           StockWhaleMove.detected_at >= cutoff_7d)
+                           StockWhaleMove.created_at >= cutoff_7d)
                     .limit(5)
                 )).scalars().all()
                 insider_names = [n for n in recent_filers if n]
