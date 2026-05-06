@@ -42,6 +42,54 @@ async def wallet_info(_=Depends(_require_admin)):
         raise HTTPException(400, str(e))
 
 
+@router.get("/wallet/kraken")
+async def kraken_wallet(_=Depends(_require_admin)):
+    """View Kraken account balances."""
+    try:
+        from ..services.kraken_exchange import get_balance
+        return await get_balance()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Kraken balance check failed: {e}")
+
+
+@router.get("/wallet/tastytrade")
+async def tastytrade_wallet(_=Depends(_require_admin)):
+    """View Tastytrade account balances and positions."""
+    try:
+        from ..services.tastytrade_exchange import get_balance, get_positions
+        balance = await get_balance()
+        positions = await get_positions()
+        return {"balance": balance, "positions": positions}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Tastytrade check failed: {e}")
+
+
+@router.get("/wallet/all")
+async def all_wallets(_=Depends(_require_admin)):
+    """View ALL exchange balances in one call."""
+    result = {"meme_wallet": None, "kraken": None, "tastytrade": None}
+    try:
+        from ..services.jupiter_swap import get_balance as sol_balance
+        result["meme_wallet"] = await sol_balance()
+    except:
+        result["meme_wallet"] = {"error": "unavailable"}
+    try:
+        from ..services.kraken_exchange import get_balance as kraken_bal
+        result["kraken"] = await kraken_bal()
+    except:
+        result["kraken"] = {"error": "unavailable"}
+    try:
+        from ..services.tastytrade_exchange import get_balance as tt_bal, get_positions as tt_pos
+        result["tastytrade"] = {"balance": await tt_bal(), "positions": await tt_pos()}
+    except:
+        result["tastytrade"] = {"error": "unavailable"}
+    return result
+
+
 @router.get("/config")
 async def get_trading_config(_=Depends(_require_admin)):
     """View live trading configuration."""
