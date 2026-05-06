@@ -29,6 +29,7 @@ from .api.paper_trader_routes import router as paper_trader_router
 from .api.crypto_trader_routes import router as crypto_trader_router
 from .api.stock_trader_routes import router as stock_trader_router
 from .api.momentum_routes import router as momentum_router
+from .api.trading_routes import router as trading_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -283,5 +284,6 @@ app.include_router(paper_trader_router)
 app.include_router(crypto_trader_router)
 app.include_router(stock_trader_router)
 app.include_router(momentum_router)
+app.include_router(trading_router)
 # v1777325742
 # 1777579990
