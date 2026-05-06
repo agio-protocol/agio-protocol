@@ -1,0 +1,1676 @@
+<!-- Copyright (c) 2026 Agiotage Protocol. All rights reserved. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AGIOTAGE Trading Intelligence — Smart Money, Deployer Tracker, Whale Alerts</title>
+<meta name="description" content="Trading intelligence dashboard. Smart money tracker, memecoin deployer alerts, cluster signals, whale watching, options flow, dark pool, and Congress trades.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#06080d;
+  --card:#0c1018;
+  --card-hover:#111827;
+  --border:#1a2030;
+  --text:#e0e6ef;
+  --muted:#7a8599;
+  --accent:#00d9a3;
+  --red:#ef4444;
+  --yellow:#f59e0b;
+  --purple:#8b5cf6;
+  --blue:#3b82f6;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.page{max-width:1100px;margin:0 auto;padding:20px 24px}
+h1{font-size:24px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:24px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* Bot Performance Banner */
+.bot-banner{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:24px}
+.bot-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative}
+.bot-card:hover{border-color:#374151}
+.bot-card-title{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.bot-card-stats{display:flex;gap:16px;font-size:12px}
+.bot-stat-val{font-size:18px;font-weight:700}
+.bot-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bot-badge{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.trading-status-badge{position:absolute;top:12px;right:12px;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700}
+
+/* Search */
+.search-wrap{margin-bottom:20px}
+.search-box{display:flex;align-items:center;background:var(--card);border:2px solid var(--border);border-radius:10px;padding:4px;transition:border-color .2s}
+.search-box:focus-within{border-color:var(--accent)}
+.search-icon{padding:0 12px;color:var(--muted);font-size:16px}
+.search-input{flex:1;padding:12px 0;background:transparent;border:none;color:var(--text);font-size:15px;font-weight:500;outline:none;font-family:inherit}
+.search-btn{padding:10px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin:2px}
+.scan-btn{padding:10px 18px;background:#1f2937;border:1px solid #374151;color:var(--accent);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;margin:2px;white-space:nowrap}
+
+/* Section Nav */
+.section-nav{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.section-btn{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--muted);transition:all .2s}
+.section-btn:hover{border-color:#374151;color:var(--text)}
+.section-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+/* Stats Row */
+.stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex:1;min-width:120px}
+.stat-val{font-size:22px;font-weight:700;color:var(--accent)}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:6px 6px 0 0;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:transparent;border:none;font-family:inherit}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);background:#00d9a308;border-bottom:2px solid var(--accent)}
+
+/* Coin Selector */
+.coin-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;max-height:80px;overflow-y:auto}
+.coin-btn{padding:4px 10px;font-size:10px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:6px;cursor:pointer;transition:all .15s;font-family:inherit}
+.coin-btn:hover{border-color:#374151;color:var(--text)}
+.coin-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+
+/* Score Ring */
+.score-ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--accent) calc(var(--score) * 1%),var(--border) 0);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.score-ring-inner{width:52px;height:52px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;flex-direction:column}
+.score-ring-inner .score-num{font-size:18px;font-weight:800}
+.score-ring-inner .score-lbl{font-size:7px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.score-ring-lg{width:80px;height:80px}
+.score-ring-lg .score-ring-inner{width:66px;height:66px}
+.score-ring-lg .score-ring-inner .score-num{font-size:22px}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;animation:fadeUp .3s ease both}
+.card:hover{border-color:#374151}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+
+/* Signal cards */
+.signal-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px;animation:fadeUp .3s ease both}
+.signal-card.buy{border-left:4px solid #10b981}
+.signal-card.sell{border-left:4px solid var(--red)}
+.signal-card.hold{border-left:4px solid var(--muted)}
+
+/* Source pills */
+.source-pill{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;display:inline-block;margin:2px}
+
+/* Data rows */
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;font-size:12px;transition:border-color .15s}
+.data-row:hover{border-color:#374151}
+
+/* Insider badges */
+.insider-badge{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.5px}
+.badge-purchase{background:#10b98120;color:#10b981}
+.badge-sale{background:#ef444420;color:var(--red)}
+.badge-award{background:#3b82f620;color:var(--blue)}
+.badge-exercise{background:#f59e0b20;color:var(--yellow)}
+
+/* Deployer ratings */
+.rating{padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:1px}
+.rating-S{background:#f59e0b20;color:var(--yellow);border:1px solid #f59e0b40}
+.rating-A{background:#8b5cf620;color:var(--purple);border:1px solid #8b5cf640}
+.rating-B{background:#3b82f620;color:var(--blue);border:1px solid #3b82f640}
+.rating-C{background:#6b728020;color:#9ca3af;border:1px solid #6b728040}
+.rating-D{background:#ef444420;color:var(--red);border:1px solid #ef444440}
+
+/* Wallet leaderboard */
+.wallet-row{display:flex;align-items:center;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:12px;gap:12px}
+.wallet-row:hover{border-color:#374151}
+.wallet-rank{font-size:16px;font-weight:700;color:var(--accent);width:30px;text-align:center;flex-shrink:0}
+.wallet-info{flex:1;min-width:0}
+.wallet-name{font-weight:600;font-size:13px}
+.wallet-addr{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.wallet-stats{text-align:right;flex-shrink:0}
+.wr-high{color:#10b981}.wr-med{color:var(--yellow)}.wr-low{color:var(--red)}
+
+/* Deployer cards */
+.deployer-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+.deployer-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.deployer-stats{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}
+.token-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card-hover);border-radius:6px;font-size:12px;margin-bottom:4px}
+.token-row:hover{background:#1f2937}
+.token-row.rugged{opacity:.7;border-left:2px solid var(--red)}
+
+/* Misc badges */
+.badge{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600}
+.badge-pump{background:#8b5cf620;color:var(--purple)}
+.badge-rug{background:#ef444420;color:var(--red)}
+.badge-kol{background:#f59e0b20;color:var(--yellow)}
+.badge-sm{background:#10b98120;color:#10b981}
+.badge-new{background:#ef444420;color:var(--red);animation:glow 2s infinite}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.5}}
+
+.empty{color:var(--muted);text-align:center;padding:40px;font-size:13px}
+.login-gate{text-align:center;padding:60px 20px}
+.login-gate h2{font-size:18px;margin-bottom:8px}
+.login-gate p{color:var(--muted);font-size:13px;margin-bottom:20px}
+.login-gate button{padding:10px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:6px;font-weight:600;cursor:pointer}
+
+/* Premium blur gate */
+.premium-gate{position:relative;margin-top:4px}
+.premium-gate-blur{filter:blur(8px);pointer-events:none;opacity:.4}
+.premium-gate-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:10}
+.premium-gate-box{background:var(--card-hover);border:2px solid var(--accent);border-radius:12px;padding:24px 40px;text-align:center;box-shadow:0 0 60px rgba(0,217,163,.15)}
+
+/* Overview layout */
+.overview-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px}
+.overview-data{display:flex;flex-direction:column;gap:12px}
+
+/* Sweep/special tags */
+.sweep-tag{font-size:9px;padding:2px 6px;background:#f59e0b20;color:var(--yellow);border-radius:3px;font-weight:600}
+
+/* Responsive */
+@media(max-width:900px){
+  .overview-grid{grid-template-columns:1fr}
+  .bot-banner{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+  .stats-row{flex-direction:column}
+  .stat-card{min-width:auto}
+  .wallet-row{flex-direction:column;gap:8px;align-items:flex-start}
+  .wallet-stats{text-align:left}
+  .section-nav{flex-direction:column}
+  .section-btn{width:100%;text-align:center}
+  .tabs{overflow-x:auto;flex-wrap:nowrap}
+  .tab{white-space:nowrap}
+  .bot-card-stats{flex-direction:column;gap:8px}
+  .data-row{flex-direction:column;gap:6px;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE="trading";</script>
+<script src="/nav.js"></script>
+
+<div class="page">
+  <h1><span class="live-dot"></span> Trading Intelligence</h1>
+  <p class="subtitle">7 data sources. One signal. Built for agents and traders.</p>
+
+  <!-- Bot Performance Banner -->
+  <div class="bot-banner" id="bot-banner">
+    <div class="bot-card" id="bot-meme">
+      <div class="bot-card-title"><span style="color:var(--purple)">Meme Bot</span></div>
+      <div class="bot-card-stats">
+        <div><div class="bot-stat-val" id="meme-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+        <div><div class="bot-stat-val" id="meme-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+        <div><div class="bot-stat-val" id="meme-trades">--</div><div class="bot-stat-label">Trades</div></div>
+      </div>
+    </div>
+    <div class="bot-card" id="bot-crypto">
+      <div class="bot-card-title"><span style="color:var(--accent)">Crypto Bot</span></div>
+      <div class="bot-card-stats">
+        <div><div class="bot-stat-val" id="crypto-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+        <div><div class="bot-stat-val" id="crypto-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+        <div><div class="bot-stat-val" id="crypto-trades">--</div><div class="bot-stat-label">Trades</div></div>
+      </div>
+    </div>
+    <div class="bot-card" id="bot-stock">
+      <div class="bot-card-title"><span style="color:var(--blue)">Stock Bot</span></div>
+      <div class="bot-card-stats">
+        <div><div class="bot-stat-val" id="stock-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+        <div><div class="bot-stat-val" id="stock-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+        <div><div class="bot-stat-val" id="stock-trades">--</div><div class="bot-stat-label">Trades</div></div>
+      </div>
+    </div>
+    <div class="bot-card" id="bot-live-status">
+      <div class="bot-card-title">Live Trading</div>
+      <div id="live-status-content" style="font-size:12px;color:var(--muted)">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-wrap">
+    <div class="search-box" id="search-box">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="token-search" class="search-input" placeholder="Search any token or stock -- BTC, ETH, SOL, PEPE, AAPL, NVDA..." onkeyup="if(event.key==='Enter')searchToken()">
+      <button class="search-btn" onclick="searchToken()">Search</button>
+      <button class="scan-btn" onclick="scanCurrentSection()" id="scan-all-btn">Scan All</button>
+    </div>
+  </div>
+  <div id="alpha-result" style="display:none;margin-bottom:24px"></div>
+
+  <!-- Section Nav -->
+  <div class="section-nav">
+    <button class="section-btn active" onclick="switchSection('crypto')">Crypto</button>
+    <button class="section-btn" onclick="switchSection('stocks')">Stocks</button>
+    <button class="section-btn" onclick="switchSection('memes')">Memecoins</button>
+  </div>
+
+  <div id="stats-row" class="stats-row"></div>
+  <div id="tabs-container"></div>
+  <div id="login-gate" class="login-gate" style="display:none">
+    <h2>Sign in to access Trading Tools</h2>
+    <p>Real-time smart money tracking, deployer alerts, and whale watching for registered agents.</p>
+    <button onclick="toggleSignIn()">Sign In</button>
+  </div>
+  <div id="content"></div>
+</div>
+
+<script>
+// ========================================================================
+// AGIOTAGE TRADING INTELLIGENCE DASHBOARD
+// ========================================================================
+
+const API = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://agio-protocol-production.up.railway.app';
+
+let currentSection = 'crypto';
+let currentTab = 'coin-overview';
+
+// --- Auth helpers ---
+function getSession() {
+  return localStorage.getItem('agiotage_session') || localStorage.getItem('agiotage_token');
+}
+
+function authFetch(url, opts = {}) {
+  const s = getSession();
+  if (s) {
+    opts.headers = { ...opts.headers, 'Authorization': 'Bearer ' + s };
+  }
+  return fetch(API + url, opts);
+}
+
+function isAuth() {
+  return !!(getSession() && localStorage.getItem('agiotage_token'));
+}
+
+function checkAuth() {
+  if (!isAuth()) {
+    document.getElementById('login-gate').style.display = 'block';
+    document.getElementById('content').innerHTML = '';
+    return false;
+  }
+  document.getElementById('login-gate').style.display = 'none';
+  return true;
+}
+
+// --- Formatting helpers ---
+function fmt$(n) {
+  if (n == null || isNaN(n)) return '--';
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  if (n > 0) return '$' + n.toFixed(0);
+  return '$0';
+}
+
+function shortAddr(a) { return a ? a.slice(0, 6) + '...' + a.slice(-4) : 'unknown'; }
+
+function timeAgo(iso) {
+  if (!iso) return '--';
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
+function pctColor(v) { return v >= 0 ? '#10b981' : 'var(--red)'; }
+function pctStr(v) { return v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
+
+function scoreRingHTML(score, size) {
+  const cls = size === 'lg' ? 'score-ring score-ring-lg' : 'score-ring';
+  const color = score >= 60 ? 'var(--accent)' : score >= 40 ? 'var(--yellow)' : 'var(--red)';
+  return `<div class="${cls}" style="--score:${score};background:conic-gradient(${color} calc(var(--score) * 1%), var(--border) 0)">
+    <div class="score-ring-inner">
+      <span class="score-num" style="color:${color}">${score}</span>
+      <span class="score-lbl">AGIOTAGE</span>
+    </div>
+  </div>`;
+}
+
+function premiumGateHTML(count) {
+  return `<div class="premium-gate">
+    <div class="premium-gate-blur">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:8px"></div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:8px"></div>
+    </div>
+    <div class="premium-gate-overlay">
+      <div class="premium-gate-box">
+        <div style="font-size:18px;font-weight:800;margin-bottom:6px;color:var(--text)">${count} more results</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Unlock all signals, smart money data, and whale flow</div>
+        <button onclick="toggleSignIn()" style="padding:12px 32px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:14px">Sign In Free</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function sourcePillHTML(source) {
+  const map = {
+    correlated: { c: 'var(--accent)', l: 'Correlated' },
+    smart_money: { c: '#10b981', l: 'Smart Money' },
+    whale_accumulation: { c: '#10b981', l: 'Whale Buy' },
+    whale_sell_pressure: { c: 'var(--red)', l: 'Whale Sell' },
+    social: { c: 'var(--purple)', l: 'Social' },
+    lunarcrush: { c: 'var(--yellow)', l: 'LunarCrush' },
+    deployer: { c: 'var(--yellow)', l: 'Deployer' },
+    followed_wallets: { c: 'var(--yellow)', l: 'Followed' },
+    deployer_S_tier: { c: 'var(--yellow)', l: 'S-Tier Deployer' },
+    deployer_A_tier: { c: 'var(--purple)', l: 'A-Tier Deployer' },
+    deployer_rated: { c: 'var(--blue)', l: 'Rated Deployer' },
+    deployer_rug_warning: { c: 'var(--red)', l: 'Rug Warning' },
+    insider_buying: { c: '#10b981', l: 'Insider Buying' },
+    insider_selling: { c: 'var(--red)', l: 'Insider Selling' },
+  };
+  const m = map[source] || { c: 'var(--muted)', l: source };
+  return `<span class="source-pill" style="background:${m.c}20;color:${m.c}">${m.l}</span>`;
+}
+
+function insiderBadgeHTML(action) {
+  const a = (action || '').toLowerCase();
+  if (a.includes('purchase') || a.includes('buy')) return `<span class="insider-badge badge-purchase">P</span>`;
+  if (a.includes('sale') || a.includes('sell')) return `<span class="insider-badge badge-sale">S</span>`;
+  if (a.includes('award') || a.includes('grant')) return `<span class="insider-badge badge-award">A</span>`;
+  if (a.includes('exercise')) return `<span class="insider-badge badge-exercise">E</span>`;
+  return `<span class="insider-badge" style="background:var(--border);color:var(--muted)">${(action || '?').charAt(0).toUpperCase()}</span>`;
+}
+
+// ========================================================================
+// BOT PERFORMANCE BANNER
+// ========================================================================
+async function loadBotPerformance() {
+  try {
+    const [meme, crypto, stock, status] = await Promise.all([
+      fetch(API + '/v1/paper-trader/performance').then(r => r.json()).catch(() => null),
+      fetch(API + '/v1/crypto-trader/performance').then(r => r.json()).catch(() => null),
+      fetch(API + '/v1/stock-trader/performance').then(r => r.json()).catch(() => null),
+      fetch(API + '/v1/trading/status').then(r => r.json()).catch(() => null),
+    ]);
+
+    if (meme) {
+      const wr = meme.win_rate != null ? (meme.win_rate * 100).toFixed(1) + '%' : (meme.win_rate_pct != null ? meme.win_rate_pct.toFixed(1) + '%' : '--');
+      document.getElementById('meme-wr').textContent = wr;
+      const pnl = meme.total_pnl != null ? fmt$(meme.total_pnl) : (meme.pnl != null ? fmt$(meme.pnl) : '--');
+      document.getElementById('meme-pnl').textContent = pnl;
+      document.getElementById('meme-pnl').style.color = (meme.total_pnl || meme.pnl || 0) >= 0 ? '#10b981' : 'var(--red)';
+      document.getElementById('meme-trades').textContent = meme.total_trades || meme.trades || '--';
+    }
+
+    if (crypto) {
+      const wr = crypto.win_rate != null ? (crypto.win_rate * 100).toFixed(1) + '%' : (crypto.win_rate_pct != null ? crypto.win_rate_pct.toFixed(1) + '%' : '--');
+      document.getElementById('crypto-wr').textContent = wr;
+      const pnl = crypto.total_pnl != null ? fmt$(crypto.total_pnl) : (crypto.pnl != null ? fmt$(crypto.pnl) : '--');
+      document.getElementById('crypto-pnl').textContent = pnl;
+      document.getElementById('crypto-pnl').style.color = (crypto.total_pnl || crypto.pnl || 0) >= 0 ? '#10b981' : 'var(--red)';
+      document.getElementById('crypto-trades').textContent = crypto.total_trades || crypto.trades || '--';
+    }
+
+    if (stock) {
+      const wr = stock.win_rate != null ? (stock.win_rate * 100).toFixed(1) + '%' : (stock.win_rate_pct != null ? stock.win_rate_pct.toFixed(1) + '%' : '--');
+      document.getElementById('stock-wr').textContent = wr;
+      const pnl = stock.total_pnl != null ? fmt$(stock.total_pnl) : (stock.pnl != null ? fmt$(stock.pnl) : '--');
+      document.getElementById('stock-pnl').textContent = pnl;
+      document.getElementById('stock-pnl').style.color = (stock.total_pnl || stock.pnl || 0) >= 0 ? '#10b981' : 'var(--red)';
+      document.getElementById('stock-trades').textContent = stock.total_trades || stock.trades || '--';
+    }
+
+    if (status) {
+      const active = status.active || status.live || status.trading_active || false;
+      const mode = status.mode || (active ? 'LIVE' : 'PAPER');
+      const statusColor = active ? '#10b981' : 'var(--yellow)';
+      document.getElementById('live-status-content').innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;animation:pulse 2s infinite"></span>
+          <span style="font-size:14px;font-weight:700;color:${statusColor}">${mode}</span>
+        </div>
+        ${status.strategy ? '<div style="color:var(--muted);font-size:11px">Strategy: ' + status.strategy + '</div>' : ''}
+        ${status.uptime ? '<div style="color:var(--muted);font-size:11px">Uptime: ' + status.uptime + '</div>' : ''}
+      `;
+    } else {
+      document.getElementById('live-status-content').innerHTML = '<span style="color:var(--muted)">Status unavailable</span>';
+    }
+  } catch (e) {
+    // Graceful fallback
+  }
+}
+
+// ========================================================================
+// TOKEN SEARCH (Agiotage Score)
+// ========================================================================
+async function searchToken() {
+  const input = document.getElementById('token-search');
+  const sym = input.value.trim().toUpperCase();
+  if (!sym) return;
+  const result = document.getElementById('alpha-result');
+  result.style.display = 'block';
+  result.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Analyzing $' + sym + '...</div>';
+
+  try {
+    const d = await (await fetch(API + '/v1/alpha/' + sym)).json();
+    const sigColor = d.signal === 'BUY' ? '#10b981' : d.signal === 'SELL' ? 'var(--red)' : 'var(--muted)';
+    const confPct = d.confidence || 0;
+
+    const sourceChips = (d.sources || []).map(s => sourcePillHTML(s)).join(' ');
+
+    let detailRows = '';
+    const det = d.details || {};
+
+    if (det.smart_money) {
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:#10b981;font-weight:600">Smart Money</span><span>${det.smart_money.wallets} wallets, ${fmt$(det.smart_money.total_usd)}, ${det.smart_money.strength}</span></div>`;
+    }
+    if (det.whale_flow) {
+      const wf = det.whale_flow;
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:${wf.direction === 'ACCUMULATION' ? '#10b981' : 'var(--red)'};font-weight:600">Whale Flow</span><span>${wf.direction} | In: ${fmt$(wf.deposits_usd)} | Out: ${fmt$(wf.withdrawals_usd)}</span></div>`;
+    }
+    if (det.social) {
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:var(--purple);font-weight:600">Social</span><span>${det.social.mentions} mentions, ${det.social.platforms} platforms, Score: ${det.social.avg_sentiment_score}</span></div>`;
+    }
+    if (det.lunarcrush) {
+      const lc = det.lunarcrush;
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:var(--yellow);font-weight:600">LunarCrush</span><span>Galaxy: ${lc.galaxy_score} | AltRank: #${lc.alt_rank}${lc.percent_change_24h != null ? ' | 24h: ' + pctStr(lc.percent_change_24h) : ''}</span></div>`;
+    }
+    if (det.correlated) {
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:var(--accent);font-weight:600">Correlated</span><span>Confidence: ${det.correlated.confidence} | ${det.correlated.source_count} sources</span></div>`;
+    }
+    if (det.security) {
+      const sec = det.security;
+      const safeColor = sec.safety_score >= 80 ? '#10b981' : sec.safety_score >= 50 ? 'var(--yellow)' : 'var(--red)';
+      detailRows += `<div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-weight:700;font-size:13px">Security Audit</span>
+          <span class="insider-badge" style="background:${safeColor}20;color:${safeColor}">${sec.safety_label} ${sec.safety_score}/100</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+          <span style="color:${sec.renounced_mint ? '#10b981' : 'var(--red)'}">Mint ${sec.renounced_mint ? 'renounced' : 'NOT renounced'}</span>
+          <span style="color:${sec.renounced_freeze ? '#10b981' : 'var(--red)'}">Freeze ${sec.renounced_freeze ? 'renounced' : 'NOT renounced'}</span>
+          <span style="color:${sec.rug_ratio < 0.1 ? '#10b981' : sec.rug_ratio < 0.3 ? 'var(--yellow)' : 'var(--red)'}">Rug risk: ${(sec.rug_ratio * 100).toFixed(0)}%</span>
+          <span style="color:var(--muted)">Top 10: ${(sec.top_10_holder_rate * 100).toFixed(0)}%</span>
+          ${sec.buy_tax > 0 ? '<span style="color:var(--red)">Buy tax: ' + (sec.buy_tax * 100).toFixed(1) + '%</span>' : ''}
+          ${sec.sell_tax > 0 ? '<span style="color:var(--red)">Sell tax: ' + (sec.sell_tax * 100).toFixed(1) + '%</span>' : ''}
+        </div>
+        ${sec.warnings && sec.warnings.length ? '<div style="font-size:11px;margin-top:4px">' + sec.warnings.map(w => '<div style="color:var(--red);margin-top:2px">Warning: ' + w + '</div>').join('') + '</div>' : ''}
+      </div>`;
+    }
+    if (det.holder_breakdown) {
+      const hb = det.holder_breakdown;
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Holder Breakdown</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+          ${hb.smart_wallets ? '<span style="padding:3px 8px;background:#10b98120;color:#10b981;border-radius:4px;font-weight:600">' + hb.smart_wallets + ' Smart Money</span>' : ''}
+          ${hb.kol_wallets ? '<span style="padding:3px 8px;background:#f59e0b20;color:var(--yellow);border-radius:4px;font-weight:600">' + hb.kol_wallets + ' KOLs</span>' : ''}
+          ${hb.whale_wallets ? '<span style="padding:3px 8px;background:#3b82f620;color:var(--blue);border-radius:4px;font-weight:600">' + hb.whale_wallets + ' Whales</span>' : ''}
+          ${hb.sniper_wallets ? '<span style="padding:3px 8px;background:#ef444420;color:var(--red);border-radius:4px;font-weight:600">' + hb.sniper_wallets + ' Snipers</span>' : ''}
+          <span style="color:var(--muted)">Top 10 hold ${(hb.top_10_rate * 100).toFixed(0)}%</span>
+          ${hb.dev_hold_rate > 0 ? '<span style="color:var(--muted)">Dev holds ' + (hb.dev_hold_rate * 100).toFixed(1) + '%</span>' : ''}
+        </div>
+      </div>`;
+    }
+    if (det.top_holders && det.top_holders.length) {
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Top Holders</div>
+        <div style="background:var(--card-hover);border-radius:6px;padding:6px;font-size:11px">
+          ${det.top_holders.map(h => `<div style="display:flex;justify-content:space-between;padding:3px 6px;border-bottom:1px solid var(--border)">
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${h.address} ${h.name ? '<span style="color:var(--text)">' + h.name + '</span>' : ''} ${h.is_smart ? '<span style="color:#10b981;font-weight:600">SM</span>' : ''} ${h.is_kol ? '<span style="color:var(--yellow);font-weight:600">KOL</span>' : ''}</span>
+            <span style="font-weight:600">${h.percentage}%</span>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+    if (det.deployer_rating) {
+      const dr = det.deployer_rating;
+      const rc = { S: 'var(--yellow)', A: 'var(--purple)', B: 'var(--blue)', C: 'var(--muted)', D: 'var(--red)' }[dr.rating] || 'var(--muted)';
+      detailRows += `<div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700;font-size:13px">Deployer Rating <span style="font-size:10px;color:var(--accent)">(Agiotage Exclusive)</span></span>
+          <span class="rating rating-${dr.rating}">${dr.rating}</span>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px">
+          <span>${dr.total_tokens} tokens launched</span>
+          <span style="color:#10b981;font-weight:600">${dr.tokens_over_1m} over $1M MC</span>
+          ${dr.rug_count > 0 ? '<span style="color:var(--red);font-weight:600">' + dr.rug_count + ' rugs</span>' : '<span style="color:#10b981">0 rugs</span>'}
+          <span style="color:var(--muted)">Best: ${fmt$(dr.highest_mc)}</span>
+          <span style="color:var(--muted)">Avg peak: ${fmt$(dr.avg_peak_mc)}</span>
+        </div>
+        ${dr.rating === 'D' ? '<div style="color:var(--red);font-size:11px;font-weight:600;margin-top:4px">RUG WARNING -- This deployer has a high rug rate</div>' : ''}
+        ${dr.rating === 'S' ? '<div style="color:var(--yellow);font-size:11px;font-weight:600;margin-top:4px">LEGENDARY DEPLOYER -- Consistent $10M+ launches</div>' : ''}
+      </div>`;
+    }
+    if (det.deployer && det.deployer.creator_address) {
+      const dep = det.deployer;
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">Deployer</div>
+        <div style="font-size:11px;display:flex;gap:12px;flex-wrap:wrap">
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${dep.creator_address.slice(0, 12)}...</span>
+          <span style="color:${dep.creator_status === 'sell' ? '#10b981' : 'var(--red)'}">${dep.creator_status === 'sell' ? 'Sold (exited)' : 'Still holding'}</span>
+          ${dep.tokens_launched ? '<span style="color:var(--muted)">' + dep.tokens_launched + ' tokens launched</span>' : ''}
+          ${dep.twitter ? '<a href="https://twitter.com/' + dep.twitter + '" target="_blank" style="color:var(--accent)">@' + dep.twitter + '</a>' : ''}
+        </div>
+      </div>`;
+    }
+    if (det.insider_data) {
+      const id = det.insider_data;
+      detailRows += `<div style="padding:8px 0;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--purple);font-weight:600">Insider/Congress Activity</span><span>${id.insider_buys} buys, ${id.insider_sells} sells, ${id.congress_moves} Congress</span></div>`;
+      if (id.recent_trades && id.recent_trades.length) {
+        detailRows += '<div style="background:var(--card-hover);border-radius:6px;padding:6px;font-size:11px">';
+        detailRows += id.recent_trades.map(t => {
+          const isBuy = (t.action || '').toLowerCase().includes('purchase') || (t.action || '').toLowerCase().includes('buy');
+          const tc = isBuy ? '#10b981' : 'var(--red)';
+          return `<div style="display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px solid var(--border);align-items:center;gap:8px">
+            <span style="color:var(--text);flex:2">${(t.filer || 'Unknown').slice(0, 25)}</span>
+            <span style="color:${tc};font-weight:600;flex:1">${t.action || 'Trade'}</span>
+            ${t.shares ? '<span style="flex:1">' + t.shares.toLocaleString() + ' shares</span>' : '<span style="flex:1"></span>'}
+            ${t.price ? '<span style="color:var(--muted);flex:1">@$' + t.price.toFixed(2) + '</span>' : '<span style="flex:1"></span>'}
+            ${t.value ? '<span style="font-weight:600;color:var(--accent);flex:1">' + fmt$(t.value) + '</span>' : '<span style="flex:1"></span>'}
+            <span style="color:var(--muted);flex-shrink:0">${t.date}</span>
+          </div>`;
+        }).join('');
+        detailRows += '</div>';
+      }
+      detailRows += '</div>';
+    }
+
+    result.innerHTML = `<div class="signal-card ${d.signal === 'BUY' ? 'buy' : d.signal === 'SELL' ? 'sell' : 'hold'}" style="padding:24px;box-shadow:0 0 40px ${sigColor}10">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <span style="font-size:28px;font-weight:900;letter-spacing:-1px">$${d.token}</span>
+            <span style="padding:6px 16px;border-radius:6px;font-size:14px;font-weight:800;background:${sigColor}20;color:${sigColor};letter-spacing:1px">${d.signal}</span>
+          </div>
+          <div style="font-size:14px;color:var(--text);line-height:1.6">${d.summary || ''}</div>
+        </div>
+        ${scoreRingHTML(confPct, 'lg')}
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        ${d.price ? '<div style="padding:8px 14px;background:var(--card-hover);border-radius:8px"><div style="font-size:16px;font-weight:700">$' + d.price.toLocaleString(undefined, { maximumFractionDigits: 2 }) + '</div><div style="font-size:9px;color:var(--muted)">Price</div></div>' : ''}
+        ${d.market_cap ? '<div style="padding:8px 14px;background:var(--card-hover);border-radius:8px"><div style="font-size:16px;font-weight:700">' + fmt$(d.market_cap) + '</div><div style="font-size:9px;color:var(--muted)">Market Cap</div></div>' : ''}
+        ${d.galaxy_score ? '<div style="padding:8px 14px;background:var(--card-hover);border-radius:8px"><div style="font-size:16px;font-weight:700;color:var(--yellow)">' + d.galaxy_score + '</div><div style="font-size:9px;color:var(--muted)">Galaxy Score</div></div>' : ''}
+        ${d.whale_flow && d.whale_flow !== 'NONE' ? '<div style="padding:8px 14px;background:var(--card-hover);border-radius:8px"><div style="font-size:14px;font-weight:700;color:' + (d.whale_flow === 'ACCUMULATION' ? '#10b981' : 'var(--red)') + '">' + d.whale_flow.replace('_', ' ') + '</div><div style="font-size:9px;color:var(--muted)">Whale Flow</div></div>' : ''}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">${sourceChips}</div>
+      ${detailRows ? '<div style="margin-top:8px">' + detailRows + '</div>' : ''}
+    </div>`;
+  } catch (e) {
+    result.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red)">Failed to analyze $' + sym + ': ' + e.message + '</div>';
+  }
+  setTimeout(() => { document.getElementById('search-box').style.borderColor = ''; }, 2000);
+}
+
+// ========================================================================
+// SECTION + TAB MANAGEMENT
+// ========================================================================
+function scanCurrentSection() {
+  if (currentSection === 'crypto') scanMarket();
+  else if (currentSection === 'memes') scanMemes();
+  else if (currentSection === 'stocks') scanStockScores();
+}
+
+function switchSection(s) {
+  currentSection = s;
+  document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('active'));
+  event.target.closest('.section-btn').classList.add('active');
+  renderSection();
+}
+
+function switchTab(t) {
+  currentTab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  loadTab();
+}
+
+const COINS_LIST = ['BTC','ETH','SOL','XRP','LINK','AVAX','DOT','ADA','ATOM','UNI','SUI','APT','SEI','INJ','TAO','NEAR','ARB','OP','DOGE','ZEC','MATIC','HBAR','FET','RNDR','BNB','PEPE','SHIB','BONK','WIF','FLOKI','LTC','ICP','FIL','AAVE','MKR','CRV','LDO','PENDLE','JUP','ONDO','KAS','ALGO','VET','THETA','SNX','GRT','SAND','MANA','AXS','CHZ'];
+
+function renderSection() {
+  const stats = document.getElementById('stats-row');
+  const tabs = document.getElementById('tabs-container');
+
+  if (currentSection === 'crypto') {
+    currentTab = 'coin-overview';
+    stats.innerHTML = '';
+    tabs.innerHTML = `
+      <div class="coin-selector" id="coin-selector">
+        ${COINS_LIST.map(c => `<button class="coin-btn ${c === (window._selectedCoin || 'BTC') ? 'active' : ''}" id="coin-${c}" onclick="selectCoin('${c}')">${c}</button>`).join('')}
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('coin-overview')">Overview</button>
+        <button class="tab" onclick="switchTab('momentum')">Momentum</button>
+        <button class="tab" onclick="switchTab('whale-flow')">Whale Flow</button>
+        <button class="tab" onclick="switchTab('social')">Social</button>
+      </div>`;
+    if (!window._selectedCoin) window._selectedCoin = 'BTC';
+    loadTab();
+  } else if (currentSection === 'stocks') {
+    currentTab = 'stock-score-scan';
+    stats.innerHTML = `
+      <div class="stat-card"><div class="stat-val" id="sw-signals">--</div><div class="stat-label">Signals</div></div>
+      <div class="stat-card"><div class="stat-val" id="sw-congress">--</div><div class="stat-label">Congress Trades</div></div>
+      <div class="stat-card"><div class="stat-val" id="sw-insider">--</div><div class="stat-label">Insider Trades</div></div>
+      <div class="stat-card"><div class="stat-val" id="sw-13f">--</div><div class="stat-label">13F Filings</div></div>`;
+    tabs.innerHTML = `<div class="tabs">
+      <button class="tab active" onclick="switchTab('stock-score-scan')">Score Scan</button>
+      <button class="tab" onclick="switchTab('insider-trades')">Insider Trades</button>
+      <button class="tab" onclick="switchTab('options-flow')">Options Flow</button>
+      <button class="tab" onclick="switchTab('darkpool')">Dark Pool</button>
+      <button class="tab" onclick="switchTab('uw-congress')">Congress</button>
+    </div>`;
+    loadStockStats();
+    loadTab();
+  } else if (currentSection === 'memes') {
+    currentTab = 'meme-scan';
+    stats.innerHTML = `
+      <div class="stat-card"><div class="stat-val" id="s-clusters">--</div><div class="stat-label">Tokens Tracked</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-deployers">--</div><div class="stat-label">Top Deployers</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-signals">--</div><div class="stat-label">Signals Today</div></div>
+      <div class="stat-card"><div class="stat-val" id="s-accuracy">--</div><div class="stat-label">Signal Accuracy</div></div>`;
+    tabs.innerHTML = `<div class="tabs">
+      <button class="tab active" onclick="switchTab('meme-scan')">Scan</button>
+      <button class="tab" onclick="switchTab('signal-accuracy')">Signal Accuracy</button>
+      <button class="tab" onclick="switchTab('deployers')">Deployers</button>
+      <button class="tab" onclick="switchTab('leaderboard')">Smart Money</button>
+      <button class="tab" onclick="switchTab('followed-wallets')">Followed Wallets</button>
+    </div>`;
+    loadMemeStats();
+    loadTab();
+  }
+}
+
+function loadTab() {
+  const map = {
+    'coin-overview': loadCoinOverview,
+    'momentum': loadMomentum,
+    'whale-flow': loadWhaleFlow,
+    'social': loadSocialBuzz,
+    'stock-score-scan': scanStockScores,
+    'insider-trades': loadInsiderTrades,
+    'options-flow': loadOptionsFlow,
+    'darkpool': loadDarkPool,
+    'uw-congress': loadUWCongress,
+    'meme-scan': scanMemes,
+    'signal-accuracy': loadSignalAccuracy,
+    'deployers': loadDeployers,
+    'leaderboard': loadLeaderboard,
+    'followed-wallets': loadFollowedWallets,
+  };
+  const fn = map[currentTab];
+  if (fn) fn();
+}
+
+function selectCoin(sym) {
+  window._selectedCoin = sym;
+  document.querySelectorAll('.coin-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('coin-' + sym);
+  if (btn) btn.classList.add('active');
+  if (currentTab === 'coin-overview') loadCoinOverview();
+}
+
+// ========================================================================
+// CRYPTO - COIN OVERVIEW (TradingView + Agiotage Score + Data)
+// ========================================================================
+const COIN_IDS = { BTC:'bitcoin',ETH:'ethereum',SOL:'solana',XRP:'ripple',LINK:'chainlink',AVAX:'avalanche-2',DOT:'polkadot',ADA:'cardano',ATOM:'cosmos',UNI:'uniswap',SUI:'sui',APT:'aptos',SEI:'sei-network',INJ:'injective-protocol',TAO:'bittensor',NEAR:'near',ARB:'arbitrum',OP:'optimism',DOGE:'dogecoin',ZEC:'zcash',MATIC:'matic-network',HBAR:'hedera-hashgraph',FET:'fetch-ai',RNDR:'render-token',BNB:'binancecoin',PEPE:'pepe',SHIB:'shiba-inu',BONK:'bonk',WIF:'dogwifcoin',FLOKI:'floki',LTC:'litecoin',ICP:'internet-computer',FIL:'filecoin',AAVE:'aave',MKR:'maker',CRV:'curve-dao-token',LDO:'lido-dao',PENDLE:'pendle',JUP:'jupiter-exchange-solana',ONDO:'ondo-finance',KAS:'kaspa',ALGO:'algorand',VET:'vechain',THETA:'theta-token',SNX:'havven',GRT:'the-graph',SAND:'the-sandbox',MANA:'decentraland',AXS:'axie-infinity',CHZ:'chiliz',ENJ:'enjincoin' };
+const COIN_TV = { BTC:'BINANCE:BTCUSDT',ETH:'BINANCE:ETHUSDT',SOL:'BINANCE:SOLUSDT',XRP:'BINANCE:XRPUSDT',LINK:'BINANCE:LINKUSDT',AVAX:'BINANCE:AVAXUSDT',DOT:'BINANCE:DOTUSDT',ADA:'BINANCE:ADAUSDT',ATOM:'BINANCE:ATOMUSDT',UNI:'BINANCE:UNIUSDT',SUI:'BINANCE:SUIUSDT',APT:'BINANCE:APTUSDT',SEI:'BINANCE:SEIUSDT',INJ:'BINANCE:INJUSDT',TAO:'BINANCE:TAOUSDT',NEAR:'BINANCE:NEARUSDT',ARB:'BINANCE:ARBUSDT',OP:'BINANCE:OPUSDT',DOGE:'BINANCE:DOGEUSDT',ZEC:'BINANCE:ZECUSDT',MATIC:'BINANCE:MATICUSDT',HBAR:'BINANCE:HBARUSDT',FET:'BINANCE:FETUSDT',RNDR:'BINANCE:RNDRUSDT',BNB:'BINANCE:BNBUSDT',PEPE:'BINANCE:PEPEUSDT',SHIB:'BINANCE:SHIBUSDT',BONK:'BINANCE:BONKUSDT',WIF:'BINANCE:WIFUSDT',FLOKI:'BINANCE:FLOKIUSDT',LTC:'BINANCE:LTCUSDT',ICP:'BINANCE:ICPUSDT',FIL:'BINANCE:FILUSDT',AAVE:'BINANCE:AAVEUSDT',MKR:'BINANCE:MKRUSDT',CRV:'BINANCE:CRVUSDT',LDO:'BINANCE:LDOUSDT',PENDLE:'BINANCE:PENDLEUSDT',JUP:'BINANCE:JUPUSDT',ONDO:'BINANCE:ONDOUSDT',KAS:'BINANCE:KASUSDT',ALGO:'BINANCE:ALGOUSDT',VET:'BINANCE:VETUSDT',THETA:'BINANCE:THETAUSDT',SNX:'BINANCE:SNXUSDT',GRT:'BINANCE:GRTUSDT',SAND:'BINANCE:SANDUSDT',MANA:'BINANCE:MANAUSDT',AXS:'BINANCE:AXSUSDT',CHZ:'BINANCE:CHZUSDT',ENJ:'BINANCE:ENJUSDT' };
+
+let _currentChartCoin = '';
+
+async function loadCoinOverview() {
+  const coin = window._selectedCoin || 'BTC';
+  const content = document.getElementById('content');
+
+  // Only rebuild chart if coin changed
+  if (_currentChartCoin !== coin) {
+    _currentChartCoin = coin;
+    const tvSymbol = COIN_TV[coin] || 'BINANCE:BTCUSDT';
+    content.innerHTML = `<div class="overview-grid">
+      <div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <div id="tv-chart-widget" style="height:420px"></div>
+        </div>
+      </div>
+      <div class="overview-data" id="coin-overview-data">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+    <div id="coin-extra-data"></div>`;
+
+    const widgetDiv = document.getElementById('tv-chart-widget');
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
+    script.async = true;
+    script.textContent = JSON.stringify({
+      symbol: tvSymbol, interval: '60', timezone: 'Etc/UTC', theme: 'dark', style: '1', locale: 'en',
+      backgroundColor: '#0c1018', gridColor: '#1a2030',
+      allow_symbol_change: false, hide_top_toolbar: false, hide_legend: false,
+      save_image: false, height: '100%', width: '100%',
+    });
+    widgetDiv.appendChild(script);
+  }
+
+  // Fetch data in parallel
+  const sidePanel = document.getElementById('coin-overview-data');
+  const extraPanel = document.getElementById('coin-extra-data');
+  if (!sidePanel) return;
+
+  try {
+    const [priceResp, alphaResp, lcResp, flowResp] = await Promise.all([
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + COIN_IDS[coin] + '&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true').then(r => r.json()).catch(() => ({})),
+      fetch(API + '/v1/alpha/' + coin).then(r => r.json()).catch(() => ({})),
+      fetch(API + '/v1/signals/lunarcrush/' + coin).then(r => r.json()).catch(() => ({})),
+      isAuth() ? authFetch('/v1/whales/crypto/flow-analysis?hours=24').then(r => r.json()).catch(() => ({ coins: [] })) : Promise.resolve({ coins: [] }),
+    ]);
+
+    const pd = priceResp[COIN_IDS[coin]] || {};
+    const price = pd.usd || 0;
+    const change24h = pd.usd_24h_change || 0;
+    const vol = pd.usd_24h_vol || 0;
+    const mc = pd.usd_market_cap || 0;
+
+    const confPct = alphaResp.confidence || 0;
+    const signal = alphaResp.signal || 'HOLD';
+    const sigColor = signal === 'BUY' ? '#10b981' : signal === 'SELL' ? 'var(--red)' : 'var(--muted)';
+    const sources = alphaResp.sources || [];
+
+    const lc = lcResp || {};
+    const gs = lc.galaxy_score || null;
+    const altRank = lc.alt_rank || null;
+
+    // Side panel: Agiotage Score + signal + stats
+    let sideHTML = '';
+
+    // Large Agiotage Score ring
+    sideHTML += `<div class="card" style="text-align:center;padding:20px">
+      <div style="display:flex;justify-content:center;margin-bottom:12px">
+        ${scoreRingHTML(confPct, 'lg')}
+      </div>
+      <div style="padding:6px 16px;border-radius:6px;font-size:16px;font-weight:800;background:${sigColor}20;color:${sigColor};display:inline-block;letter-spacing:1px;margin-bottom:8px">${signal}</div>
+      <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+        ${sources.map(s => sourcePillHTML(s)).join('')}
+      </div>
+    </div>`;
+
+    // Price + stats
+    sideHTML += `<div class="card">
+      <div style="font-size:24px;font-weight:800;margin-bottom:4px">$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+      <div style="font-size:13px;color:${pctColor(change24h)};font-weight:600;margin-bottom:12px">${pctStr(change24h)} (24h)</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Market Cap</span><span style="font-weight:600">${fmt$(mc)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">24h Volume</span><span style="font-weight:600">${fmt$(vol)}</span></div>
+        ${gs ? '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Galaxy Score</span><span style="font-weight:600;color:var(--yellow)">' + gs + '</span></div>' : ''}
+        ${altRank ? '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">AltRank</span><span style="font-weight:600;color:var(--accent)">#' + altRank + '</span></div>' : ''}
+        ${lc.percent_change_7d != null ? '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">7d Change</span><span style="font-weight:600;color:' + pctColor(lc.percent_change_7d) + '">' + pctStr(lc.percent_change_7d) + '</span></div>' : ''}
+        ${lc.percent_change_30d != null ? '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">30d Change</span><span style="font-weight:600;color:' + pctColor(lc.percent_change_30d) + '">' + pctStr(lc.percent_change_30d) + '</span></div>' : ''}
+      </div>
+    </div>`;
+
+    sidePanel.innerHTML = sideHTML;
+
+    // Extra data below chart
+    let extraHTML = '';
+
+    // Whale Flow
+    const coinFlow = (flowResp.coins || []).find(c => c.symbol === coin);
+    if (coinFlow) {
+      const dirColor = coinFlow.direction === 'SELL_PRESSURE' ? 'var(--red)' : '#10b981';
+      extraHTML += `<div class="card" style="border-left:4px solid ${dirColor}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div>
+            <span style="font-size:14px;font-weight:700">Whale Flow (24h)</span>
+            <span style="padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;background:${dirColor}20;color:${dirColor};margin-left:8px">${coinFlow.direction.replace('_', ' ')}</span>
+            <span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;background:${dirColor}20;color:${dirColor};margin-left:4px">${coinFlow.strength}</span>
+          </div>
+          <div style="font-size:16px;font-weight:700;color:${dirColor}">${coinFlow.net_flow_usd > 0 ? '+' : ''}${fmt$(Math.abs(coinFlow.net_flow_usd))} net</div>
+        </div>
+        <div style="font-size:12px;color:var(--text);margin-bottom:8px">${coinFlow.action || ''}</div>
+        <div style="display:flex;gap:12px;font-size:12px">
+          <span style="color:var(--red)">${fmt$(coinFlow.deposit_usd)} in (${coinFlow.deposit_count} deposits)</span>
+          <span style="color:#10b981">${fmt$(coinFlow.withdrawal_usd)} out (${coinFlow.withdrawal_count} withdrawals)</span>
+        </div>
+      </div>`;
+    }
+
+    // Market flow overview
+    if (isAuth()) {
+      const otherFlows = (flowResp.coins || []).filter(c => c.symbol !== coin).slice(0, 10);
+      if (otherFlows.length) {
+        extraHTML += `<div class="card">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px">Market Flow Overview (24h)</div>
+          ${otherFlows.map(c => {
+            const dc = c.direction === 'SELL_PRESSURE' ? 'var(--red)' : '#10b981';
+            return `<div class="data-row" style="cursor:pointer" onclick="selectCoin('${c.symbol}')">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-weight:700;width:50px">${c.symbol}</span>
+                <span style="font-size:11px;color:${dc};font-weight:600">${c.direction.replace('_', ' ')}</span>
+                <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${dc}20;color:${dc}">${c.strength}</span>
+              </div>
+              <span style="font-size:12px;font-weight:600;color:${dc}">${c.net_flow_usd > 0 ? '+' : ''}${fmt$(Math.abs(c.net_flow_usd))}</span>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }
+    }
+
+    if (!isAuth()) {
+      extraHTML += `<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Sign in to see whale flow and social sentiment. <button onclick="toggleSignIn()" style="margin-left:8px;padding:6px 16px;background:var(--accent);color:var(--bg);border:none;border-radius:6px;font-weight:600;cursor:pointer">Sign In</button></div>`;
+    }
+
+    if (extraPanel) extraPanel.innerHTML = extraHTML;
+
+  } catch (e) {
+    sidePanel.innerHTML = '<div class="empty">Failed to load coin data: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// CRYPTO - MOMENTUM
+// ========================================================================
+async function loadMomentum() {
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading momentum data...</div>';
+
+  try {
+    const [hotResp, signalsResp] = await Promise.all([
+      fetch(API + '/v1/momentum/hot').then(r => r.json()).catch(() => ({ coins: [] })),
+      fetch(API + '/v1/momentum/signals').then(r => r.json()).catch(() => ({ signals: [] })),
+    ]);
+
+    let html = '';
+    const hot = hotResp.coins || hotResp.hot || [];
+    const signals = signalsResp.signals || [];
+
+    if (hot.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">HOT COINS -- Volume + Social Momentum</div>';
+      html += hot.map((c, i) => {
+        const changeColor = (c.change_24h || 0) >= 0 ? '#10b981' : 'var(--red)';
+        return `<div class="data-row" style="animation-delay:${i * 0.03}s;animation:fadeUp .3s ease both;cursor:pointer" onclick="selectCoin('${c.symbol || c.coin}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:24px;font-size:14px;font-weight:800;color:var(--muted);text-align:center">${i + 1}</span>
+            <span style="font-size:16px;font-weight:800">${c.symbol || c.coin}</span>
+            ${c.score ? scoreRingHTML(c.score) : ''}
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;font-size:12px">
+            ${c.volume_spike ? '<span class="sweep-tag">VOLUME SPIKE</span>' : ''}
+            ${c.change_24h != null ? '<span style="color:' + changeColor + ';font-weight:600">' + pctStr(c.change_24h) + '</span>' : ''}
+            ${c.volume ? '<span style="color:var(--muted)">Vol: ' + fmt$(c.volume) + '</span>' : ''}
+            ${c.mentions ? '<span style="color:var(--purple)">' + c.mentions + ' mentions</span>' : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    if (signals.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--yellow);margin:20px 0 12px">BREAKOUT SIGNALS</div>';
+      const maxShow = isAuth() ? signals.length : 3;
+      html += signals.slice(0, maxShow).map((s, i) => {
+        const sigColor = s.direction === 'BULLISH' || s.type === 'breakout_up' ? '#10b981' : s.direction === 'BEARISH' ? 'var(--red)' : 'var(--yellow)';
+        return `<div class="signal-card" style="border-left:4px solid ${sigColor};animation-delay:${i * 0.03}s">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800">${s.symbol || s.coin}</span>
+              <span style="padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;background:${sigColor}20;color:${sigColor}">${s.type || s.signal || 'SIGNAL'}</span>
+              ${s.volume_change ? '<span style="font-size:11px;color:var(--muted)">Vol +' + s.volume_change + '%</span>' : ''}
+            </div>
+            <div style="text-align:right">
+              ${s.price ? '<div style="font-weight:700">$' + s.price.toLocaleString(undefined, { maximumFractionDigits: 2 }) + '</div>' : ''}
+              <div style="font-size:10px;color:var(--muted)">${timeAgo(s.detected_at || s.time)}</div>
+            </div>
+          </div>
+          ${s.description ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">' + s.description + '</div>' : ''}
+        </div>`;
+      }).join('');
+
+      if (!isAuth() && signals.length > 3) {
+        html += premiumGateHTML(signals.length - 3);
+      }
+    }
+
+    if (!hot.length && !signals.length) {
+      html = '<div class="empty">No momentum data available yet. The scanner checks for volume spikes, breakout patterns, and social momentum every 5 minutes.</div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load momentum data: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// CRYPTO - WHALE FLOW
+// ========================================================================
+async function loadWhaleFlow() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading whale flow...</div>';
+
+  try {
+    const [flowResp, feedResp] = await Promise.all([
+      authFetch('/v1/whales/crypto/flow-analysis?hours=24').then(r => r.json()),
+      authFetch('/v1/whales/crypto/feed?limit=30').then(r => r.json()),
+    ]);
+
+    if (flowResp.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+
+    let html = '';
+    const coins = flowResp.coins || [];
+
+    if (coins.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">NET FLOW BY COIN (24h)</div>';
+      html += coins.map((c, i) => {
+        const dc = c.direction === 'SELL_PRESSURE' ? 'var(--red)' : '#10b981';
+        return `<div class="card" style="border-left:4px solid ${dc};animation-delay:${i * 0.03}s">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px;font-weight:800">${c.symbol}</span>
+              <span style="padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;background:${dc}20;color:${dc}">${c.direction.replace('_', ' ')}</span>
+              <span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;background:${dc}20;color:${dc}">${c.strength}</span>
+            </div>
+            <span style="font-size:16px;font-weight:700;color:${dc}">${c.net_flow_usd > 0 ? '+' : ''}${fmt$(Math.abs(c.net_flow_usd))}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:6px">${c.action || ''}</div>
+          <div style="display:flex;gap:16px;font-size:12px">
+            <div style="flex:1;background:#ef444410;border-radius:6px;padding:8px 12px;text-align:center">
+              <div style="color:var(--red);font-weight:700;font-size:14px">${fmt$(c.deposit_usd)}</div>
+              <div style="color:var(--muted);font-size:10px">${c.deposit_count} deposits</div>
+            </div>
+            <div style="flex:1;background:#10b98110;border-radius:6px;padding:8px 12px;text-align:center">
+              <div style="color:#10b981;font-weight:700;font-size:14px">${fmt$(c.withdrawal_usd)}</div>
+              <div style="color:var(--muted);font-size:10px">${c.withdrawal_count} withdrawals</div>
+            </div>
+          </div>
+          ${c.largest_single ? '<div style="font-size:11px;color:var(--muted);margin-top:6px">Largest: ' + c.largest_single + '</div>' : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Recent transfers
+    const txns = feedResp.transactions || [];
+    if (txns.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 12px">RECENT LARGE TRANSFERS</div>';
+      html += txns.map(t => {
+        const isDeposit = t.type === 'exchange_deposit';
+        const isWithdrawal = t.type === 'exchange_withdrawal';
+        const tc = isDeposit ? 'var(--red)' : isWithdrawal ? '#10b981' : 'var(--muted)';
+        const tl = isDeposit ? 'DEPOSIT' : isWithdrawal ? 'WITHDRAWAL' : (t.type || 'TRANSFER').replace(/_/g, ' ').toUpperCase();
+        return `<div class="data-row" style="border-left:3px solid ${tc}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;font-size:14px">${t.symbol}</span>
+            <span style="font-weight:600">${fmt$(t.amount_usd)}</span>
+            <span style="font-size:11px;color:${tc};font-weight:600">${tl}</span>
+          </div>
+          <div style="font-size:12px;display:flex;align-items:center;gap:6px">
+            <span style="color:var(--muted)">${t.from || 'unknown'} -> ${t.to || 'unknown'}</span>
+            <span style="color:var(--muted)">${timeAgo(t.time)}</span>
+            <span style="color:var(--muted);font-size:10px">${t.blockchain || ''}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    if (!coins.length && !txns.length) {
+      html = '<div class="empty">No whale flow data yet. The tracker polls Whale Alert every 60 seconds for transfers over $500K.</div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load whale flow: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// CRYPTO - SOCIAL
+// ========================================================================
+async function loadSocialBuzz() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading social data...</div>';
+
+  try {
+    const cat = currentSection === 'memes' ? 'meme' : currentSection === 'crypto' ? 'crypto' : 'stocks';
+    const [sigData, mentionData, statsData] = await Promise.all([
+      authFetch('/v1/sentiment/signals?limit=15&category=' + cat).then(r => r.json()),
+      authFetch('/v1/sentiment/mentions?limit=30&category=' + cat).then(r => r.json()),
+      fetch(API + '/v1/sentiment/stats?category=' + cat).then(r => r.json()),
+    ]);
+
+    if (sigData.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+
+    let html = '';
+    const signals = sigData.signals || [];
+    const mentions = mentionData.mentions || [];
+    const topTokens = statsData.top_tokens_6h || [];
+
+    // Trending bar
+    if (topTokens.length) {
+      html += '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center"><span style="font-size:11px;color:var(--muted);font-weight:600">TRENDING:</span>';
+      html += topTokens.slice(0, 8).map(t => `<span style="padding:4px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:600"><span style="color:var(--accent)">$${t.symbol}</span> <span style="color:var(--muted);font-size:10px">${t.mentions} mentions</span></span>`).join('');
+      html += '</div>';
+    }
+
+    // Signals
+    if (signals.length) {
+      html += '<div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--purple)">SOCIAL SIGNALS -- Tokens trending across multiple platforms</div>';
+      html += signals.map(s => {
+        const strengthColors = { VERY_STRONG: 'var(--accent)', STRONG: 'var(--yellow)', MEDIUM: 'var(--blue)' };
+        const sc = strengthColors[s.strength] || 'var(--blue)';
+        return `<div class="card" style="border-left:3px solid ${sc}">
+          <div class="card-header">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px;font-weight:700">$${s.token_symbol}</span>
+              <span style="font-size:12px;color:var(--muted)">${s.token_name || ''}</span>
+            </div>
+            <span class="insider-badge" style="background:${sc}20;color:${sc}">${(s.strength || '').replace(/_/g, ' ')}</span>
+          </div>
+          <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap">
+            <span>${s.platform_count} platforms</span>
+            <span>${s.total_mentions} mentions</span>
+            ${s.has_smart_money ? '<span style="color:var(--accent);font-weight:700">+ SMART MONEY</span>' : ''}
+            ${s.has_deployer ? '<span style="color:var(--yellow);font-weight:700">+ TOP DEPLOYER</span>' : ''}
+            <span>${timeAgo(s.detected_at)}</span>
+          </div>
+          ${s.description ? '<div style="font-size:11px;color:var(--muted);margin-top:6px">' + s.description + '</div>' : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Mentions feed
+    if (mentions.length) {
+      html += '<div style="font-size:13px;font-weight:700;margin:20px 0 10px;color:var(--muted)">RECENT MENTIONS</div>';
+      html += mentions.slice(0, 20).map(m => {
+        const sentColor = (m.sentiment || '').includes('BULL') ? '#10b981' : (m.sentiment || '').includes('BEAR') ? 'var(--red)' : 'var(--muted)';
+        return `<div class="data-row">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-weight:600;color:var(--accent)">$${m.token_symbol}</span>
+            <span style="color:var(--muted);font-size:11px">${m.source || m.platform}</span>
+            <span style="color:${sentColor};font-size:10px;font-weight:600">${m.sentiment || ''}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(m.text || '').replace(/</g, '&lt;')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    if (!signals.length && !mentions.length) {
+      html = '<div class="empty">Social scraper is running -- monitoring Reddit, Telegram, and CoinGecko for token mentions. First results in ~5 minutes.</div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load social data: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// CRYPTO - MARKET SCAN
+// ========================================================================
+async function scanMarket() {
+  const result = document.getElementById('alpha-result');
+  result.style.display = 'block';
+  result.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Scanning 20 coins...</div>';
+
+  try {
+    const d = await (await fetch(API + '/v1/alpha/scan/market')).json();
+    const market = d.market || [];
+    if (!market.length) { result.innerHTML = '<div class="empty">No data available</div>'; return; }
+
+    let html = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between"><span>MARKET SCAN -- Ranked by Agiotage Score</span><span style="font-weight:400">' + (d.generated_at || '').slice(0, 16) + '</span></div>';
+
+    html += market.map((m, i) => {
+      const sigColor = m.signal === 'BUY' ? '#10b981' : m.signal === 'SELL' ? 'var(--red)' : 'var(--muted)';
+      const wfColor = m.whale_flow === 'ACCUMULATION' ? '#10b981' : m.whale_flow === 'SELL_PRESSURE' ? 'var(--red)' : 'var(--muted)';
+      return `<div class="data-row" style="cursor:pointer;animation:fadeUp .3s ease both;animation-delay:${i * 0.03}s" onclick="document.getElementById('token-search').value='${m.token}';searchToken()">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:24px;text-align:center;font-size:14px;font-weight:800;color:var(--muted)">${i + 1}</span>
+          <span style="font-size:16px;font-weight:800;width:55px">${m.token}</span>
+          <span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${sigColor}20;color:${sigColor}">${m.signal}</span>
+          ${scoreRingHTML(m.confidence)}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:11px">
+          <span style="color:${wfColor};width:70px">${m.whale_flow ? m.whale_flow.replace('_', ' ') : '--'}</span>
+          ${m.galaxy_score ? '<span style="color:var(--yellow);font-weight:600">' + m.galaxy_score + '</span>' : ''}
+          <span style="color:var(--muted)">${m.source_count}s</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    html += '<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:12px">Click any coin for detailed analysis | Data from GMGN, LunarCrush, Whale Alert, Unusual Whales, Reddit, StockTwits</div>';
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = '<div class="empty">Scan failed: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - SCORE SCAN
+// ========================================================================
+async function scanStockScores() {
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Scoring stocks across all sources...</div>';
+
+  try {
+    const d = await (await fetch(API + '/v1/alpha/scan/stocks')).json();
+    const stocks = d.stocks || [];
+    if (!stocks.length) { content.innerHTML = '<div class="empty">No scored stocks right now. The scan checks insider trades, Congress activity, options flow, and social sentiment.</div>'; return; }
+
+    const maxShow = isAuth() ? stocks.length : 3;
+
+    let html = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">STOCK SCAN -- Ranked by Agiotage Score</div>';
+
+    html += stocks.slice(0, maxShow).map((s, i) => {
+      const sigColor = s.signal === 'BUY' ? '#10b981' : s.signal === 'SELL' ? 'var(--red)' : 'var(--muted)';
+      const det = s.details || {};
+      const ins = det.insiders || {};
+      const opt = det.options || {};
+      const soc = det.social || {};
+
+      return `<div class="signal-card ${s.signal === 'BUY' ? 'buy' : s.signal === 'SELL' ? 'sell' : 'hold'}" style="cursor:pointer;animation-delay:${i * 0.03}s" onclick="document.getElementById('token-search').value='${s.ticker}';searchToken()">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="width:24px;font-size:14px;font-weight:800;color:var(--muted);text-align:center">${i + 1}</span>
+          <span style="font-size:18px;font-weight:800;width:60px">$${s.ticker}</span>
+          <span style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;background:${sigColor}20;color:${sigColor}">${s.signal}</span>
+          <div style="flex:1"></div>
+          ${scoreRingHTML(s.agiotage_score || s.confidence || 0)}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+          ${ins.buys ? '<span class="insider-badge badge-purchase">' + ins.buys + ' insider buys</span>' : ''}
+          ${ins.sells ? '<span class="insider-badge badge-sale">' + ins.sells + ' insider sells</span>' : ''}
+          ${ins.awards ? '<span class="insider-badge badge-award">' + ins.awards + ' awards</span>' : ''}
+          ${ins.congress ? '<span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:#8b5cf620;color:var(--purple)">' + ins.congress + ' Congress buys</span>' : ''}
+          ${opt.premium ? '<span style="color:var(--yellow);font-size:11px">Options: ' + fmt$(opt.premium) + '</span>' : ''}
+          ${soc.mentions ? '<span style="color:var(--muted)">' + soc.mentions + ' social mentions</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    if (!isAuth() && stocks.length > 3) {
+      html += premiumGateHTML(stocks.length - 3);
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Stock score scan failed: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - INSIDER TRADES
+// ========================================================================
+async function loadInsiderTrades() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading insider trades...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/whales/stocks/feed?limit=50&source=insider')).json();
+    if (d.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+    const moves = d.moves || [];
+    if (!moves.length) { content.innerHTML = '<div class="empty">No insider trades yet. The tracker pulls from SEC EDGAR every hour.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">INSIDER TRADES -- SEC EDGAR Filings</div>' +
+      moves.map((m, i) => {
+        const a = (m.action || '').toLowerCase();
+        const isP = a.includes('purchase') || a.includes('buy');
+        const isS = a.includes('sale') || a.includes('sell');
+        const isA = a.includes('award') || a.includes('grant');
+        const isE = a.includes('exercise');
+        const tc = isP ? '#10b981' : isS ? 'var(--red)' : isA ? 'var(--blue)' : isE ? 'var(--yellow)' : 'var(--muted)';
+        return `<div class="data-row" style="border-left:3px solid ${tc};animation:fadeUp .3s ease both;animation-delay:${i * 0.02}s">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+            ${insiderBadgeHTML(m.action)}
+            ${m.ticker ? '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:700;font-size:14px">$' + m.ticker + '</span>' : ''}
+            <span style="color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.filer || 'Unknown'}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:12px;flex-shrink:0">
+            ${m.shares ? '<span style="color:var(--muted)">' + m.shares.toLocaleString() + ' shares</span>' : ''}
+            ${m.value_usd ? '<span style="font-weight:600;color:var(--accent)">' + fmt$(m.value_usd) + '</span>' : ''}
+            <span style="color:var(--muted)">${timeAgo(m.filing_date)}</span>
+            ${m.filing_url ? '<a href="' + m.filing_url + '" target="_blank" style="font-size:10px">SEC</a>' : ''}
+          </div>
+        </div>`;
+      }).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load insider trades: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - OPTIONS FLOW
+// ========================================================================
+async function loadOptionsFlow() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading options flow...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/unusual-whales/options-flow?limit=30')).json();
+    if (d.error || d.detail) { content.innerHTML = '<div class="empty">' + (d.error || d.detail) + '</div>'; return; }
+    const flow = d.flow || [];
+    if (!flow.length) { content.innerHTML = '<div class="empty">No options flow data available.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">OPTIONS FLOW -- Unusual Whales</div>' +
+      flow.map((f, i) => {
+        const sentColor = f.sentiment === 'BULLISH' ? '#10b981' : f.sentiment === 'BEARISH' ? 'var(--red)' : 'var(--muted)';
+        return `<div class="data-row" style="border-left:3px solid ${sentColor};animation:fadeUp .3s ease both;animation-delay:${i * 0.02}s">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:16px;font-weight:800">$${f.ticker}</span>
+            <span style="font-size:12px;color:${sentColor};font-weight:600">${f.sentiment}</span>
+            ${f.type ? '<span style="font-size:11px;color:var(--muted)">' + f.type + '</span>' : ''}
+            ${f.strike ? '<span style="font-size:11px;color:var(--muted)">Strike: $' + f.strike + '</span>' : ''}
+            ${f.expiry ? '<span style="font-size:11px;color:var(--muted)">Exp: ' + f.expiry + '</span>' : ''}
+            ${f.has_sweep ? '<span class="sweep-tag">SWEEP</span>' : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:14px;font-weight:700;color:var(--accent)">${fmt$(f.total_premium)}</div>
+            <div style="font-size:10px;color:var(--muted)">Vol: ${(f.volume || 0).toLocaleString()} | OI: ${(f.open_interest || 0).toLocaleString()}</div>
+          </div>
+        </div>`;
+      }).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load options flow: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - DARK POOL
+// ========================================================================
+async function loadDarkPool() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading dark pool...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/unusual-whales/darkpool?limit=30')).json();
+    if (d.error || d.detail) { content.innerHTML = '<div class="empty">' + (d.error || d.detail) + '</div>'; return; }
+    const trades = d.trades || [];
+    if (!trades.length) { content.innerHTML = '<div class="empty">No dark pool data available.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">DARK POOL PRINTS</div>' +
+      trades.map((t, i) => `<div class="data-row" style="animation:fadeUp .3s ease both;animation-delay:${i * 0.02}s">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:15px;font-weight:700">$${t.ticker}</span>
+          <span style="font-weight:600">$${parseFloat(t.price || 0).toFixed(2)}</span>
+        </div>
+        <div style="display:flex;gap:12px;font-size:12px;color:var(--muted)">
+          <span>Size: ${(t.size || 0).toLocaleString()}</span>
+          <span>Vol: ${(t.volume || 0).toLocaleString()}</span>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load dark pool: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - CONGRESS
+// ========================================================================
+async function loadUWCongress() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading Congress trades...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/unusual-whales/congress?limit=50')).json();
+    if (d.error || d.detail) { content.innerHTML = '<div class="empty">' + (d.error || d.detail) + '</div>'; return; }
+    const trades = d.trades || [];
+    if (!trades.length) { content.innerHTML = '<div class="empty">No Congress trade data available.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">CONGRESS TRADES</div>' +
+      trades.map((t, i) => {
+        const isBuy = (t.transaction_type || '').toLowerCase().includes('buy');
+        const isSell = (t.transaction_type || '').toLowerCase().includes('sell');
+        const tc = isBuy ? '#10b981' : isSell ? 'var(--red)' : 'var(--muted)';
+        return `<div class="card" style="border-left:3px solid ${tc};animation-delay:${i * 0.02}s">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div>
+              <span style="font-weight:700;font-size:13px">${t.politician || 'Unknown'}</span>
+              <span style="font-size:10px;color:var(--muted);margin-left:6px">${(t.member_type || '').toUpperCase()}</span>
+            </div>
+            <span style="font-size:12px;font-weight:600;color:${tc}">${t.transaction_type || 'Trade'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <div>
+              ${t.ticker ? '<span style="font-family:\'JetBrains Mono\',monospace;color:var(--accent);font-weight:700">$' + t.ticker + '</span>' : '<span style="color:var(--muted)">No ticker</span>'}
+              <span style="color:var(--muted);margin-left:8px">${t.amount || ''}</span>
+            </div>
+            <div style="color:var(--muted)">
+              <span>Filed: ${t.filed_date || '?'}</span>
+              <span style="margin-left:8px">Traded: ${t.transaction_date || '?'}</span>
+            </div>
+          </div>
+          ${t.notes ? '<div style="font-size:10px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">' + t.notes.replace(/\\n/g, ' | ').slice(0, 150) + '</div>' : ''}
+        </div>`;
+      }).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load Congress data: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// STOCKS - STATS
+// ========================================================================
+async function loadStockStats() {
+  try {
+    const d = await (await fetch(API + '/v1/whales/stocks/stats')).json();
+    document.getElementById('sw-signals').textContent = d.signals || 0;
+    document.getElementById('sw-congress').textContent = d.congress_trades || 0;
+    document.getElementById('sw-insider').textContent = d.insider_trades || 0;
+    document.getElementById('sw-13f').textContent = d.filings_13f || 0;
+  } catch (e) {
+    // Graceful fallback
+  }
+}
+
+// ========================================================================
+// MEMECOINS - SCAN
+// ========================================================================
+async function scanMemes() {
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Scanning memecoins...</div>';
+
+  try {
+    const d = await (await fetch(API + '/v1/alpha/scan/memes')).json();
+    const memes = d.memes || [];
+    if (!memes.length) { content.innerHTML = '<div class="empty">No memecoin signals right now. Signals require $100K+ MC and smart money cluster activity in the last 6 hours.</div>'; return; }
+
+    const maxShow = isAuth() ? memes.length : 3;
+
+    let html = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between"><span>MEME SCAN -- Ranked by Agiotage Score</span><span style="font-weight:400">' + memes.length + ' tokens</span></div>';
+
+    html += memes.slice(0, maxShow).map((m, i) => {
+      const sigColor = m.signal === 'BUY' ? '#10b981' : m.signal === 'SELL' ? 'var(--red)' : 'var(--muted)';
+      const depColor = m.deployer_rating ? ({ S: 'var(--yellow)', A: 'var(--purple)', B: 'var(--blue)', C: 'var(--muted)', D: 'var(--red)' }[m.deployer_rating] || 'var(--muted)') : null;
+
+      return `<div class="signal-card ${m.signal === 'BUY' ? 'buy' : m.signal === 'SELL' ? 'sell' : 'hold'}" style="animation-delay:${i * 0.03}s">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="width:24px;font-size:14px;font-weight:800;color:var(--muted);text-align:center">${i + 1}</span>
+          <span style="font-size:18px;font-weight:800">${m.token}</span>
+          <span style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;background:${sigColor}20;color:${sigColor}">${m.signal}</span>
+          <div style="flex:1"></div>
+          ${scoreRingHTML(m.confidence || 0)}
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;margin-bottom:8px">
+          <span style="color:var(--accent);font-weight:600">MC: ${fmt$(m.market_cap)}</span>
+          <span style="color:var(--muted)">${m.wallet_count} wallets | ${m.cluster_strength}</span>
+          ${depColor ? '<span style="color:' + depColor + ';font-weight:600">Deployer: ' + m.deployer_rating + '-tier</span>' : ''}
+          ${m.social_mentions > 0 ? '<span style="color:var(--purple)">' + m.social_mentions + ' social mentions</span>' : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.token_address || ''}</span>
+          ${m.token_address ? '<button onclick="navigator.clipboard.writeText(\'' + m.token_address + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy CA\',1500)" style="padding:4px 10px;background:#1f2937;border:1px solid #374151;color:var(--accent);border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">Copy CA</button>' : ''}
+          ${m.token_address ? '<a href="https://dexscreener.com/solana/' + m.token_address + '" target="_blank" style="padding:4px 10px;background:#1f2937;border:1px solid #374151;color:var(--accent);border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap">Chart</a>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    if (!isAuth() && memes.length > 3) {
+      html += premiumGateHTML(memes.length - 3);
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Scan failed: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// MEMECOINS - SIGNAL ACCURACY
+// ========================================================================
+async function loadSignalAccuracy() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading signal accuracy...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/smart-money/signal-audit')).json();
+    if (d.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+
+    const signals = d.signals || d.audits || [];
+    const stats = d.stats || {};
+
+    let html = '';
+
+    // Win/loss/neutral summary
+    if (stats.wins != null || stats.total != null) {
+      const wins = stats.wins || 0;
+      const losses = stats.losses || 0;
+      const neutral = stats.neutral || 0;
+      const total = stats.total || (wins + losses + neutral);
+      const wr = total > 0 ? ((wins / total) * 100).toFixed(1) : '0';
+      html += `<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="stat-card" style="border-left:3px solid #10b981"><div class="stat-val" style="color:#10b981">${wins}</div><div class="stat-label">Wins</div></div>
+        <div class="stat-card" style="border-left:3px solid var(--red)"><div class="stat-val" style="color:var(--red)">${losses}</div><div class="stat-label">Losses</div></div>
+        <div class="stat-card" style="border-left:3px solid var(--muted)"><div class="stat-val" style="color:var(--muted)">${neutral}</div><div class="stat-label">Neutral</div></div>
+        <div class="stat-card" style="border-left:3px solid var(--accent)"><div class="stat-val">${wr}%</div><div class="stat-label">Win Rate</div></div>
+      </div>`;
+    }
+
+    if (signals.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">SIGNAL AUDIT -- Historical Performance</div>';
+      html += signals.map((s, i) => {
+        const priceAtSignal = s.price_at_signal || 0;
+        const currentPrice = s.current_price || s.price_now || 0;
+        const change = priceAtSignal > 0 ? ((currentPrice - priceAtSignal) / priceAtSignal * 100) : 0;
+        const outcome = s.outcome || (change > 5 ? 'WIN' : change < -5 ? 'LOSS' : 'NEUTRAL');
+        const oc = outcome === 'WIN' ? '#10b981' : outcome === 'LOSS' ? 'var(--red)' : 'var(--muted)';
+
+        return `<div class="data-row" style="border-left:3px solid ${oc};animation:fadeUp .3s ease both;animation-delay:${i * 0.02}s">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <span style="font-size:14px;font-weight:800">${s.token || s.symbol || '?'}</span>
+            <span style="font-size:11px;color:var(--muted)">Signal: $${priceAtSignal.toFixed(6)}</span>
+            <span style="font-size:11px;color:var(--muted)">Now: $${currentPrice.toFixed(6)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+            <span style="font-weight:700;color:${pctColor(change)}">${pctStr(change)}</span>
+            <span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:${oc}20;color:${oc}">${outcome}</span>
+            <span style="font-size:10px;color:var(--muted)">${timeAgo(s.signal_time || s.created_at)}</span>
+          </div>
+        </div>`;
+      }).join('');
+    } else if (!stats.total) {
+      html += '<div class="empty">No signal audit data yet. Signals are tracked for accuracy once they fire.</div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load signal accuracy: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// MEMECOINS - DEPLOYERS
+// ========================================================================
+async function loadDeployers() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading deployers...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/meme-tracker/top-deployers?limit=30')).json();
+    if (d.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+    const deployers = d.deployers || [];
+    if (!deployers.length) { content.innerHTML = '<div class="empty">Building deployer database... scanning for wallets with $1M+ MC tokens.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">TOP DEPLOYERS -- Ranked by Track Record</div>' +
+      deployers.map(dep => {
+        const tokens = (dep.tokens || []).map(t => {
+          return `<div class="token-row${t.is_rugged ? ' rugged' : ''}">
+            <div><span style="font-weight:600">${(t.name || '?').slice(0, 20)}</span> <span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px">${t.symbol || ''}</span>
+            ${t.is_rugged ? '<span class="badge badge-rug">RUGGED</span>' : ''}${t.is_pump_fun ? '<span class="badge badge-pump">PUMP</span>' : ''}</div>
+            <div><span style="${t.peak_mc >= 1000000 ? 'color:#10b981' : ''}">${fmt$(t.current_mc)}</span> <span style="color:var(--muted);font-size:11px">peak: ${fmt$(t.peak_mc)}</span>
+            <a href="https://dexscreener.com/solana/${t.mint}" target="_blank" style="font-size:10px;margin-left:6px;color:var(--muted)">chart</a></div>
+          </div>`;
+        }).join('');
+        const rugPct = dep.rug_ratio ? Math.round(dep.rug_ratio * 100) : 0;
+        const rugInfo = dep.rug_count > 0 ? `<span style="color:var(--red)">${dep.rug_count} rug${dep.rug_count > 1 ? 's' : ''} (${rugPct}%)</span>` : '<span style="color:#10b981">0 rugs</span>';
+        return `<div class="deployer-card">
+          <div class="deployer-header">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600"><a href="https://solscan.io/account/${dep.wallet}" target="_blank">${shortAddr(dep.wallet)}</a></div>
+            <span class="rating rating-${dep.rating}">${dep.rating}</span>
+          </div>
+          <div class="deployer-stats"><span>${dep.total_tokens} launched</span><span>${dep.tokens_over_1m} over $1M</span><span>${rugInfo}</span><span>Best: ${fmt$(dep.highest_mc)}</span>${dep.last_launch ? '<span>Last: ' + timeAgo(dep.last_launch) + '</span>' : ''}</div>
+          ${dep.rating === 'D' ? '<div style="color:var(--red);font-size:11px;font-weight:600;margin-bottom:8px">RUG WARNING -- high rug rate. Extreme caution.</div>' : ''}
+          <div>${tokens}</div>
+        </div>`;
+      }).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load deployers: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// MEMECOINS - SMART MONEY LEADERBOARD
+// ========================================================================
+async function loadLeaderboard() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading leaderboard...</div>';
+
+  try {
+    const d = await (await authFetch('/v1/smart-money/leaderboard?limit=30')).json();
+    if (d.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+    const wallets = d.wallets || [];
+    if (!wallets.length) { content.innerHTML = '<div class="empty">Leaderboard building... wallets are being scored by win rate and profitability.</div>'; return; }
+
+    content.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px">SMART MONEY LEADERBOARD</div>' +
+      wallets.map((w, i) => {
+        const wrClass = w.winrate >= 0.65 ? 'wr-high' : w.winrate >= 0.45 ? 'wr-med' : 'wr-low';
+        const tags = (w.tags || []).filter(t => t).map(t => {
+          if (t === 'smart_degen') return '<span class="badge badge-sm">SMART</span>';
+          if (t === 'renowned' || t === 'kol') return '<span class="badge badge-kol">KOL</span>';
+          return `<span class="badge" style="background:#37415120;color:#9ca3af">${t}</span>`;
+        }).join(' ');
+        return `<div class="wallet-row">
+          <div class="wallet-rank">#${i + 1}</div>
+          <div class="wallet-info">
+            <div class="wallet-name">${w.name || shortAddr(w.wallet)} ${w.twitter ? '<a href="https://twitter.com/' + w.twitter + '" target="_blank" style="font-size:10px;color:var(--muted)">@' + w.twitter + '</a>' : ''}</div>
+            <div class="wallet-addr"><a href="https://solscan.io/account/${w.wallet}" target="_blank">${shortAddr(w.wallet)}</a> <span class="rating rating-${w.tier}">${w.tier}</span> ${tags}</div>
+          </div>
+          <div class="wallet-stats">
+            <div style="font-size:16px;font-weight:700" class="${wrClass}">${(w.winrate * 100).toFixed(0)}%</div>
+            <div style="font-size:12px;color:var(--muted)">${fmt$(w.realized_profit)} profit</div>
+            <div style="font-size:10px;color:var(--muted)">${w.tokens_traded} tokens | ${w.pnl_2x_plus} 2x+ | ${w.pnl_5x_plus} 5x+</div>
+          </div>
+        </div>`;
+      }).join('');
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load leaderboard: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// MEMECOINS - FOLLOWED WALLETS
+// ========================================================================
+async function loadFollowedWallets() {
+  if (!checkAuth()) return;
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="empty">Loading followed wallets...</div>';
+
+  try {
+    const [sigResp, lbResp] = await Promise.all([
+      authFetch('/v1/wallet-follow/signals?limit=20').then(r => r.json()).catch(() => ({ signals: [] })),
+      authFetch('/v1/wallet-follow/leaderboard?limit=20').then(r => r.json()).catch(() => ({ wallets: [] })),
+    ]);
+
+    if (sigResp.detail || lbResp.detail) { document.getElementById('login-gate').style.display = 'block'; return; }
+
+    let html = '';
+    const signals = sigResp.signals || [];
+    const wallets = lbResp.wallets || lbResp.leaderboard || [];
+
+    // Signals from followed wallets
+    if (signals.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:12px">FOLLOWED WALLET SIGNALS</div>';
+      html += signals.map((s, i) => {
+        const sigColor = s.signal === 'BUY' || s.side === 'buy' ? '#10b981' : 'var(--red)';
+        const strengthColors = { VERY_STRONG: 'var(--accent)', STRONG: 'var(--yellow)', MEDIUM: 'var(--blue)' };
+        const sc = strengthColors[s.strength] || 'var(--blue)';
+        return `<div class="signal-card" style="border-left:4px solid ${sigColor};animation-delay:${i * 0.03}s">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px;font-weight:800">${s.token_symbol || s.symbol || '?'}</span>
+              ${s.strength ? '<span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:' + sc + '20;color:' + sc + '">' + s.strength.replace(/_/g, ' ') + '</span>' : ''}
+            </div>
+            <div style="text-align:right">
+              ${s.total_usd ? '<span style="font-weight:700;color:var(--accent)">' + fmt$(s.total_usd) + '</span>' : ''}
+              <span style="font-size:10px;color:var(--muted);margin-left:6px">${s.wallet_count || 0} wallets</span>
+            </div>
+          </div>
+          ${s.token_address ? '<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + s.token_address + '</span><button onclick="navigator.clipboard.writeText(\'' + s.token_address + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy CA\',1500)" style="padding:4px 10px;background:#1f2937;border:1px solid #374151;color:var(--accent);border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">Copy CA</button></div>' : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Followed wallet leaderboard
+    if (wallets.length) {
+      html += '<div style="font-size:13px;font-weight:700;color:var(--muted);margin:20px 0 12px">FOLLOWED WALLET LEADERBOARD</div>';
+      html += wallets.map((w, i) => {
+        const wrVal = w.winrate || w.win_rate || 0;
+        const wrClass = wrVal >= 0.65 ? 'wr-high' : wrVal >= 0.45 ? 'wr-med' : 'wr-low';
+        return `<div class="wallet-row">
+          <div class="wallet-rank">#${i + 1}</div>
+          <div class="wallet-info">
+            <div class="wallet-name">${w.name || w.label || shortAddr(w.wallet || w.address)}</div>
+            <div class="wallet-addr"><a href="https://solscan.io/account/${w.wallet || w.address}" target="_blank">${shortAddr(w.wallet || w.address)}</a></div>
+          </div>
+          <div class="wallet-stats">
+            <div style="font-size:16px;font-weight:700" class="${wrClass}">${(wrVal * 100).toFixed(0)}%</div>
+            <div style="font-size:12px;color:var(--muted)">${fmt$(w.realized_profit || w.profit || 0)} profit</div>
+            <div style="font-size:10px;color:var(--muted)">${w.trades || w.tokens_traded || 0} trades</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    if (!signals.length && !wallets.length) {
+      html = '<div class="empty">No followed wallet data yet. Follow wallets to track their trades and get signals when they move.</div>';
+    }
+
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="empty">Failed to load followed wallets: ' + e.message + '</div>';
+  }
+}
+
+// ========================================================================
+// MEMECOINS - STATS
+// ========================================================================
+async function loadMemeStats() {
+  try {
+    const [sm, mt, audit] = await Promise.all([
+      fetch(API + '/v1/smart-money/stats').then(r => r.json()).catch(() => ({})),
+      fetch(API + '/v1/meme-tracker/stats').then(r => r.json()).catch(() => ({})),
+      fetch(API + '/v1/smart-money/signal-audit').then(r => r.json()).catch(() => ({})),
+    ]);
+    document.getElementById('s-clusters').textContent = mt.total_tokens_tracked || sm.tokens_tracked || 0;
+    document.getElementById('s-deployers').textContent = mt.top_deployers || 0;
+    document.getElementById('s-signals').textContent = sm.cluster_signals || sm.signals_today || 0;
+    const auditStats = audit.stats || {};
+    const total = auditStats.total || 0;
+    const wins = auditStats.wins || 0;
+    document.getElementById('s-accuracy').textContent = total > 0 ? ((wins / total) * 100).toFixed(0) + '%' : '--';
+  } catch (e) {
+    // Graceful fallback
+  }
+}
+
+// ========================================================================
+// INITIALIZATION + AUTO-REFRESH
+// ========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  renderSection();
+  loadBotPerformance();
+
+  // Auto-refresh every 30 seconds for active tab only
+  setInterval(() => {
+    if (currentSection === 'memes') {
+      loadMemeStats();
+      loadTab();
+    } else if (currentSection === 'crypto' && currentTab !== 'coin-overview') {
+      loadTab();
+    } else if (currentSection === 'stocks') {
+      loadStockStats();
+      // Only auto-refresh data tabs, not score scan (it's slow)
+      if (currentTab !== 'stock-score-scan') {
+        loadTab();
+      }
+    }
+  }, 30000);
+
+  // Refresh bot banner every 60 seconds
+  setInterval(loadBotPerformance, 60000);
+});
+</script>
+</body>
+</html>
