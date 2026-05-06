@@ -309,3 +309,99 @@ async def token_balance(token_mint: str, _=Depends(_require_admin)):
     from ..services.jupiter_swap import get_token_balance
     raw, ui, decimals = await get_token_balance(token_mint)
     return {"mint": token_mint, "raw_amount": raw, "ui_amount": ui, "decimals": decimals}
+
+
+@router.post("/kraken/buy")
+async def kraken_buy(request: Request, _=Depends(_require_admin)):
+    """Buy crypto on Kraken. Body: {symbol, amount_usd}"""
+    await _check_kill_switch()
+    from ..services.kraken_exchange import buy
+    body = await request.json()
+    symbol = body.get("symbol", "")
+    amount_usd = float(body.get("amount_usd", 0))
+    if not symbol or amount_usd <= 0:
+        raise HTTPException(400, "symbol and amount_usd required")
+    result = await buy(symbol, amount_usd)
+    try:
+        from ..core.redis import redis_client
+        await redis_client.rpush("trading:history", _json.dumps(
+            {"exchange": "kraken", "action": "buy", "symbol": symbol,
+             "amount_usd": amount_usd, "result": result,
+             "timestamp": datetime.utcnow().isoformat()}, default=str))
+    except:
+        pass
+    return result
+
+
+@router.post("/kraken/sell")
+async def kraken_sell(request: Request, _=Depends(_require_admin)):
+    """Sell crypto on Kraken. Body: {symbol, amount_usd} or {symbol, sell_all: true}"""
+    await _check_kill_switch()
+    from ..services.kraken_exchange import sell, sell_all
+    body = await request.json()
+    symbol = body.get("symbol", "")
+    if not symbol:
+        raise HTTPException(400, "symbol required")
+    if body.get("sell_all"):
+        result = await sell_all(symbol)
+    else:
+        amount_usd = float(body.get("amount_usd", 0))
+        if amount_usd <= 0:
+            raise HTTPException(400, "amount_usd required (or use sell_all: true)")
+        result = await sell(symbol, amount_usd)
+    try:
+        from ..core.redis import redis_client
+        await redis_client.rpush("trading:history", _json.dumps(
+            {"exchange": "kraken", "action": "sell", "symbol": symbol,
+             "result": result, "timestamp": datetime.utcnow().isoformat()}, default=str))
+    except:
+        pass
+    return result
+
+
+@router.post("/tastytrade/buy")
+async def tastytrade_buy(request: Request, _=Depends(_require_admin)):
+    """Buy stock on Tastytrade. Body: {symbol, amount_usd}"""
+    await _check_kill_switch()
+    from ..services.tastytrade_exchange import buy
+    body = await request.json()
+    symbol = body.get("symbol", "")
+    amount_usd = float(body.get("amount_usd", 0))
+    if not symbol or amount_usd <= 0:
+        raise HTTPException(400, "symbol and amount_usd required")
+    result = await buy(symbol, amount_usd)
+    try:
+        from ..core.redis import redis_client
+        await redis_client.rpush("trading:history", _json.dumps(
+            {"exchange": "tastytrade", "action": "buy", "symbol": symbol,
+             "amount_usd": amount_usd, "result": result,
+             "timestamp": datetime.utcnow().isoformat()}, default=str))
+    except:
+        pass
+    return result
+
+
+@router.post("/tastytrade/sell")
+async def tastytrade_sell(request: Request, _=Depends(_require_admin)):
+    """Sell stock on Tastytrade. Body: {symbol, amount_usd} or {symbol, sell_all: true}"""
+    await _check_kill_switch()
+    from ..services.tastytrade_exchange import sell, sell_all
+    body = await request.json()
+    symbol = body.get("symbol", "")
+    if not symbol:
+        raise HTTPException(400, "symbol required")
+    if body.get("sell_all"):
+        result = await sell_all(symbol)
+    else:
+        amount_usd = float(body.get("amount_usd", 0))
+        if amount_usd <= 0:
+            raise HTTPException(400, "amount_usd required (or use sell_all: true)")
+        result = await sell(symbol, amount_usd)
+    try:
+        from ..core.redis import redis_client
+        await redis_client.rpush("trading:history", _json.dumps(
+            {"exchange": "tastytrade", "action": "sell", "symbol": symbol,
+             "result": result, "timestamp": datetime.utcnow().isoformat()}, default=str))
+    except:
+        pass
+    return result
