@@ -343,20 +343,38 @@ async def _check_for_entries():
             _log.warning(f"Daily loss limit reached: {daily_loss:.4f} SOL >= {config['daily_loss_limit_sol']} SOL")
             return
 
-        # 3. Get cluster signals from last N minutes
+        # 3. Get unprocessed cluster signals (primary) + recent signals (fallback)
         from .smart_money_tracker import ClusterSignal
-        lookback = config.get("signal_lookback_minutes", 5)
-        cutoff = datetime.utcnow() - timedelta(minutes=lookback)
+        lookback = config.get("signal_lookback_minutes", 10)
+        cutoff = datetime.utcnow() - timedelta(minutes=max(lookback, 60))
 
         signals = (await db.execute(
             select(ClusterSignal)
-            .where(ClusterSignal.detected_at >= cutoff)
+            .where(
+                ClusterSignal.detected_at >= cutoff,
+                ClusterSignal.notified == False,
+            )
             .order_by(ClusterSignal.detected_at.desc())
             .limit(10)
         )).scalars().all()
 
+        if not signals:
+            signals = (await db.execute(
+                select(ClusterSignal)
+                .where(ClusterSignal.detected_at >= cutoff)
+                .order_by(ClusterSignal.detected_at.desc())
+                .limit(10)
+            )).scalars().all()
+
+        if signals:
+            _log.info(f"Evaluating {len(signals)} cluster signals (lookback {lookback}min)")
+
         for signal in signals:
             symbol = (signal.token_symbol or "").upper()
+            _log.info(f"Checking signal: ${symbol} strength={signal.signal_strength} wallets={signal.wallet_count} age={int((datetime.utcnow()-signal.detected_at).total_seconds()/60)}min")
+
+            # Mark as seen so we don't re-evaluate next cycle
+            signal.notified = True
 
             # 4a. Skip if symbol in skip_symbols
             if symbol in config["skip_symbols"]:
@@ -623,6 +641,7 @@ async def _check_for_entries():
                 reason=reason[:100],
             )
 
+            signal.notified = True
             await db.commit()
             await db.refresh(position)
             trade.position_id = position.id
@@ -648,6 +667,10 @@ async def _check_for_entries():
                 f"[Chart](https://dexscreener.com/solana/{ca})"
             )
             await _send_telegram(msg)
+
+        # Commit notified flags for all evaluated signals
+        if signals:
+            await db.commit()
 
 
 # === POSITION MANAGEMENT ===
