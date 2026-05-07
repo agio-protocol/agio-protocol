@@ -31,8 +31,8 @@ RAPID_POLL = 10
 DEFAULT_CONFIG = {
     # Entry criteria — lowered for more trades (80% WR proves exit logic works)
     "min_agiotage_score": 35,
-    "min_mc": 50000,
-    "max_mc": 1000000,
+    "min_mc": 30000,
+    "max_mc": 10000000,
     "min_sources": 1,
     "min_wallet_count": 3,
     "min_wallet_count_with_deployer": 2,
