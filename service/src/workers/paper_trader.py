@@ -378,6 +378,7 @@ async def _check_for_entries():
 
             # 4a. Skip if symbol in skip_symbols
             if symbol in config["skip_symbols"]:
+                _log.info(f"SKIP ${symbol}: in skip_symbols list")
                 continue
 
             # 4b. Skip if already have open or recently opened position for this token (dedup)
@@ -387,23 +388,26 @@ async def _check_for_entries():
                        PaperPosition.status.in_(["OPEN"]))
             )).scalar_one_or_none()
             if existing:
+                _log.info(f"SKIP ${symbol}: already have open position")
                 continue
-            # Also check if we opened a position for this token in the last 5 minutes (prevents double-buy race)
             recent_entry = (await db.execute(
                 select(PaperPosition)
                 .where(PaperPosition.token_address == signal.token_address,
                        PaperPosition.opened_at >= datetime.utcnow() - timedelta(minutes=5))
             )).scalar_one_or_none()
             if recent_entry:
+                _log.info(f"SKIP ${symbol}: recently opened (5min dedup)")
                 continue
 
             # 4c. Get current price, MC, and liquidity from DexScreener
             price, mc, liquidity = await _get_price_mc_liquidity(signal.token_address)
             if price <= 0:
+                _log.info(f"SKIP ${symbol}: no price from DexScreener")
                 continue
 
             # 4d. Skip if MC out of range
             if mc < config["min_mc"] or mc > config["max_mc"]:
+                _log.info(f"SKIP ${symbol}: MC ${mc:,.0f} outside range ${config['min_mc']:,}-${config['max_mc']:,}")
                 continue
 
             # 4e. Check price move since signal
@@ -536,11 +540,15 @@ async def _check_for_entries():
 
             # 4j. Score gate
             if score < config["min_agiotage_score"]:
+                _log.info(f"SKIP ${symbol}: score {score} < {config['min_agiotage_score']} (sources: {','.join(sources)})")
                 continue
 
             # Source count check
             if len(sources) < config["min_sources"]:
+                _log.info(f"SKIP ${symbol}: {len(sources)} sources < {config['min_sources']}")
                 continue
+
+            _log.info(f"PASSED ${symbol}: score={score} sources={','.join(sources)} wallets={wallet_count} MC=${mc:,.0f}")
 
             # 4k. Bot saturation check
             try:
