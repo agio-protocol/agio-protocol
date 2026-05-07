@@ -1,0 +1,376 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AGIOTAGE Meme Tracker — Top Deployer Alerts</title>
+<meta name="description" content="Track proven Solana memecoin deployers. Get alerts when wallets with 1M+ MC hits launch new tokens.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6;--blue:#3b82f6}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.page{max-width:960px;margin:0 auto;padding:20px 24px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+.stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;flex:1;min-width:120px}
+.stat-val{font-size:22px;font-weight:700;color:var(--accent)}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tab{padding:8px 16px;border-radius:6px 6px 0 0;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:transparent;border:none}
+.tab.active{color:var(--accent);background:#00d9a308;border-bottom:2px solid var(--accent)}
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters label{font-size:12px;color:var(--muted)}
+.filters select{padding:6px 10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:12px}
+
+/* Deployer cards */
+.deployer-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+.deployer-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.deployer-wallet{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.deployer-wallet a{color:var(--text)}
+.deployer-stats{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:10px}
+.deployer-stats span{display:flex;align-items:center;gap:4px}
+.rating{padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:1px}
+.rating-S{background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b40}
+.rating-A{background:#8b5cf620;color:#8b5cf6;border:1px solid #8b5cf640}
+.rating-B{background:#3b82f620;color:#3b82f6;border:1px solid #3b82f640}
+.rating-C{background:#6b728020;color:#9ca3af;border:1px solid #6b728040}
+.rating-D{background:#ef444420;color:#ef4444;border:1px solid #ef444440}
+.badge-rug{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;background:#ef444420;color:var(--red)}
+.rug-warning{color:var(--red);font-size:11px;font-weight:600;margin-top:4px}
+.token-row.rugged{opacity:0.7;border-left:2px solid var(--red)}
+.token-list{display:flex;flex-direction:column;gap:6px}
+.token-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#111827;border-radius:6px;font-size:12px}
+.token-row:hover{background:#1f2937}
+.token-info{display:flex;align-items:center;gap:8px}
+.token-info .name{font-weight:600;color:var(--text)}
+.token-info .symbol{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px}
+.token-mc{text-align:right}
+.token-mc .current{font-weight:600}
+.token-mc .peak{color:var(--muted);font-size:11px}
+.mc-hit{color:#10b981}
+.mc-miss{color:var(--muted)}
+.badge-pump{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;background:#8b5cf620;color:var(--purple)}
+.badge-new{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;background:#ef444420;color:var(--red);animation:glow 2s infinite}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Feed view */
+.token-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.token-card.top-deployer{border-left:3px solid var(--yellow)}
+.token-card .token-left{flex:1;min-width:0}
+.token-card .token-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px}
+.token-card .token-mint{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:3px}
+.token-card .token-deployer{font-size:11px;color:var(--muted);margin-top:3px}
+.token-card .token-right{text-align:right;flex-shrink:0}
+.token-card .token-liq{font-size:14px;font-weight:600}
+.token-card .token-price{font-size:11px;color:var(--muted);margin-top:2px}
+.token-card .token-time{font-size:10px;color:var(--muted);margin-top:4px}
+.token-dex{font-size:10px;padding:2px 6px;border-radius:3px;background:#1f2937;color:var(--muted);display:inline-block;margin-top:4px}
+
+.login-gate{text-align:center;padding:60px 20px}
+.login-gate h2{font-size:18px;margin-bottom:8px}
+.login-gate p{color:var(--muted);font-size:13px;margin-bottom:20px}
+.login-gate button{padding:10px 24px;background:var(--accent);color:#06080d;border:none;border-radius:6px;font-weight:600;cursor:pointer}
+.empty{color:var(--muted);text-align:center;padding:40px;font-size:13px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media(max-width:768px){
+.stats-row{flex-direction:column}.stat-card{min-width:auto}
+.token-card{flex-direction:column}.token-card .token-right{text-align:left;margin-top:8px}
+.deployer-header{flex-direction:column;gap:8px;align-items:flex-start}
+.deployer-stats{flex-wrap:wrap}
+}
+</style></head><body>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE="meme-tracker";</script>
+<script src="/nav.js"></script>
+
+<div class="page">
+  <h1><span class="live-dot"></span> Meme Deployer Tracker</h1>
+  <p class="subtitle">Tracking proven deployers whose tokens have hit $1M+ market cap. Alerts when they launch again.</p>
+
+  <div class="stats-row" id="stats">
+    <div class="stat-card"><div class="stat-val" id="stat-total">--</div><div class="stat-label">Tokens Tracked</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-top">--</div><div class="stat-label">Top Deployers</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-1m">--</div><div class="stat-label">Tokens Over $1M</div></div>
+    <div class="stat-card"><div class="stat-val" id="stat-pump">--</div><div class="stat-label">Pump.fun</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('deployers')">Top Deployers</button>
+    <button class="tab" onclick="switchTab('feed')">Live Feed</button>
+    <button class="tab" onclick="switchTab('buzz')">Social Buzz</button>
+    <button class="tab" onclick="switchTab('alerts')">Alerts</button>
+  </div>
+
+  <div id="filters-deployers" class="filters">
+    <label>Min Rating: <select id="min-rating" onchange="loadDeployers()">
+      <option value="">All</option>
+      <option value="C">C+</option>
+      <option value="B">B+</option>
+      <option value="A">A+</option>
+      <option value="S">S only</option>
+      <option value="D">D (rug warning)</option>
+    </select></label>
+  </div>
+
+  <div id="filters-feed" class="filters" style="display:none">
+    <label><input type="checkbox" id="top-only" onchange="loadFeed()"> Top deployers only</label>
+    <label><input type="checkbox" id="pump-only" onchange="loadFeed()"> Pump.fun only</label>
+  </div>
+
+  <div id="login-gate" class="login-gate" style="display:none">
+    <h2>Sign in to view the Meme Tracker</h2>
+    <p>Track proven deployers and get alerts when they launch new tokens.</p>
+    <button onclick="toggleSignIn()">Sign In</button>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+const API = 'https://agio-protocol-production.up.railway.app';
+let currentTab = 'deployers';
+
+function fmt$(n) {
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  if (n > 0) return '$' + n.toFixed(0);
+  return '$0';
+}
+function shortAddr(a) { return a ? a.slice(0,6)+'...'+a.slice(-4) : 'unknown'; }
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso))/1000);
+  if (s<60) return s+'s ago'; if (s<3600) return Math.floor(s/60)+'m ago';
+  if (s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago';
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('filters-deployers').style.display = tab === 'deployers' ? 'flex' : 'none';
+  document.getElementById('filters-feed').style.display = tab === 'feed' ? 'flex' : 'none';
+  if (tab === 'deployers') loadDeployers();
+  else if (tab === 'feed') loadFeed();
+  else if (tab === 'buzz') loadBuzz();
+  else if (tab === 'alerts') loadAlerts();
+}
+
+function ratingBadge(r) {
+  return `<span class="rating rating-${r}">${r}</span>`;
+}
+
+async function loadStats() {
+  try {
+    const d = await (await fetch(API + '/v1/meme-tracker/stats')).json();
+    document.getElementById('stat-total').textContent = d.total_tokens_tracked || 0;
+    document.getElementById('stat-top').textContent = d.top_deployers || 0;
+    document.getElementById('stat-1m').textContent = d.tokens_over_1m || 0;
+    document.getElementById('stat-pump').textContent = d.pump_fun_tokens || 0;
+  } catch {}
+}
+
+async function loadDeployers() {
+  if (!checkAuth()) return;
+  const rating = document.getElementById('min-rating').value;
+  let url = API + '/v1/meme-tracker/top-deployers?limit=50';
+  if (rating) url += '&min_rating=' + rating;
+  try {
+    const d = await (await authFetch(url)).json();
+    if (d.detail) { showLoginGate(); return; }
+    const deployers = d.deployers || [];
+    if (!deployers.length) {
+      document.getElementById('content').innerHTML = '<div class="empty">No top deployers found yet. The tracker is scanning for wallets whose tokens have hit $1M+ market cap. Check back soon.</div>';
+      return;
+    }
+    document.getElementById('content').innerHTML = deployers.map(renderDeployer).join('');
+  } catch { document.getElementById('content').innerHTML = '<div class="empty">Failed to load</div>'; }
+}
+
+function renderDeployer(d) {
+  const tokens = d.tokens || [];
+  const tokenRows = tokens.map(t => {
+    const hit = t.peak_mc >= 1000000;
+    const dexUrl = t.mint ? `https://dexscreener.com/solana/${t.mint}` : '#';
+    const rugCls = t.is_rugged ? ' rugged' : '';
+    return `<div class="token-row${rugCls}">
+      <div class="token-info">
+        <span class="name">${(t.name||'Unknown').replace(/</g,'&lt;').slice(0,25)}</span>
+        <span class="symbol">${(t.symbol||'').replace(/</g,'&lt;')}</span>
+        ${t.is_pump_fun ? '<span class="badge-pump">PUMP</span>' : ''}
+        ${t.is_rugged ? '<span class="badge-rug">RUGGED</span>' : ''}
+      </div>
+      <div class="token-mc">
+        <span class="current ${hit?'mc-hit':'mc-miss'}">${fmt$(t.current_mc)}</span>
+        <span class="peak">peak: ${fmt$(t.peak_mc)}</span>
+        <a href="${dexUrl}" target="_blank" style="font-size:10px;margin-left:6px;color:var(--muted)">chart</a>
+      </div>
+    </div>`;
+  }).join('');
+
+  const rugPct = d.rug_ratio ? Math.round(d.rug_ratio * 100) : 0;
+  const rugWarning = d.rug_count > 0
+    ? `<span style="color:var(--red)">${d.rug_count} rug${d.rug_count>1?'s':''} (${rugPct}%)</span>`
+    : '<span style="color:#10b981">0 rugs</span>';
+
+  return `<div class="deployer-card">
+    <div class="deployer-header">
+      <div>
+        <div class="deployer-wallet"><a href="https://solscan.io/account/${d.wallet}" target="_blank">${shortAddr(d.wallet)}</a></div>
+      </div>
+      ${ratingBadge(d.rating)}
+    </div>
+    <div class="deployer-stats">
+      <span>${d.total_tokens} launched</span>
+      <span>${d.tokens_over_1m} over $1M</span>
+      <span>${rugWarning}</span>
+      <span>Best: ${fmt$(d.highest_mc)}</span>
+      <span>Avg peak: ${fmt$(d.avg_peak_mc)}</span>
+      ${d.last_launch ? '<span>Last: '+timeAgo(d.last_launch)+'</span>' : ''}
+    </div>
+    ${d.rating === 'D' ? '<div class="rug-warning">RUG WARNING — This deployer has a high rug rate. Proceed with extreme caution.</div>' : ''}
+    <div class="token-list">${tokenRows}</div>
+  </div>`;
+}
+
+async function loadFeed() {
+  if (!checkAuth()) return;
+  const topOnly = document.getElementById('top-only')?.checked;
+  const pumpOnly = document.getElementById('pump-only')?.checked;
+  let url = API + '/v1/meme-tracker/feed?limit=50';
+  if (topOnly) url += '&top_deployers_only=true';
+  if (pumpOnly) url += '&pump_fun_only=true';
+  try {
+    const d = await (await authFetch(url)).json();
+    if (d.detail) { showLoginGate(); return; }
+    const deps = d.deployments || [];
+    if (!deps.length) {
+      document.getElementById('content').innerHTML = '<div class="empty">No tokens in feed yet. The tracker polls every 45 seconds.</div>';
+      return;
+    }
+    document.getElementById('content').innerHTML = deps.map(renderFeedCard).join('');
+  } catch { document.getElementById('content').innerHTML = '<div class="empty">Failed to load</div>'; }
+}
+
+function renderFeedCard(d) {
+  const cls = 'token-card' + (d.is_top_deployer ? ' top-deployer' : '');
+  const solscan = 'https://solscan.io/token/' + d.mint;
+  const dexUrl = d.pair_address ? `https://dexscreener.com/solana/${d.pair_address}` : solscan;
+  return `<div class="${cls}">
+    <div class="token-left">
+      <div class="token-name">
+        ${(d.name||'Unknown').replace(/</g,'&lt;').slice(0,30)}
+        <span style="color:var(--accent);font-family:monospace;font-size:12px">${(d.symbol||'').replace(/</g,'&lt;')}</span>
+        ${d.is_top_deployer ? '<span class="badge-new">TOP DEPLOYER</span>' : ''}
+        ${d.is_pump_fun ? '<span class="badge-pump">PUMP</span>' : ''}
+        ${d.is_rugged ? '<span class="badge-rug">RUGGED</span>' : ''}
+      </div>
+      <div class="token-mint"><a href="${solscan}" target="_blank">${shortAddr(d.mint)}</a></div>
+      <div class="token-deployer">Deployer: <a href="https://solscan.io/account/${d.deployer}" target="_blank">${shortAddr(d.deployer)}</a>
+        ${d.deployer_token_count > 1 ? ' ('+d.deployer_token_count+' tokens)' : ''}</div>
+    </div>
+    <div class="token-right">
+      <div class="token-liq">MC: ${fmt$(d.current_mc)}</div>
+      <div class="token-price">Peak: ${fmt$(d.peak_mc)}</div>
+      <div class="token-time">${d.pair_created_at ? timeAgo(d.pair_created_at) : timeAgo(d.tracked_at)}</div>
+      <span class="token-dex">${d.dex||'unknown'}</span>
+      <a href="${dexUrl}" target="_blank" style="font-size:10px;margin-left:4px">chart</a>
+    </div>
+  </div>`;
+}
+
+async function loadBuzz() {
+  const el = document.getElementById('content');
+  el.innerHTML = '<div class="empty">Loading social buzz...</div>';
+  try {
+    const d = await (await fetch(API + '/v1/sentiment/buzz?category=meme&hours=6&limit=30')).json();
+    let html = '';
+    // Trending tokens bar
+    if (d.trending && d.trending.length) {
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">';
+      d.trending.forEach(t => {
+        html += `<div style="background:#1f2937;border:1px solid var(--border);border-radius:6px;padding:8px 14px;text-align:center">
+          <div style="font-size:16px;font-weight:700;color:var(--accent)">${t.symbol}</div>
+          <div style="font-size:11px;color:var(--muted)">${t.mentions} mentions</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    // Convergence signals
+    if (d.signals && d.signals.length) {
+      html += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px">Convergence Signals</div>';
+      d.signals.forEach(s => {
+        const smBadge = s.smart_money ? '<span style="background:#f59e0b20;color:#f59e0b;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;margin-left:6px">SMART MONEY</span>' : '';
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><span style="font-weight:700;font-size:14px;color:var(--text)">\$${s.token}</span>
+              <span class="rating rating-${s.strength === 'VERY_STRONG' ? 'S' : s.strength === 'STRONG' ? 'A' : 'B'}" style="margin-left:8px;font-size:10px">${s.strength}</span>${smBadge}</div>
+            <span style="font-size:11px;color:var(--muted)">${timeAgo(s.detected_at)}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${s.description || s.platforms + ' platforms, ' + s.mentions + ' mentions'}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    // Live feed
+    html += '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Live KOL Feed</div>';
+    if (d.feed && d.feed.length) {
+      d.feed.forEach(m => {
+        const platIcon = {'twitter_kol':'\ud83d\udc26','reddit':'\ud83e\udde1','telegram':'\u2708\ufe0f','stocktwits':'\ud83d\udcc8','coingecko':'\ud83e\udd8e'}[m.platform] || '\ud83d\udce1';
+        const sentColor = m.sentiment === 'BULLISH' ? 'var(--accent)' : m.sentiment === 'BEARISH' ? 'var(--red)' : 'var(--muted)';
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:4px;display:flex;gap:10px;align-items:flex-start">
+          <div style="font-size:16px;flex-shrink:0">${platIcon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><span style="font-weight:600;color:var(--accent)">\$${m.token}</span>
+                <span style="font-size:11px;color:var(--muted);margin-left:6px">${m.source || m.platform}</span></div>
+              <span style="font-size:10px;color:var(--muted)">${timeAgo(m.detected_at)}</span>
+            </div>
+            ${m.text ? '<div style="font-size:12px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + m.text + '</div>' : ''}
+            <div style="font-size:11px;color:${sentColor};margin-top:2px">${m.sentiment || ''} ${m.mentions > 1 ? '(' + m.mentions + ' mentions)' : ''}</div>
+          </div>
+        </div>`;
+      });
+    } else {
+      html += '<div class="empty">No recent social mentions. KOL tracker scans every 2 minutes.</div>';
+    }
+    el.innerHTML = html;
+  } catch(e) { el.innerHTML = '<div class="empty">Failed to load social buzz: ' + e.message + '</div>'; }
+}
+
+async function loadAlerts() {
+  if (!checkAuth()) return;
+  // Show top deployer tokens launched in last 24h
+  let url = API + '/v1/meme-tracker/feed?limit=20&top_deployers_only=true';
+  try {
+    const d = await (await authFetch(url)).json();
+    if (d.detail) { showLoginGate(); return; }
+    const deps = d.deployments || [];
+    if (!deps.length) {
+      document.getElementById('content').innerHTML = '<div class="empty">No recent alerts. When a proven deployer (1M+ MC history) launches a new token, it will appear here with a notification.</div>';
+      return;
+    }
+    document.getElementById('content').innerHTML = '<p style="font-size:12px;color:var(--muted);margin-bottom:12px">Recent launches from proven deployers:</p>' + deps.map(renderFeedCard).join('');
+  } catch { document.getElementById('content').innerHTML = '<div class="empty">Failed to load</div>'; }
+}
+
+function checkAuth() {
+  const session = getSession();
+  const token = localStorage.getItem('agiotage_token');
+  if (!session || !token) { showLoginGate(); return false; }
+  document.getElementById('login-gate').style.display = 'none';
+  return true;
+}
+function showLoginGate() {
+  document.getElementById('login-gate').style.display = 'block';
+  document.getElementById('content').innerHTML = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadStats();
+  loadDeployers();
+  setInterval(loadStats, 60000);
+  setInterval(() => { if (currentTab === 'deployers') loadDeployers(); else if (currentTab === 'feed') loadFeed(); else if (currentTab === 'buzz') loadBuzz(); }, 30000);
+});
+</script>
+</body></html>
