@@ -8,6 +8,7 @@ import logging
 import os
 import time
 import urllib.parse
+from datetime import datetime
 
 import httpx
 
@@ -84,6 +85,37 @@ KRAKEN_PAIRS = {
     "ZEC": "XZECZUSD", "DASH": "DASHUSD", "ETC": "XETCZUSD",
 }
 
+# Kraken equity pairs (stocks) — only tradeable during US market hours (9:30-16:00 ET)
+KRAKEN_EQUITY_PAIRS = {
+    "AMZN": "AMZNUSD", "COIN": "COINUSD", "AAPL": "AAPLUSD", "TSLA": "TSLAUSD",
+    "MSFT": "MSFTUSD", "GOOG": "GOOGLSUSD", "NVDA": "NVDAUSD", "META": "METAUSD",
+    "AMD": "AMDUSD", "PLTR": "PLTRUSD", "MSTR": "MSTRUSD", "SQ": "SQUSD",
+}
+
+# Balance key mapping for equities
+KRAKEN_EQUITY_BALANCE_KEYS = {
+    "AMZN": ["AMZN.EQ"], "COIN": ["COIN.EQ"], "AAPL": ["AAPL.EQ"],
+    "TSLA": ["TSLA.EQ"], "MSFT": ["MSFT.EQ"], "GOOG": ["GOOGL.EQ"],
+    "NVDA": ["NVDA.EQ"], "META": ["META.EQ"], "AMD": ["AMD.EQ"],
+    "PLTR": ["PLTR.EQ"], "MSTR": ["MSTR.EQ"], "SQ": ["SQ.EQ"],
+}
+
+
+def _is_equity(symbol: str) -> bool:
+    return symbol.upper() in KRAKEN_EQUITY_PAIRS
+
+
+def _is_market_open() -> bool:
+    """Check if US stock market is open (9:30-16:00 ET, Mon-Fri)."""
+    from datetime import timezone, timedelta
+    et = timezone(timedelta(hours=-4))  # EDT
+    now = datetime.now(et)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
 
 async def get_balance() -> dict:
     """Get account balances."""
@@ -116,9 +148,28 @@ async def get_ticker(symbol: str) -> dict | None:
 
 
 async def get_price(symbol: str) -> float:
-    """Get current price for a symbol."""
+    """Get current price for a symbol (crypto or equity)."""
+    if _is_equity(symbol):
+        return await _get_equity_price(symbol)
     ticker = await get_ticker(symbol)
     return ticker["last"] if ticker else 0
+
+
+async def _get_equity_price(symbol: str) -> float:
+    """Get stock price from Yahoo Finance."""
+    try:
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol.upper()}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                result = resp.json().get("chart", {}).get("result", [])
+                if result:
+                    price = result[0].get("meta", {}).get("regularMarketPrice", 0)
+                    if price:
+                        return float(price)
+    except Exception as e:
+        _log.error("Yahoo price error for %s: %s", symbol, e)
+    return 0
 
 
 MAX_ORDER_USD = float(os.getenv("KRAKEN_MAX_ORDER_USD", "100"))
@@ -142,9 +193,13 @@ async def place_order(
 
     Returns: {success, order_id, price, volume, error}
     """
-    pair = KRAKEN_PAIRS.get(symbol.upper())
+    is_eq = _is_equity(symbol)
+    pair = KRAKEN_EQUITY_PAIRS.get(symbol.upper()) if is_eq else KRAKEN_PAIRS.get(symbol.upper())
     if not pair:
         return {"success": False, "order_id": None, "error": f"Unknown symbol: {symbol}"}
+
+    if is_eq and not _is_market_open():
+        return {"success": False, "order_id": None, "error": f"US market is closed — {symbol} can only trade 9:30-16:00 ET Mon-Fri"}
 
     # Hard cap on order size — prevents account drain
     if amount_usd > MAX_ORDER_USD:
@@ -216,17 +271,23 @@ async def sell(symbol: str, amount_usd: float) -> dict:
 
 
 async def sell_all(symbol: str) -> dict:
-    """Sell entire balance of a symbol."""
+    """Sell entire balance of a symbol (crypto or equity)."""
     try:
+        is_eq = _is_equity(symbol)
+        if is_eq and not _is_market_open():
+            return {"success": False, "order_id": None, "error": f"US market is closed — {symbol} can only trade 9:30-16:00 ET Mon-Fri"}
+
         balances = await get_balance()
         # Find the symbol's balance
-        # Kraken uses different key formats (XXBT for BTC, XETH for ETH, SOL for SOL)
         KRAKEN_BALANCE_KEYS = {
             "BTC": ["XXBT", "XBT", "BTC"], "ETH": ["XETH", "ETH"],
             "SOL": ["SOL"], "AVAX": ["AVAX"], "LINK": ["LINK"],
             "DOGE": ["XXDG", "XDG", "DOGE"], "ADA": ["ADA"], "DOT": ["DOT"],
         }
-        keys = KRAKEN_BALANCE_KEYS.get(symbol.upper(), [symbol.upper()])
+        if is_eq:
+            keys = KRAKEN_EQUITY_BALANCE_KEYS.get(symbol.upper(), [f"{symbol.upper()}.EQ"])
+        else:
+            keys = KRAKEN_BALANCE_KEYS.get(symbol.upper(), [symbol.upper()])
         balance = 0
         for k in keys:
             if k in balances.get("balances", {}):
@@ -237,7 +298,7 @@ async def sell_all(symbol: str) -> dict:
             return {"success": False, "order_id": None, "error": f"No {symbol} balance to sell"}
 
         price = await get_price(symbol)
-        pair = KRAKEN_PAIRS.get(symbol.upper())
+        pair = KRAKEN_EQUITY_PAIRS.get(symbol.upper()) if is_eq else KRAKEN_PAIRS.get(symbol.upper())
         if not pair:
             return {"success": False, "order_id": None, "error": f"Unknown symbol: {symbol}"}
 

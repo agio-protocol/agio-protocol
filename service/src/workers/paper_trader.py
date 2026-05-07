@@ -29,22 +29,22 @@ RAPID_POLL = 10
 
 # === DEFAULT CONFIG (adjustable via Redis) ===
 DEFAULT_CONFIG = {
-    # Entry criteria
-    "min_agiotage_score": 45,
-    "min_mc": 100000,
-    "max_mc": 500000,
-    "min_sources": 2,
-    "min_wallet_count": 5,
-    "min_wallet_count_with_deployer": 3,
-    "max_price_move_pct": 40,
-    "signal_lookback_minutes": 5,
+    # Entry criteria — lowered for more trades (80% WR proves exit logic works)
+    "min_agiotage_score": 35,
+    "min_mc": 50000,
+    "max_mc": 1000000,
+    "min_sources": 1,
+    "min_wallet_count": 3,
+    "min_wallet_count_with_deployer": 2,
+    "max_price_move_pct": 50,
+    "signal_lookback_minutes": 10,
 
     # Position sizing (score-weighted)
     "base_position_sol": 0.08,
     "position_sol_score_45": 0.05,
     "position_sol_score_55": 0.08,
     "position_sol_score_65": 0.12,
-    "max_open_positions": 4,
+    "max_open_positions": 6,
     "max_position_pct_of_pool": 1.0,
     "daily_loss_limit_sol": 0.15,
 
@@ -661,7 +661,18 @@ async def _manage_positions():
     config = await get_config()
     _rapid_poll_needed = False
 
-    async with async_session() as db:
+    # Prevent concurrent execution (causes duplicate sells)
+    try:
+        from ..core.redis import redis_client
+        locked = await redis_client.set("paper_trader:manage_lock", "1", ex=120, nx=True)
+        if not locked:
+            _log.debug("Position management already running, skipping")
+            return
+    except Exception:
+        pass
+
+    try:
+      async with async_session() as db:
         positions = (await db.execute(
             select(PaperPosition).where(PaperPosition.status == "OPEN")
         )).scalars().all()
@@ -975,6 +986,12 @@ async def _manage_positions():
             await asyncio.sleep(0.5)
 
         await db.commit()
+    finally:
+        try:
+            from ..core.redis import redis_client
+            await redis_client.delete("paper_trader:manage_lock")
+        except Exception:
+            pass
 
 
 # === MAIN LOOP ===
