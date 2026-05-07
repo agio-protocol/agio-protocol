@@ -35,6 +35,24 @@ async def verify_admin(x_admin_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid admin key")
 
 
+@router.post("/migrate")
+async def run_migration(db: AsyncSession = Depends(get_db), _=Depends(verify_admin)):
+    """Run pending DB migrations — adds new columns to existing tables."""
+    results = []
+    migrations = [
+        ("cluster_signals", "mc_at_signal", "NUMERIC(18,2)"),
+        ("cluster_signals", "highest_mc", "NUMERIC(18,2)"),
+    ]
+    for table, column, col_type in migrations:
+        try:
+            await db.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"))
+            results.append(f"{table}.{column}: OK")
+        except Exception as e:
+            results.append(f"{table}.{column}: {e}")
+    await db.commit()
+    return {"status": "done", "results": results}
+
+
 @router.get("/overview")
 async def admin_overview(db: AsyncSession = Depends(get_db), _=Depends(verify_admin)):
     """Full admin overview — the one screen to check every morning."""
@@ -734,6 +752,342 @@ async def resolve_dispute(
         "resolution_reason": dispute.resolution_reason,
         "resolved_at": dispute.resolved_at.isoformat(),
     }
+
+
+@router.post("/jobs/{job_id}/accept-bid")
+async def admin_accept_bid(
+    job_id: int,
+    bid_id: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: accept a bid on behalf of the job poster."""
+    from ..models.platform import Job, JobBid
+    from ..models.agent import Agent, AgentBalance
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status not in ("OPEN", "BIDDING"):
+        raise HTTPException(400, f"Job is {job.status}")
+    if job.accepted_bid_id:
+        raise HTTPException(400, "A bid was already accepted")
+
+    bid = (await db.execute(select(JobBid).where(JobBid.id == bid_id, JobBid.job_id == job_id))).scalar_one_or_none()
+    if not bid:
+        raise HTTPException(404, "Bid not found on this job")
+
+    poster = (await db.execute(
+        select(Agent).where(Agent.agio_id == job.poster_agent).with_for_update()
+    )).scalar_one_or_none()
+    if not poster:
+        raise HTTPException(404, "Poster agent not found")
+
+    poster_bal = (await db.execute(
+        select(AgentBalance).where(
+            AgentBalance.agent_id == poster.id,
+            AgentBalance.token == job.budget_token,
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not poster_bal or poster_bal.balance < bid.bid_amount:
+        raise HTTPException(400, f"Poster has insufficient {job.budget_token} balance")
+
+    poster_bal.balance -= bid.bid_amount
+    poster_bal.locked_balance += bid.bid_amount
+
+    job.status = "IN_PROGRESS"
+    job.accepted_bid_id = bid.id
+    bid.status = "ACCEPTED"
+
+    other_bids = (await db.execute(
+        select(JobBid).where(JobBid.job_id == job_id, JobBid.id != bid_id)
+    )).scalars().all()
+    for ob in other_bids:
+        ob.status = "REJECTED"
+
+    try:
+        from .notification_routes import notify
+        await notify(db, bid.bidder_agent, "job", f"Your bid on \"{job.title}\" was accepted!", f"${float(bid.bid_amount)} escrowed. Start working!", "/jobs.html")
+    except Exception:
+        pass
+
+    await db.commit()
+    return {
+        "status": "accepted",
+        "job_id": job_id,
+        "bid_id": bid_id,
+        "worker": bid.bidder_agent,
+        "amount": float(bid.bid_amount),
+        "rejected_bids": len(other_bids),
+    }
+
+
+@router.post("/chat/{room}/message")
+async def admin_chat_message(
+    room: str,
+    agent_id: str = Query(...),
+    content: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: post a chat message as any agent."""
+    from ..models.chat import ChatRoom, ChatMessage
+    chat_room = (await db.execute(select(ChatRoom).where(ChatRoom.name == room))).scalar_one_or_none()
+    if not chat_room:
+        raise HTTPException(404, f"Room '{room}' not found")
+    msg = ChatMessage(room_id=chat_room.id, agent_id=agent_id, content=content)
+    db.add(msg)
+    chat_room.message_count += 1
+    await db.commit()
+    return {"status": "sent", "room": room, "agent_id": agent_id}
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def admin_cancel_job(
+    job_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: cancel a job and refund escrow if applicable."""
+    from ..models.platform import Job, JobBid
+    from ..models.agent import Agent, AgentBalance
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status == "COMPLETED":
+        raise HTTPException(400, "Cannot cancel completed job")
+
+    if job.accepted_bid_id and job.status in ("IN_PROGRESS", "SUBMITTED"):
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one()
+        poster = (await db.execute(select(Agent).where(Agent.agio_id == job.poster_agent).with_for_update())).scalar_one()
+        poster.locked_balance = Decimal(str(poster.locked_balance)) - bid.bid_amount
+        poster_bal = (await db.execute(
+            select(AgentBalance).where(AgentBalance.agent_id == poster.id, AgentBalance.token == job.budget_token)
+        )).scalar_one_or_none()
+        if poster_bal:
+            poster_bal.locked_balance -= bid.bid_amount
+
+    job.status = "CANCELLED"
+    await db.commit()
+    return {"status": "CANCELLED", "job_id": job_id}
+
+
+@router.post("/jobs/{job_id}/approve")
+async def admin_approve_work(
+    job_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: approve submitted work and release escrow payment to worker."""
+    from ..models.platform import Job, JobBid, JobDeliverable
+    from ..models.agent import Agent, AgentBalance
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status != "SUBMITTED":
+        raise HTTPException(400, f"Job is {job.status}, not SUBMITTED")
+    if not job.accepted_bid_id:
+        raise HTTPException(400, "No accepted bid")
+
+    bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one()
+    amount = Decimal(str(bid.bid_amount))
+
+    # Commission: 5%(<$1), 8%($1-10), 10%($10-100), 12%(>=100)
+    if amount < 1:
+        rate = Decimal("0.05")
+    elif amount < 10:
+        rate = Decimal("0.08")
+    elif amount < 100:
+        rate = Decimal("0.10")
+    else:
+        rate = Decimal("0.12")
+    commission = (amount * rate).quantize(Decimal("0.0001"))
+    worker_payout = amount - commission
+
+    # Release escrow
+    poster = (await db.execute(
+        select(Agent).where(Agent.agio_id == job.poster_agent).with_for_update()
+    )).scalar_one()
+    worker = (await db.execute(
+        select(Agent).where(Agent.agio_id == bid.bidder_agent).with_for_update()
+    )).scalar_one()
+
+    poster.locked_balance = Decimal(str(poster.locked_balance)) - amount
+    worker.balance = Decimal(str(worker.balance)) + worker_payout
+
+    # Update per-token balances
+    poster_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == poster.id, AgentBalance.token == job.budget_token)
+    )).scalar_one_or_none()
+    if poster_bal:
+        poster_bal.locked_balance -= amount
+
+    worker_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == worker.id, AgentBalance.token == job.budget_token)
+    )).scalar_one_or_none()
+    if worker_bal:
+        worker_bal.balance += worker_payout
+    else:
+        db.add(AgentBalance(agent_id=worker.id, token=job.budget_token, balance=worker_payout))
+
+    # Record revenue
+    try:
+        await db.execute(text(
+            "INSERT INTO platform_revenue (source, amount, token, reference_id, created_at) "
+            "VALUES (:src, :amt, :tok, :ref, NOW())"
+        ), {"src": "job_commission", "amt": float(commission), "tok": job.budget_token, "ref": str(job.id)})
+    except Exception:
+        pass
+
+    job.status = "COMPLETED"
+    from datetime import datetime
+    job.completed_at = datetime.utcnow()
+
+    # Notify worker
+    try:
+        from .notification_routes import notify
+        await notify(db, bid.bidder_agent, "payment", f"Payment received for \"{job.title}\"", f"${float(worker_payout)} credited to your balance", "/dashboard/")
+    except Exception:
+        pass
+
+    await db.commit()
+
+    return {
+        "status": "COMPLETED",
+        "job_id": job_id,
+        "worker": bid.bidder_agent,
+        "bid_amount": float(amount),
+        "commission": float(commission),
+        "commission_rate": f"{float(rate)*100:.0f}%",
+        "worker_received": float(worker_payout),
+    }
+
+
+@router.post("/jobs/{job_id}/request-revision")
+async def admin_request_revision(
+    job_id: int,
+    reason: str = Query("Please resubmit your work."),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: request revision on submitted work, sends it back to IN_PROGRESS."""
+    from ..models.platform import Job, JobBid
+
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status != "SUBMITTED":
+        raise HTTPException(400, f"Job is {job.status}, not SUBMITTED")
+
+    job.status = "IN_PROGRESS"
+
+    # Notify worker
+    if job.accepted_bid_id:
+        bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
+        if bid:
+            try:
+                from .notification_routes import notify
+                await notify(db, bid.bidder_agent, "job", f"Revision requested on \"{job.title}\"", reason, "/jobs.html")
+            except Exception:
+                pass
+
+    await db.commit()
+    return {"status": "IN_PROGRESS", "job_id": job_id, "message": "Revision requested"}
+
+
+@router.post("/dm")
+async def admin_send_dm(
+    from_agent: str = Query(...),
+    to_agent: str = Query(...),
+    content: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: send a DM on behalf of an agent."""
+    from ..models.platform import DirectMessage
+    dm = DirectMessage(from_agent=from_agent, to_agent=to_agent, content=content[:2000])
+    db.add(dm)
+    await db.commit()
+    return {"status": "sent", "from": from_agent, "to": to_agent}
+
+
+@router.post("/jobs/post")
+async def admin_post_job(
+    poster_agio_id: str = Query(...),
+    title: str = Query(...),
+    description: str = Query(...),
+    category: str = Query("code"),
+    budget: float = Query(...),
+    budget_token: str = Query("USDC"),
+    deadline_hours: int = Query(336),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: post a job on behalf of an agent, bypassing auth and balance checks."""
+    from ..models.platform import Job, JobBid
+    from ..models.agent import Agent, AgentBalance
+
+    poster = (await db.execute(select(Agent).where(Agent.agio_id == poster_agio_id))).scalar_one_or_none()
+    if not poster:
+        raise HTTPException(404, "Poster agent not found")
+
+    # Check both AgentBalance table and legacy Agent.balance field
+    poster_bal = (await db.execute(
+        select(AgentBalance).where(AgentBalance.agent_id == poster.id, AgentBalance.token == budget_token)
+    )).scalar_one_or_none()
+    available = float(poster_bal.balance) if poster_bal else float(poster.balance or 0)
+    if available < budget:
+        # Try to sync from Agent.balance to AgentBalance if needed
+        if float(poster.balance or 0) >= budget and not poster_bal:
+            poster_bal = AgentBalance(agent_id=poster.id, token=budget_token, balance=poster.balance)
+            db.add(poster_bal)
+            await db.flush()
+            available = float(poster_bal.balance)
+        elif float(poster.balance or 0) >= budget and poster_bal:
+            poster_bal.balance = poster.balance
+            await db.flush()
+            available = float(poster_bal.balance)
+        else:
+            raise HTTPException(400, f"Insufficient {budget_token} balance ({available:.2f} available, {budget} needed)")
+
+    job = Job(
+        poster_agent=poster_agio_id,
+        title=title,
+        description=description,
+        category=category,
+        budget=Decimal(str(budget)),
+        budget_token=budget_token,
+        deadline_hours=deadline_hours,
+        status="OPEN",
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    return {"job_id": job.id, "title": job.title, "budget": float(job.budget), "status": "OPEN"}
+
+
+@router.post("/fix-solana-wallet")
+async def fix_solana_wallet(
+    agio_id: str = Query(...),
+    correct_wallet: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    """Admin: fix a corrupted Solana wallet address (one-time migration)."""
+    from ..services.registry_service import _is_solana_address
+    if not _is_solana_address(correct_wallet):
+        raise HTTPException(400, "Not a valid Solana base58 address")
+
+    agent = (await db.execute(select(Agent).where(Agent.agio_id == agio_id))).scalar_one_or_none()
+    if not agent:
+        raise HTTPException(404, "Agent not found")
+
+    old_wallet = agent.wallet_address
+    agent.wallet_address = correct_wallet
+    await db.commit()
+    return {"agio_id": agio_id, "old_wallet": old_wallet, "new_wallet": correct_wallet}
 
 
 @router.get("/revenue")
