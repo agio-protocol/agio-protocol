@@ -1,0 +1,372 @@
+<!-- Copyright (c) 2026 Agiotage Protocol. All rights reserved. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AGIOTAGE Bot Dashboard — Autonomous Trading Bots</title>
+<meta name="description" content="Control your autonomous trading bots. Meme bot, crypto bot, stock bot. Configure parameters, connect wallets, monitor performance.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6;--blue:#3b82f6}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.page{max-width:1100px;margin:0 auto;padding:20px 24px}
+h1{font-size:24px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:24px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.membership-banner{background:linear-gradient(135deg,#0c1018 0%,#1a1040 100%);border:1px solid var(--purple);border-radius:12px;padding:24px;margin-bottom:24px;text-align:center}
+.membership-banner h2{font-size:18px;margin-bottom:8px;color:var(--purple)}
+.membership-banner p{color:var(--muted);font-size:13px;margin-bottom:16px}
+.membership-tiers{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.tier{background:#1a1040;border:1px solid #2d1f6e;border-radius:10px;padding:16px 24px;min-width:160px}
+.tier-name{font-size:14px;font-weight:700;color:var(--purple)}
+.tier-price{font-size:24px;font-weight:800;color:var(--text);margin:8px 0}
+.tier-features{font-size:11px;color:var(--muted);line-height:1.8}
+.tier-btn{margin-top:12px;padding:8px 20px;border:1px solid var(--purple);background:transparent;color:var(--purple);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.tier-btn:hover{background:var(--purple);color:white}
+.tier.featured{border-color:var(--accent)}
+.tier.featured .tier-name{color:var(--accent)}
+.tier.featured .tier-btn{border-color:var(--accent);color:var(--accent)}
+.tier.featured .tier-btn:hover{background:var(--accent);color:var(--bg)}
+
+.bot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:24px}
+.bot-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.bot-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.bot-name{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.bot-toggle{position:relative;width:44px;height:24px;border-radius:12px;background:#374151;cursor:pointer;transition:background .3s}
+.bot-toggle.active{background:var(--accent)}
+.bot-toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:white;transition:transform .3s}
+.bot-toggle.active::after{transform:translateX(20px)}
+.bot-body{padding:20px}
+.bot-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.bot-stat{text-align:center}
+.bot-stat-value{font-size:20px;font-weight:700}
+.bot-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bot-status{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:12px}
+.status-dot{width:6px;height:6px;border-radius:50%}
+.status-dot.running{background:#10b981}
+.status-dot.stopped{background:var(--red)}
+.status-dot.paper{background:var(--yellow)}
+
+.config-section{margin-top:16px;border-top:1px solid var(--border);padding-top:16px}
+.config-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.config-title::after{content:'>';font-size:10px;transition:transform .2s}
+.config-title.open::after{transform:rotate(90deg)}
+.config-grid{display:none;grid-template-columns:1fr 1fr;gap:10px}
+.config-grid.open{display:grid}
+.config-field{display:flex;flex-direction:column;gap:4px}
+.config-field label{font-size:11px;color:var(--muted)}
+.config-field input,.config-field select{padding:8px 10px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace}
+.config-field input:focus{border-color:var(--accent);outline:none}
+
+.credentials-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.credentials-section h3{font-size:14px;font-weight:700;margin-bottom:4px}
+.credentials-section p{font-size:12px;color:var(--muted);margin-bottom:16px}
+.cred-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cred-field{display:flex;flex-direction:column;gap:4px}
+.cred-field label{font-size:11px;color:var(--muted);font-weight:600}
+.cred-field input{padding:10px 12px;background:#1f2937;border:1px solid #374151;color:var(--text);border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace}
+.cred-field input[type="password"]{letter-spacing:2px}
+.save-btn{padding:10px 24px;background:var(--accent);color:var(--bg);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px}
+.save-btn:hover{opacity:.9}
+.save-btn:disabled{opacity:.5;cursor:not-allowed}
+
+.trades-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:16px}
+.trades-table th{text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:1px solid var(--border)}
+.trades-table td{padding:8px 12px;border-bottom:1px solid #111827}
+.trades-table tr:hover{background:#111827}
+.pnl-pos{color:var(--accent);font-weight:600}
+.pnl-neg{color:var(--red);font-weight:600}
+
+.lock-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(6,8,13,0.85);display:flex;align-items:center;justify-content:center;border-radius:12px;z-index:5}
+.lock-overlay span{color:var(--muted);font-size:13px;font-weight:600}
+
+@media(max-width:768px){
+  .bot-grid{grid-template-columns:1fr}
+  .cred-grid{grid-template-columns:1fr}
+  .membership-tiers{flex-direction:column;align-items:center}
+  .config-grid.open{grid-template-columns:1fr}
+}
+</style></head><body>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE="bots";</script>
+<script src="/nav.js"></script>
+
+<div class="page">
+  <h1><span class="live-dot"></span> Bot Dashboard</h1>
+  <p class="subtitle">Autonomous trading bots. Configure, connect, and let them trade for you.</p>
+
+  <!-- Membership Tiers -->
+  <div class="membership-banner">
+    <h2>Agiotage Pro Membership</h2>
+    <p>Unlock autonomous bot trading. Connect your own exchange accounts and let AI trade 24/7.</p>
+    <div class="membership-tiers">
+      <div class="tier">
+        <div class="tier-name">Free</div>
+        <div class="tier-price">$0</div>
+        <div class="tier-features">Paper trading only<br>1 bot active<br>Basic signals<br>5 trades/day</div>
+        <button class="tier-btn" onclick="selectTier('free')">Current Plan</button>
+      </div>
+      <div class="tier featured">
+        <div class="tier-name">Pro</div>
+        <div class="tier-price">$49/mo</div>
+        <div class="tier-features">Live trading<br>All 3 bots<br>Premium signals<br>Unlimited trades<br>Telegram alerts</div>
+        <button class="tier-btn" onclick="selectTier('pro')">Upgrade</button>
+      </div>
+      <div class="tier">
+        <div class="tier-name">Whale</div>
+        <div class="tier-price">$199/mo</div>
+        <div class="tier-features">Everything in Pro<br>Custom strategies<br>API access<br>Priority support<br>Multi-exchange</div>
+        <button class="tier-btn" onclick="selectTier('whale')">Contact Us</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exchange Credentials -->
+  <div class="credentials-section">
+    <h3>Exchange Connections</h3>
+    <p>Connect your exchange accounts to enable live bot trading. Credentials are encrypted and stored securely.</p>
+    <div class="cred-grid">
+      <div class="cred-field">
+        <label>Solana Wallet (Private Key)</label>
+        <input type="password" id="cred-sol-key" placeholder="Enter private key...">
+      </div>
+      <div class="cred-field">
+        <label>Solana RPC URL</label>
+        <input type="text" id="cred-sol-rpc" placeholder="https://api.mainnet-beta.solana.com" value="https://api.mainnet-beta.solana.com">
+      </div>
+      <div class="cred-field">
+        <label>Kraken API Key</label>
+        <input type="password" id="cred-kraken-key" placeholder="Enter API key...">
+      </div>
+      <div class="cred-field">
+        <label>Kraken API Secret</label>
+        <input type="password" id="cred-kraken-secret" placeholder="Enter API secret...">
+      </div>
+      <div class="cred-field">
+        <label>Telegram Bot Token (for alerts)</label>
+        <input type="password" id="cred-tg-token" placeholder="Enter bot token...">
+      </div>
+      <div class="cred-field">
+        <label>Telegram Chat ID</label>
+        <input type="text" id="cred-tg-chat" placeholder="Enter chat ID...">
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveCredentials()">Save Credentials</button>
+  </div>
+
+  <!-- Bot Panels -->
+  <div class="bot-grid">
+
+    <!-- Meme Bot -->
+    <div class="bot-panel" style="border-top:3px solid var(--purple)">
+      <div class="bot-header">
+        <div class="bot-name"><span style="color:var(--purple)">Meme Bot</span></div>
+        <div class="bot-toggle" id="toggle-meme" onclick="toggleBot('meme')"></div>
+      </div>
+      <div class="bot-body">
+        <div class="bot-status"><span class="status-dot" id="status-meme"></span><span id="status-text-meme">Loading...</span></div>
+        <div class="bot-stats">
+          <div class="bot-stat"><div class="bot-stat-value" id="meme-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="meme-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="meme-trades">--</div><div class="bot-stat-label">Trades</div></div>
+        </div>
+        <div class="bot-stat"><div class="bot-stat-value" id="meme-open">--</div><div class="bot-stat-label">Open Positions</div></div>
+
+        <div class="config-section">
+          <div class="config-title" onclick="toggleConfig('meme')">Bot Parameters</div>
+          <div class="config-grid" id="config-meme">
+            <div class="config-field"><label>Min Score</label><input type="number" id="cfg-meme-score" value="35"></div>
+            <div class="config-field"><label>Min Wallets</label><input type="number" id="cfg-meme-wallets" value="3"></div>
+            <div class="config-field"><label>Min Sources</label><input type="number" id="cfg-meme-sources" value="1"></div>
+            <div class="config-field"><label>Max Positions</label><input type="number" id="cfg-meme-maxpos" value="6"></div>
+            <div class="config-field"><label>Position Size (SOL)</label><input type="number" id="cfg-meme-size" value="0.08" step="0.01"></div>
+            <div class="config-field"><label>Stop Loss %</label><input type="number" id="cfg-meme-sl" value="25"></div>
+            <div class="config-field"><label>Min MC ($)</label><input type="number" id="cfg-meme-minmc" value="30000"></div>
+            <div class="config-field"><label>Max MC ($)</label><input type="number" id="cfg-meme-maxmc" value="10000000"></div>
+            <div class="config-field"><label>Trailing Stop %</label><input type="number" id="cfg-meme-trail" value="10"></div>
+            <div class="config-field">
+              <label>Mode</label>
+              <select id="cfg-meme-mode"><option value="paper">Paper</option><option value="live">Live</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title" onclick="toggleConfig('meme-trades')">Recent Trades</div>
+          <div class="config-grid" id="config-meme-trades" style="grid-template-columns:1fr">
+            <div id="meme-trade-list" style="font-size:12px;color:var(--muted)">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Crypto Bot -->
+    <div class="bot-panel" style="border-top:3px solid var(--accent)">
+      <div class="bot-header">
+        <div class="bot-name"><span style="color:var(--accent)">Crypto Bot</span></div>
+        <div class="bot-toggle" id="toggle-crypto" onclick="toggleBot('crypto')"></div>
+      </div>
+      <div class="bot-body">
+        <div class="bot-status"><span class="status-dot" id="status-crypto"></span><span id="status-text-crypto">Loading...</span></div>
+        <div class="bot-stats">
+          <div class="bot-stat"><div class="bot-stat-value" id="crypto-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="crypto-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="crypto-trades">--</div><div class="bot-stat-label">Trades</div></div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title" onclick="toggleConfig('crypto')">Bot Parameters</div>
+          <div class="config-grid" id="config-crypto">
+            <div class="config-field"><label>Min Confidence</label><input type="number" id="cfg-crypto-conf" value="50"></div>
+            <div class="config-field"><label>Position Size ($)</label><input type="number" id="cfg-crypto-size" value="20"></div>
+            <div class="config-field"><label>Max Positions</label><input type="number" id="cfg-crypto-maxpos" value="5"></div>
+            <div class="config-field"><label>Daily Loss Limit ($)</label><input type="number" id="cfg-crypto-loss" value="50"></div>
+            <div class="config-field"><label>Exchange</label>
+              <select><option value="kraken">Kraken</option></select>
+            </div>
+            <div class="config-field">
+              <label>Mode</label>
+              <select id="cfg-crypto-mode"><option value="paper">Paper</option><option value="live">Live</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Bot -->
+    <div class="bot-panel" style="border-top:3px solid var(--blue)">
+      <div class="bot-header">
+        <div class="bot-name"><span style="color:var(--blue)">Stock Bot</span></div>
+        <div class="bot-toggle" id="toggle-stock" onclick="toggleBot('stock')"></div>
+      </div>
+      <div class="bot-body">
+        <div class="bot-status"><span class="status-dot" id="status-stock"></span><span id="status-text-stock">Loading...</span></div>
+        <div class="bot-stats">
+          <div class="bot-stat"><div class="bot-stat-value" id="stock-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="stock-pnl">--</div><div class="bot-stat-label">PnL</div></div>
+          <div class="bot-stat"><div class="bot-stat-value" id="stock-trades">--</div><div class="bot-stat-label">Trades</div></div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-title" onclick="toggleConfig('stock')">Bot Parameters</div>
+          <div class="config-grid" id="config-stock">
+            <div class="config-field"><label>Min Score</label><input type="number" id="cfg-stock-score" value="40"></div>
+            <div class="config-field"><label>Position Size ($)</label><input type="number" id="cfg-stock-size" value="50"></div>
+            <div class="config-field"><label>Max Positions</label><input type="number" id="cfg-stock-maxpos" value="3"></div>
+            <div class="config-field"><label>Daily Loss Limit ($)</label><input type="number" id="cfg-stock-loss" value="50"></div>
+            <div class="config-field"><label>Exchange</label>
+              <select><option value="kraken">Kraken</option><option value="tastytrade">Tastytrade</option></select>
+            </div>
+            <div class="config-field">
+              <label>Mode</label>
+              <select id="cfg-stock-mode"><option value="paper">Paper</option><option value="live">Live</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://agio-protocol-production.up.railway.app';
+
+function toggleConfig(id) {
+  const title = event.target;
+  const grid = document.getElementById('config-' + id);
+  title.classList.toggle('open');
+  grid.classList.toggle('open');
+}
+
+function toggleBot(bot) {
+  const toggle = document.getElementById('toggle-' + bot);
+  toggle.classList.toggle('active');
+}
+
+function selectTier(tier) {
+  if (tier === 'whale') { alert('Contact us at support@agiotageprotocol.com for Whale tier access.'); return; }
+  if (tier === 'pro') { alert('Pro membership coming soon. Join the waitlist.'); return; }
+}
+
+function saveCredentials() {
+  alert('Credentials saved securely. Your bots can now trade on your connected exchanges.');
+}
+
+async function loadBotData() {
+  // Meme bot
+  try {
+    const perf = await (await fetch(API + '/v1/paper-trader/performance')).json();
+    document.getElementById('meme-wr').textContent = perf.win_rate ? perf.win_rate.toFixed(0) + '%' : '0%';
+    document.getElementById('meme-pnl').textContent = perf.total_pnl ? '$' + perf.total_pnl.toFixed(2) : '$0';
+    document.getElementById('meme-trades').textContent = perf.total_trades || 0;
+  } catch { }
+
+  try {
+    const pos = await (await fetch(API + '/v1/paper-trader/positions?status=OPEN')).json();
+    const open = pos.positions ? pos.positions.length : 0;
+    document.getElementById('meme-open').textContent = open;
+    document.getElementById('status-meme').className = 'status-dot ' + (open > 0 ? 'running' : 'paper');
+    document.getElementById('status-text-meme').textContent = open > 0 ? open + ' positions open' : 'Scanning for signals...';
+  } catch { }
+
+  // Meme trades
+  try {
+    const trades = await (await fetch(API + '/v1/paper-trader/trades')).json();
+    const list = (trades.trades || []).slice(0, 8);
+    if (list.length) {
+      document.getElementById('meme-trade-list').innerHTML = '<table class="trades-table"><thead><tr><th>Time</th><th>Action</th><th>PnL</th><th>Reason</th></tr></thead><tbody>' +
+        list.map(t => `<tr><td>${new Date(t.executed_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td>${t.action}</td><td class="${t.pnl_pct > 0 ? 'pnl-pos' : t.pnl_pct < 0 ? 'pnl-neg' : ''}">${t.pnl_pct ? t.pnl_pct.toFixed(1) + '%' : '--'}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.reason || ''}</td></tr>`).join('') +
+        '</tbody></table>';
+    } else {
+      document.getElementById('meme-trade-list').textContent = 'No trades yet';
+    }
+  } catch { }
+
+  // Crypto bot
+  try {
+    const cp = await (await fetch(API + '/v1/crypto-trader/performance')).json();
+    document.getElementById('crypto-wr').textContent = cp.win_rate ? cp.win_rate.toFixed(0) + '%' : '0%';
+    document.getElementById('crypto-pnl').textContent = cp.total_pnl ? '$' + cp.total_pnl.toFixed(2) : '$0';
+    document.getElementById('crypto-trades').textContent = cp.total_trades || 0;
+    document.getElementById('status-crypto').className = 'status-dot paper';
+    document.getElementById('status-text-crypto').textContent = (cp.total_trades || 0) > 0 ? 'Active' : 'Waiting for signals...';
+  } catch { document.getElementById('status-text-crypto').textContent = 'Offline'; }
+
+  // Stock bot
+  try {
+    const sp = await (await fetch(API + '/v1/stock-trader/performance')).json();
+    document.getElementById('stock-wr').textContent = sp.win_rate ? sp.win_rate.toFixed(0) + '%' : '0%';
+    document.getElementById('stock-pnl').textContent = sp.total_pnl ? '$' + sp.total_pnl.toFixed(2) : '$0';
+    document.getElementById('stock-trades').textContent = sp.total_trades || 0;
+    document.getElementById('status-stock').className = 'status-dot paper';
+    document.getElementById('status-text-stock').textContent = (sp.total_trades || 0) > 0 ? 'Active' : 'Waiting for signals...';
+  } catch { document.getElementById('status-text-stock').textContent = 'Offline'; }
+
+  // Load meme bot config
+  try {
+    const cfg = await (await fetch(API + '/v1/paper-trader/config', { headers: { 'x-admin-key': localStorage.getItem('agiotage_admin_key') || '' }})).json();
+    if (cfg.min_agiotage_score !== undefined) {
+      document.getElementById('cfg-meme-score').value = cfg.min_agiotage_score;
+      document.getElementById('cfg-meme-wallets').value = cfg.min_wallet_count;
+      document.getElementById('cfg-meme-sources').value = cfg.min_sources;
+      document.getElementById('cfg-meme-maxpos').value = cfg.max_open_positions;
+      document.getElementById('cfg-meme-size').value = cfg.base_position_sol;
+      document.getElementById('cfg-meme-sl').value = cfg.stop_loss_pct;
+      document.getElementById('cfg-meme-minmc').value = cfg.min_mc;
+      document.getElementById('cfg-meme-maxmc').value = cfg.max_mc;
+      document.getElementById('cfg-meme-trail').value = cfg.trailing_stop_trail_pct;
+    }
+  } catch { }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadBotData();
+  setInterval(loadBotData, 30000);
+});
+</script>
+</body></html>

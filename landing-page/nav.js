@@ -46,10 +46,12 @@ function renderNav(activePage) {
   const pages = [
     { name: 'Chat', href: '/chat.html' },
     { name: 'Jobs', href: '/jobs.html' },
+    { name: 'Trading', href: '/trading.html' },
+    { name: 'Bots', href: '/bots.html' },
     { name: 'Market', href: '/market.html' },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
-    { name: 'Feed', href: '/feed.html' },
+    { name: 'News Feed', href: '/feed.html' },
   ];
 
   const navEl = document.getElementById('agio-nav');
@@ -192,6 +194,79 @@ function requireLogin(callback) {
   } else {
     alert('Please sign in using the Sign In button in the navigation bar.');
   }
+}
+
+// Light theme override
+const lightThemeCSS = document.createElement('style');
+lightThemeCSS.id = 'light-theme';
+lightThemeCSS.textContent = `
+body.light-mode{--bg:#ffffff;--card:#f8f9fa;--border:#e5e7eb;--text:#1f2937;--muted:#6b7280;--accent:#00b386;color:#1f2937;background:#ffffff}
+body.light-mode #agio-nav{border-bottom-color:#e5e7eb}
+body.light-mode .nav-logo{color:#1f2937}
+body.light-mode .nav-link{color:#6b7280}
+body.light-mode .nav-link:hover{color:#1f2937;background:#f3f4f6}
+body.light-mode .nav-link.active{color:#00b386;background:#00b38608}
+body.light-mode .nav-name{color:#1f2937}
+body.light-mode .nav-signout:hover{color:#ef4444}
+body.light-mode .nav-signin-dropdown{background:#ffffff;border-color:#e5e7eb}
+body.light-mode .nav-signin-dropdown input,body.light-mode .nav-signin-dropdown select{background:#f8f9fa;border-color:#e5e7eb;color:#1f2937}
+body.light-mode .stat-card{background:#f8f9fa;border-color:#e5e7eb}
+body.light-mode .section-btn{background:#f8f9fa;border-color:#e5e7eb;color:#6b7280}
+body.light-mode .section-btn:hover{border-color:#d1d5db;color:#1f2937}
+body.light-mode .section-btn.active{background:#00b386;color:#ffffff;border-color:#00b386}
+body.light-mode .tab{color:#6b7280}
+body.light-mode .tab.active{color:#00b386;border-bottom-color:#00b386}
+body.light-mode .cluster-card,body.light-mode .wallet-row,body.light-mode .trade-row,body.light-mode .deployer-card,body.light-mode .card,body.light-mode .job-card{background:#f8f9fa;border-color:#e5e7eb}
+body.light-mode .cluster-card:hover,body.light-mode .wallet-row:hover,body.light-mode .trade-row:hover{border-color:#d1d5db}
+body.light-mode .token-row{background:#f0f1f3}
+body.light-mode .token-row:hover{background:#e5e7eb}
+body.light-mode .cluster-wallet{background:#f0f1f3;color:#6b7280}
+body.light-mode .job-work{background:#f0f1f3}
+body.light-mode .panel{background:#f8f9fa;border-color:#e5e7eb}
+body.light-mode .listing{border-color:#e5e7eb}
+body.light-mode .modal-box,body.light-mode .tip-box{background:#ffffff;border-color:#e5e7eb}
+body.light-mode .modal-box input,body.light-mode .modal-box select,body.light-mode .modal-box textarea{background:#f8f9fa;border-color:#e5e7eb;color:#1f2937}
+body.light-mode .chat-layout .sidebar{background:#f8f9fa;border-color:#e5e7eb}
+body.light-mode .chat-main{background:#ffffff}
+body.light-mode .chat-input input{background:#f8f9fa;border-color:#e5e7eb;color:#1f2937}
+body.light-mode .messages{background:#ffffff}
+body.light-mode .msg-body{color:#1f2937}
+body.light-mode .chat-header{border-color:#e5e7eb}
+body.light-mode .chat-input{border-color:#e5e7eb}
+body.light-mode .room{color:#6b7280}
+body.light-mode .room:hover{background:#f3f4f6;color:#1f2937}
+body.light-mode .room.active{color:#00b386;background:#00b38608}
+body.light-mode .right-panel{border-color:#e5e7eb}
+body.light-mode .coming-card{background:#f8f9fa;border-color:#e5e7eb}
+body.light-mode .login-gate button{background:#00b386;color:#ffffff}
+body.light-mode .btn{background:#00b386;color:#ffffff}
+body.light-mode .nav-signin-btn{background:#00b386;color:#ffffff}
+body.light-mode #feedback-btn,body.light-mode a[href="/activity.html"]{background:#f8f9fa;border-color:#e5e7eb;color:#6b7280}
+body.light-mode .empty{color:#9ca3af}
+body.light-mode a{color:#00b386}
+body.light-mode .wallet-name{color:#1f2937}
+body.light-mode .wallet-addr a{color:#6b7280}
+body.light-mode .badge{opacity:0.9}
+body.light-mode .rating{opacity:0.9}
+body.light-mode ::placeholder{color:#9ca3af}
+`;
+document.head.appendChild(lightThemeCSS);
+
+function getTheme(){return localStorage.getItem('agio_theme')||'dark';}
+function setTheme(t){
+  localStorage.setItem('agio_theme',t);
+  if(t==='light') document.body.classList.add('light-mode');
+  else document.body.classList.remove('light-mode');
+}
+function toggleTheme(){
+  setTheme(getTheme()==='dark'?'light':'dark');
+}
+
+// Favicon
+if(!document.querySelector('link[rel="icon"]')){
+  const fav=document.createElement('link');
+  fav.rel='icon';fav.type='image/svg+xml';fav.href='/favicon.svg';
+  document.head.appendChild(fav);
 }
 
 // CSS for nav (injected)
@@ -404,6 +479,7 @@ function _initFeedbackWidget() {
   btn.onmouseout = () => { btn.style.borderColor = '#374151'; btn.style.color = '#9ca3af'; };
   btn.onclick = _openFeedback;
   document.body.appendChild(btn);
+
 }
 
 function _openFeedback() {
@@ -470,6 +546,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   renderNav(window.AGIO_PAGE || '');
   if (getMode() === 'agent') document.body.classList.add('agent-mode');
+  if (getTheme() === 'light') document.body.classList.add('light-mode');
   _initFeedbackWidget();
   _pollNotifications();
   setInterval(_pollNotifications, 30000);

@@ -191,60 +191,6 @@ h1{font-size:24px;font-weight:800;margin-bottom:4px;display:flex;align-items:cen
   <h1><span class="live-dot"></span> Trading Intelligence</h1>
   <p class="subtitle">7 data sources. One signal. Built for agents and traders.</p>
 
-  <!-- Bot Performance Banner -->
-  <div class="bot-banner" id="bot-banner">
-    <div class="bot-card" id="bot-meme">
-      <div class="bot-card-title"><span style="color:var(--purple)">Meme Bot</span></div>
-      <div class="bot-card-stats">
-        <div><div class="bot-stat-val" id="meme-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
-        <div><div class="bot-stat-val" id="meme-pnl">--</div><div class="bot-stat-label">PnL</div></div>
-        <div><div class="bot-stat-val" id="meme-trades">--</div><div class="bot-stat-label">Trades</div></div>
-      </div>
-    </div>
-    <div class="bot-card" id="bot-crypto">
-      <div class="bot-card-title"><span style="color:var(--accent)">Crypto Bot</span></div>
-      <div class="bot-card-stats">
-        <div><div class="bot-stat-val" id="crypto-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
-        <div><div class="bot-stat-val" id="crypto-pnl">--</div><div class="bot-stat-label">PnL</div></div>
-        <div><div class="bot-stat-val" id="crypto-trades">--</div><div class="bot-stat-label">Trades</div></div>
-      </div>
-    </div>
-    <div class="bot-card" id="bot-stock">
-      <div class="bot-card-title"><span style="color:var(--blue)">Stock Bot</span></div>
-      <div class="bot-card-stats">
-        <div><div class="bot-stat-val" id="stock-wr">--</div><div class="bot-stat-label">Win Rate</div></div>
-        <div><div class="bot-stat-val" id="stock-pnl">--</div><div class="bot-stat-label">PnL</div></div>
-        <div><div class="bot-stat-val" id="stock-trades">--</div><div class="bot-stat-label">Trades</div></div>
-      </div>
-    </div>
-    <div class="bot-card" id="bot-live-status" style="grid-column:1/-1">
-      <div class="bot-card-title">Live Trading</div>
-      <div id="live-status-content" style="font-size:12px;color:var(--muted)">Loading...</div>
-    </div>
-  </div>
-
-  <!-- Live Trading Dashboard (expandable) -->
-  <div id="live-dashboard" style="display:none;margin-bottom:24px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-      <div class="bot-card">
-        <div class="bot-card-title">Wallet Balance</div>
-        <div id="wallet-balance" style="font-size:12px;color:var(--muted)">--</div>
-      </div>
-      <div class="bot-card">
-        <div class="bot-card-title">Open Positions</div>
-        <div id="open-positions-count" style="font-size:12px;color:var(--muted)">--</div>
-      </div>
-    </div>
-    <div class="bot-card" style="margin-bottom:12px">
-      <div class="bot-card-title">Open Positions</div>
-      <div id="open-positions-list" style="font-size:12px;color:var(--muted)">--</div>
-    </div>
-    <div class="bot-card">
-      <div class="bot-card-title">Recent Closed Trades</div>
-      <div id="recent-trades-list" style="font-size:12px;color:var(--muted)">--</div>
-    </div>
-  </div>
-
   <!-- Search Bar -->
   <div class="search-wrap">
     <div class="search-box" id="search-box">
@@ -394,147 +340,8 @@ function insiderBadgeHTML(action) {
 }
 
 // ========================================================================
-// BOT PERFORMANCE BANNER
-// ========================================================================
-async function loadBotPerformance() {
-  try {
-    const [meme, crypto, stock, status] = await Promise.all([
-      fetch(API + '/v1/paper-trader/performance').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/crypto-trader/performance').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/stock-trader/performance').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/trading/status').then(r => r.json()).catch(() => null),
-    ]);
-
-    function fillBot(prefix, d) {
-      if (!d) return;
-      const wr = d.win_rate != null ? d.win_rate.toFixed(1) + '%' : '--';
-      document.getElementById(prefix + '-wr').textContent = wr;
-      const pnl = d.total_pnl_usd != null ? fmt$(d.total_pnl_usd) : '--';
-      document.getElementById(prefix + '-pnl').textContent = pnl;
-      document.getElementById(prefix + '-pnl').style.color = (d.total_pnl_usd || 0) >= 0 ? '#10b981' : 'var(--red)';
-      document.getElementById(prefix + '-trades').textContent = d.total_trades || 0;
-    }
-    fillBot('meme', meme);
-    fillBot('crypto', crypto);
-    fillBot('stock', stock);
-
-    if (status) {
-      const isLive = status.live_mode === true;
-      const isPaused = status.paused === true;
-      const mode = isPaused ? 'PAUSED' : (isLive ? 'LIVE' : 'PAPER');
-      const statusColor = isPaused ? 'var(--red)' : (isLive ? '#10b981' : 'var(--yellow)');
-      document.getElementById('live-status-content').innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="width:8px;height:8px;border-radius:50%;background:${statusColor};display:inline-block;${isLive && !isPaused ? 'animation:pulse 2s infinite' : ''}"></span>
-          <span style="font-size:14px;font-weight:700;color:${statusColor}">${mode}</span>
-        </div>
-        <div style="color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline" onclick="toggleLiveDashboard()">
-          ${isLive ? 'View wallet & positions' : 'Paper trading active'}
-        </div>
-      `;
-      if (isLive) loadLiveDashboard();
-    } else {
-      document.getElementById('live-status-content').innerHTML = '<span style="color:var(--muted)">Status unavailable</span>';
-    }
-  } catch (e) {
-    // Graceful fallback
-  }
-}
-
-// ========================================================================
 // TOKEN SEARCH (Agiotage Score)
 // ========================================================================
-function toggleLiveDashboard() {
-  const d = document.getElementById('live-dashboard');
-  d.style.display = d.style.display === 'none' ? 'block' : 'none';
-  if (d.style.display === 'block') loadLiveDashboard();
-}
-
-async function loadLiveDashboard() {
-  try {
-    const [wallet, openMeme, closedMeme, openCrypto, openStock] = await Promise.all([
-      authFetch('/v1/trading/wallet').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/paper-trader/positions?status=OPEN').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/paper-trader/positions?status=CLOSED&limit=5').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/crypto-trader/positions?status=OPEN').then(r => r.json()).catch(() => null),
-      fetch(API + '/v1/stock-trader/positions?status=OPEN').then(r => r.json()).catch(() => null),
-    ]);
-
-    // Wallet balance
-    const wb = document.getElementById('wallet-balance');
-    if (wallet && wallet.address) {
-      wb.innerHTML = `
-        <div style="font-size:20px;font-weight:700;color:var(--accent);margin-bottom:4px">${(wallet.sol || 0).toFixed(4)} SOL</div>
-        <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">${wallet.address}</div>
-        ${wallet.usdc ? '<div style="margin-top:4px;font-size:13px">' + wallet.usdc.toFixed(2) + ' USDC</div>' : ''}
-      `;
-    } else {
-      wb.innerHTML = '<span style="color:var(--muted)">Wallet not configured</span>';
-    }
-
-    // Combine all open positions
-    const allOpen = [
-      ...((openMeme && openMeme.positions) || []).map(p => ({...p, bot: 'Meme'})),
-      ...((openCrypto && openCrypto.positions) || []).map(p => ({...p, token: p.symbol, bot: 'Crypto'})),
-      ...((openStock && openStock.positions) || []).map(p => ({...p, token: p.ticker, bot: 'Stock'})),
-    ];
-
-    document.getElementById('open-positions-count').innerHTML = `
-      <span style="font-size:20px;font-weight:700;color:var(--accent)">${allOpen.length}</span>
-      <span style="color:var(--muted);font-size:12px"> active positions</span>
-    `;
-
-    const opl = document.getElementById('open-positions-list');
-    if (allOpen.length === 0) {
-      opl.innerHTML = '<div style="color:var(--muted);padding:12px">No open positions</div>';
-    } else {
-      opl.innerHTML = allOpen.map(p => {
-        const pnlColor = (p.pnl_pct || 0) >= 0 ? '#10b981' : 'var(--red)';
-        const pnlSign = (p.pnl_pct || 0) >= 0 ? '+' : '';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-          <div>
-            <span style="font-weight:700;font-size:14px">$${p.token || '?'}</span>
-            <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:var(--border);color:var(--muted);margin-left:6px">${p.bot}</span>
-            ${p.agiotage_score ? '<span style="font-size:10px;color:var(--accent);margin-left:6px">AS:' + p.agiotage_score + '</span>' : ''}
-          </div>
-          <div style="text-align:right">
-            <div style="font-weight:700;color:${pnlColor}">${pnlSign}${(p.pnl_pct || 0).toFixed(1)}%</div>
-            <div style="font-size:11px;color:var(--muted)">${fmt$(p.pnl_usd || 0)} | $${(p.position_size || 0).toFixed(0)} pos</div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // Recent closed trades
-    const rtl = document.getElementById('recent-trades-list');
-    const closed = (closedMeme && closedMeme.positions) || [];
-    if (closed.length === 0) {
-      rtl.innerHTML = '<div style="color:var(--muted);padding:12px">No closed trades yet</div>';
-    } else {
-      rtl.innerHTML = closed.map(p => {
-        const pnlColor = (p.pnl_pct || 0) >= 0 ? '#10b981' : 'var(--red)';
-        const pnlSign = (p.pnl_pct || 0) >= 0 ? '+' : '';
-        const icon = (p.pnl_pct || 0) >= 0 ? 'W' : 'L';
-        const iconColor = (p.pnl_pct || 0) >= 0 ? '#10b981' : 'var(--red)';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="width:24px;height:24px;border-radius:50%;background:${iconColor}20;color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${icon}</span>
-            <div>
-              <div style="font-weight:700;font-size:13px">$${p.token || '?'}</div>
-              <div style="font-size:10px;color:var(--muted)">${p.close_reason || 'Closed'}</div>
-            </div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-weight:700;color:${pnlColor}">${pnlSign}${(p.pnl_pct || 0).toFixed(1)}%</div>
-            <div style="font-size:11px;color:var(--muted)">${fmt$(p.pnl_usd || 0)} | ${p.opened_at ? timeAgo(p.opened_at) : '--'}</div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-  } catch (e) {
-    console.error('Live dashboard error:', e);
-  }
-}
 
 async function searchToken() {
   const input = document.getElementById('token-search');
@@ -1753,7 +1560,6 @@ async function loadMemeStats() {
 // ========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   renderSection();
-  loadBotPerformance();
 
   // Auto-refresh every 30 seconds for active tab only
   setInterval(() => {
@@ -1764,15 +1570,11 @@ document.addEventListener('DOMContentLoaded', () => {
       loadTab();
     } else if (currentSection === 'stocks') {
       loadStockStats();
-      // Only auto-refresh data tabs, not score scan (it's slow)
       if (currentTab !== 'stock-score-scan') {
         loadTab();
       }
     }
   }, 30000);
-
-  // Refresh bot banner every 60 seconds
-  setInterval(loadBotPerformance, 60000);
 });
 </script>
 </body>
