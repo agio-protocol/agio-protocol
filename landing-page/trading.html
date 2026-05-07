@@ -1370,10 +1370,10 @@ async function loadSignalAccuracy() {
               <span style="padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:${oc}20;color:${oc}">${outcome}</span>
             </div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px">
-              <div><span style="color:var(--muted)">Signal MC:</span> <span style="font-weight:600">${mcSignal > 0 ? fmt$(mcSignal) : 'N/A'}</span></div>
-              <div><span style="color:var(--muted)">Current MC:</span> <span style="font-weight:600;color:${mcCurrent > mcSignal ? '#10b981' : 'var(--red)'}">${mcCurrent > 0 ? fmt$(mcCurrent) : 'N/A'}</span></div>
-              <div><span style="color:var(--muted)">Highest MC:</span> <span style="font-weight:600;color:#f59e0b">${mcHighest > 0 ? fmt$(mcHighest) : 'N/A'}</span></div>
-              ${mcMult ? '<div><span style="color:var(--muted)">Peak:</span> <span style="font-weight:700;color:#f59e0b">' + mcMult + 'x</span></div>' : ''}
+              <div><span style="color:var(--muted)">MC at Signal:</span> <span style="font-weight:600">${mcSignal > 0 ? fmt$(mcSignal) : 'N/A'}</span></div>
+              <div><span style="color:var(--muted)">Current MC:</span> <span style="font-weight:600;color:${mcCurrent > mcSignal ? '#10b981' : mcCurrent < mcSignal ? 'var(--red)' : 'var(--text)'}">${mcCurrent > 0 ? fmt$(mcCurrent) : 'N/A'}</span></div>
+              <div><span style="color:var(--muted)">Peak MC:</span> <span style="font-weight:600;color:#f59e0b">${mcHighest > mcSignal ? fmt$(mcHighest) : mcCurrent > mcSignal ? fmt$(mcCurrent) : fmt$(mcSignal)}</span></div>
+              ${mcMult && mcMult > 1 ? '<div><span style="color:var(--muted)">Peak:</span> <span style="font-weight:700;color:#f59e0b">' + mcMult + 'x</span></div>' : mcCurrent > 0 && mcSignal > 0 ? '<div><span style="color:var(--muted)">Change:</span> <span style="font-weight:700;color:' + (mcCurrent > mcSignal ? '#10b981' : 'var(--red)') + '">' + (mcCurrent/mcSignal).toFixed(1) + 'x</span></div>' : ''}
             </div>
             <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-top:4px">
               <span>Signal: $${priceAtSignal > 0 ? priceAtSignal.toFixed(6) : 'N/A'}</span>
@@ -1583,7 +1583,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     if (currentSection === 'memes') {
       loadMemeStats();
-      loadTab();
+      if (currentTab !== 'signal-accuracy') loadTab();
     } else if (currentSection === 'crypto' && currentTab !== 'coin-overview') {
       loadTab();
     } else if (currentSection === 'stocks') {
