@@ -29,8 +29,8 @@ RAPID_POLL = 10
 
 # === DEFAULT CONFIG (adjustable via Redis) ===
 DEFAULT_CONFIG = {
-    # Entry criteria — lowered for more trades (80% WR proves exit logic works)
-    "min_agiotage_score": 35,
+    # Entry criteria — aggressive for volume (80% WR exit logic handles bad entries)
+    "min_agiotage_score": 15,
     "min_mc": 30000,
     "max_mc": 10000000,
     "min_sources": 1,
@@ -328,7 +328,17 @@ def _position_sol_for_score(score: int, config: dict) -> float:
 async def _check_for_entries():
     config = await get_config()
 
-    async with async_session() as db:
+    # Prevent concurrent entry checks (causes duplicate buys)
+    try:
+        from ..core.redis import redis_client
+        locked = await redis_client.set("paper_trader:entry_lock", "1", ex=60, nx=True)
+        if not locked:
+            return
+    except Exception:
+        pass
+
+    try:
+      async with async_session() as db:
         # 1. Count open positions
         open_count = (await db.execute(
             select(func.count()).select_from(PaperPosition).where(PaperPosition.status == "OPEN")
@@ -383,19 +393,19 @@ async def _check_for_entries():
 
             # 4b. Skip if already have open or recently opened position for this token (dedup)
             existing = (await db.execute(
-                select(PaperPosition)
+                select(func.count()).select_from(PaperPosition)
                 .where(PaperPosition.token_address == signal.token_address,
                        PaperPosition.status.in_(["OPEN"]))
-            )).scalar_one_or_none()
-            if existing:
-                _log.info(f"SKIP ${symbol}: already have open position")
+            )).scalar() or 0
+            if existing > 0:
+                _log.info(f"SKIP ${symbol}: already have {existing} open position(s)")
                 continue
             recent_entry = (await db.execute(
-                select(PaperPosition)
+                select(func.count()).select_from(PaperPosition)
                 .where(PaperPosition.token_address == signal.token_address,
                        PaperPosition.opened_at >= datetime.utcnow() - timedelta(minutes=5))
-            )).scalar_one_or_none()
-            if recent_entry:
+            )).scalar() or 0
+            if recent_entry > 0:
                 _log.info(f"SKIP ${symbol}: recently opened (5min dedup)")
                 continue
 
@@ -679,6 +689,12 @@ async def _check_for_entries():
         # Commit notified flags for all evaluated signals
         if signals:
             await db.commit()
+    finally:
+        try:
+            from ..core.redis import redis_client
+            await redis_client.delete("paper_trader:entry_lock")
+        except Exception:
+            pass
 
 
 # === POSITION MANAGEMENT ===
