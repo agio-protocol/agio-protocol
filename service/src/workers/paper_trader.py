@@ -732,6 +732,22 @@ async def _manage_positions():
         )).scalars().all()
 
         for pos in positions:
+            # Verify we actually hold this token on-chain before managing
+            if await _is_live_mode():
+                try:
+                    from ..services.jupiter_swap import get_token_balance
+                    raw_bal, _, _ = await get_token_balance(pos.token_address)
+                    if raw_bal <= 0:
+                        _log.warning(f"SYNC: ${pos.token_symbol} not held on-chain, closing DB position")
+                        pos.status = "CLOSED"
+                        pos.close_reason = "On-chain balance zero (already sold)"
+                        pos.closed_at = datetime.utcnow()
+                        pos.remaining_pct = Decimal("0")
+                        await db.commit()
+                        continue
+                except Exception:
+                    pass  # If balance check fails, proceed normally
+
             price, mc = await _get_price_mc(pos.token_address)
             if price <= 0:
                 continue
@@ -824,12 +840,13 @@ async def _manage_positions():
                         first_tp_hit = True
 
             # 1f. Check stop loss (with breakeven stop adjustment)
+            sl_pct = config["stop_loss_pct"]
             if first_tp_hit and config["breakeven_stop_after_first_tp"]:
-                # After first TP hit, stop loss moves to entry + 2% (protect profits)
-                # Triggers if PnL drops below +2% (i.e., nearly back to breakeven)
                 sl_triggered = pnl_pct <= 2.0
+            elif sl_pct >= 100:
+                sl_triggered = False  # Stop loss disabled when set >= 100
             else:
-                sl_triggered = pnl_pct <= -config["stop_loss_pct"]
+                sl_triggered = pnl_pct <= -sl_pct
 
             if sl_triggered and remaining > 0:
                 slippage = config["sell_slippage_bps"]
