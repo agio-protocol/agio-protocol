@@ -142,7 +142,7 @@ app = FastAPI(
 )
 
 import os
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://agiotage.finance,https://spiffy-melomakarona-2fbb67.netlify.app").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://agiotage.finance,https://spiffy-melomakarona-2fbb67.netlify.app,https://aquamarine-sprinkles-1ea5b9.netlify.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
