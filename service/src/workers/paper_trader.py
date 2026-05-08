@@ -48,26 +48,32 @@ DEFAULT_CONFIG = {
     "max_position_pct_of_pool": 1.0,
     "daily_loss_limit_sol": 0.15,
 
-    # Take profit (5-tier)
+    # Take profit (5-tier) — moderate TP1 to lock profit, keep 75% riding for runners
     "take_profit_levels": [
         {"sell_pct": 25, "at_profit_pct": 25},
-        {"sell_pct": 20, "at_profit_pct": 45},
-        {"sell_pct": 25, "at_profit_pct": 80},
-        {"sell_pct": 20, "at_profit_pct": 150},
-        {"sell_pct": 10, "at_profit_pct": 300},
+        {"sell_pct": 20, "at_profit_pct": 50},
+        {"sell_pct": 25, "at_profit_pct": 100},
+        {"sell_pct": 15, "at_profit_pct": 200},
+        {"sell_pct": 15, "at_profit_pct": 500},
     ],
 
-    # Stop loss & trailing
-    "stop_loss_pct": 25,
+    # Stop loss & trailing — wide enough to survive meme retraces
+    "stop_loss_pct": 35,
     "trailing_stop_enabled": True,
-    "trailing_stop_activation_pct": 20,
-    "trailing_stop_trail_pct": 10,
-    "breakeven_stop_after_first_tp": True,
-    "max_holding_hours": 12,
+    "trailing_stop_activation_pct": 35,
+    "trailing_stop_trail_pct": 30,
+    "breakeven_stop_after_first_tp": False,
+    # Ratcheting stop: after each TP, the stop ratchets up (never below this % of TP level)
+    # e.g. after TP1 at +25%, floor = +25% * 0.30 = +7.5%
+    # after TP2 at +50%, floor = +50% * 0.30 = +15%
+    # Kept low (30%) so the trailing stop handles tighter protection at higher levels
+    "ratchet_stop_enabled": True,
+    "ratchet_stop_pct_of_tp": 30,
+    "max_holding_hours": 8,
 
     # Execution
     "buy_slippage_bps": 200,
-    "sell_slippage_bps": 300,
+    "sell_slippage_bps": 500,
     "panic_slippage_bps": 800,
     "priority_fee_lamports": 50000,
     "rapid_poll_threshold_pct": 5,
@@ -271,7 +277,7 @@ async def _is_live_mode() -> bool:
     return False
 
 
-async def _live_sell(token_address: str, sell_pct: float, reason: str, slippage_bps: int = 300) -> dict | None:
+async def _live_sell(token_address: str, sell_pct: float, reason: str, slippage_bps: int = 500) -> dict | None:
     """Execute a live sell if live mode is on. Returns tx result or None."""
     if not await _is_live_mode():
         return None
@@ -778,18 +784,18 @@ async def _manage_positions():
             if abs(pnl_pct - (-sl_pct)) <= threshold:
                 _rapid_poll_needed = True
 
-            # Check if first TP was already hit (for breakeven stop)
+            # Determine highest TP level hit so far (for ratcheting stop)
+            highest_tp_hit_pct = 0
             first_tp_hit = False
-            if config["breakeven_stop_after_first_tp"]:
-                first_tp = config["take_profit_levels"][0] if config["take_profit_levels"] else None
-                if first_tp:
-                    existing_first_tp = (await db.execute(
-                        select(PaperTrade)
-                        .where(PaperTrade.position_id == pos.id,
-                               PaperTrade.reason.contains(f"TP {first_tp['at_profit_pct']}%"))
-                    )).scalar_one_or_none()
-                    if existing_first_tp:
-                        first_tp_hit = True
+            for tp in config["take_profit_levels"]:
+                existing_tp = (await db.execute(
+                    select(PaperTrade)
+                    .where(PaperTrade.position_id == pos.id,
+                           PaperTrade.reason.contains(f"TP {tp['at_profit_pct']}%"))
+                )).scalar_one_or_none()
+                if existing_tp:
+                    highest_tp_hit_pct = max(highest_tp_hit_pct, tp["at_profit_pct"])
+                    first_tp_hit = True
 
             # 1d. Check take profit levels (5-tier)
             for tp in config["take_profit_levels"]:
@@ -835,14 +841,26 @@ async def _manage_positions():
                         f"Value: ${usd_val:.2f}"
                     )
 
-                    # 1e. After first TP hit, move stop to breakeven + 2%
+                    # 1e. Update ratchet stop tracking
                     if not first_tp_hit:
                         first_tp_hit = True
+                    highest_tp_hit_pct = max(highest_tp_hit_pct, tp["at_profit_pct"])
 
-            # 1f. Check stop loss (with breakeven stop adjustment)
+            # 1f. Check stop loss (with ratcheting stop after TPs)
             sl_pct = config["stop_loss_pct"]
-            if first_tp_hit and config["breakeven_stop_after_first_tp"]:
+            ratchet_floor = 0  # minimum PNL% before stop fires
+            close_reason = f"Stop loss ({pnl_pct:.1f}%)"
+
+            if first_tp_hit and config.get("ratchet_stop_enabled", False) and highest_tp_hit_pct > 0:
+                # Ratchet stop: after TP hits, stop moves up to X% of the highest TP level hit
+                ratchet_pct = config.get("ratchet_stop_pct_of_tp", 40)
+                ratchet_floor = highest_tp_hit_pct * (ratchet_pct / 100)
+                sl_triggered = pnl_pct <= ratchet_floor
+                close_reason = f"Ratchet stop ({pnl_pct:.1f}%, floor +{ratchet_floor:.0f}%)"
+            elif first_tp_hit and config.get("breakeven_stop_after_first_tp", False):
+                # Legacy breakeven stop (disabled by default now)
                 sl_triggered = pnl_pct <= 2.0
+                close_reason = f"Breakeven stop ({pnl_pct:.1f}%)"
             elif sl_pct >= 100:
                 sl_triggered = False  # Stop loss disabled when set >= 100
             else:
@@ -850,9 +868,6 @@ async def _manage_positions():
 
             if sl_triggered and remaining > 0:
                 slippage = config["sell_slippage_bps"]
-                close_reason = f"Stop loss ({pnl_pct:.1f}%)"
-                if first_tp_hit and config["breakeven_stop_after_first_tp"]:
-                    close_reason = f"Breakeven stop ({pnl_pct:.1f}%)"
 
                 live_tx = await _live_sell(pos.token_address, 100,
                                            f"SL ${pos.token_symbol}", slippage_bps=slippage)
@@ -1071,12 +1086,26 @@ async def run():
     _log.info("Agiotage Meme Trading Bot v2 starting")
     await asyncio.sleep(55)
 
+    # Clear stale Redis config on startup so new defaults take effect.
+    # Any runtime config changes via API will re-populate Redis.
+    try:
+        from ..core.redis import redis_client
+        old_config = await redis_client.get("paper_trader_config")
+        if old_config:
+            _log.info("Clearing stale Redis config — new defaults will apply")
+            await redis_client.delete("paper_trader_config")
+    except Exception:
+        pass
+
     config = await get_config()
+    tp_summary = ", ".join(f"+{tp['at_profit_pct']}%/{tp['sell_pct']}%" for tp in config["take_profit_levels"])
     _log.info(f"Config: score>={config['min_agiotage_score']}, MC={config['min_mc']:,}-{config['max_mc']:,}, "
               f"base={config['base_position_sol']} SOL, max={config['max_open_positions']} positions, "
-              f"SL={config['stop_loss_pct']}%, trail={config['trailing_stop_trail_pct']}%, "
+              f"SL={config['stop_loss_pct']}%, trail={config['trailing_stop_trail_pct']}%@+{config['trailing_stop_activation_pct']}%, "
+              f"ratchet={'ON' if config.get('ratchet_stop_enabled') else 'OFF'} ({config.get('ratchet_stop_pct_of_tp', 0)}% of TP), "
+              f"breakeven={'ON' if config.get('breakeven_stop_after_first_tp') else 'OFF'}, "
               f"daily_limit={config['daily_loss_limit_sol']} SOL, "
-              f"TP tiers={len(config['take_profit_levels'])}")
+              f"TP: [{tp_summary}], sell_slip={config['sell_slippage_bps']}bps")
 
     while True:
         try:
