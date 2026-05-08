@@ -83,6 +83,8 @@ KRAKEN_PAIRS = {
     "XRP": "XXRPZUSD", "HBAR": "HBARUSD", "PENDLE": "PENDLEUSD", "TRX": "TRXUSD",
     "UNI": "UNIUSD", "LDO": "LDOUSD", "KAVA": "KAVAUSD", "CRO": "CROUSD",
     "ZEC": "XZECZUSD", "DASH": "DASHUSD", "ETC": "XETCZUSD",
+    "JASMY": "JASMYUSD", "FLOKI": "FLOKIUSD", "SHIB": "SHIBUSD", "FIL": "FILUSD",
+    "ALGO": "ALGOUSD", "ATOM": "ATOMUSD", "GRT": "GRTUSD", "IMX": "IMXUSD",
 }
 
 # Kraken equity pairs (stocks) — only tradeable during US market hours (9:30-16:00 ET)
