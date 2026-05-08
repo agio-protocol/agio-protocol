@@ -393,7 +393,7 @@ async def _check_new_launches_from_top_deployers():
                                     # INSTANT TELEGRAM ALERT for S/A deployers
                                     if deployer.rating in ("S", "A", "B"):
                                         try:
-                                            bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+                                            bot_token = ""  # DISABLED - only paper_trader sends alerts
                                             chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
                                             if bot_token and chat_id:
                                                 rating_emoji = {"S": "🏆", "A": "⭐", "B": "🔵"}.get(deployer.rating, "")
@@ -469,7 +469,7 @@ async def _check_new_launches_from_top_deployers():
                                         # Telegram alert for inner instruction launches too
                                         if deployer.rating in ("S", "A", "B"):
                                             try:
-                                                bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+                                                bot_token = ""  # DISABLED - only paper_trader sends alerts
                                                 chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
                                                 if bot_token and chat_id:
                                                     rating_emoji = {"S": "🏆", "A": "⭐", "B": "🔵"}.get(deployer.rating, "")

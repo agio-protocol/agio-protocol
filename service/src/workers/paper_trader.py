@@ -392,21 +392,28 @@ async def _check_for_entries():
                 continue
 
             # 4b. Skip if already have open or recently opened position for this token (dedup)
+            # Check by BOTH token_address AND token_symbol to prevent double-firing
             existing = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
-                .where(PaperPosition.token_address == signal.token_address,
-                       PaperPosition.status.in_(["OPEN"]))
+                .where(
+                    (PaperPosition.token_address == signal.token_address) |
+                    (PaperPosition.token_symbol == symbol),
+                    PaperPosition.status.in_(["OPEN"]),
+                )
             )).scalar() or 0
             if existing > 0:
                 _log.info(f"SKIP ${symbol}: already have {existing} open position(s)")
                 continue
             recent_entry = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
-                .where(PaperPosition.token_address == signal.token_address,
-                       PaperPosition.opened_at >= datetime.utcnow() - timedelta(minutes=5))
+                .where(
+                    (PaperPosition.token_address == signal.token_address) |
+                    (PaperPosition.token_symbol == symbol),
+                    PaperPosition.opened_at >= datetime.utcnow() - timedelta(minutes=7),
+                )
             )).scalar() or 0
             if recent_entry > 0:
-                _log.info(f"SKIP ${symbol}: recently opened (5min dedup)")
+                _log.info(f"SKIP ${symbol}: recently opened (7min dedup)")
                 continue
 
             # 4c. Get current price, MC, and liquidity from DexScreener

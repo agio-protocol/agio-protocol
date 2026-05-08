@@ -309,7 +309,7 @@ async def _scan_for_signals(coins: list):
                 try:
                     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
                     chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
-                    if bot_token and chat_id and sig_data["strength"] in ("STRONG", "VERY_STRONG"):
+                    if False:  # DISABLED - only paper_trader sends alerts
                         emoji = {
                             "volume_spike": "🔊",
                             "momentum_up": "🚀",
