@@ -52,6 +52,8 @@ DEFAULT_CONFIG = {
     "min_wallet_profit": 5000,
     "min_wallet_trades": 30,
     "block_tags": ["sandwich_bot", "mev_bot"],
+    "max_tracked_wallets": 10,
+    "paper_mode": True,  # set False to execute real trades
 
     # Entry filters
     "max_price_pump_pct": 30,  # skip if token pumped >30% since wallet bought
@@ -539,13 +541,17 @@ async def _execute_buy(token_addr: str, token_symbol: str, wallet_addr: str,
     """Execute a copy trade buy."""
     try:
         size_sol = config["position_size_sol"]
+        paper_mode = config.get("paper_mode", True)
 
-        result = await _copy_buy_token(
-            token_mint=token_addr,
-            amount_sol=size_sol,
-            slippage_bps=config["buy_slippage_bps"],
-            priority_fee=config["priority_fee_lamports"],
-        )
+        if paper_mode:
+            result = {"success": True, "tx_hash": "paper_mode"}
+        else:
+            result = await _copy_buy_token(
+                token_mint=token_addr,
+                amount_sol=size_sol,
+                slippage_bps=config["buy_slippage_bps"],
+                priority_fee=config["priority_fee_lamports"],
+            )
 
         if result.get("success"):
             sol_price = await _get_sol_price()
@@ -579,9 +585,10 @@ async def _execute_buy(token_addr: str, token_symbol: str, wallet_addr: str,
                 pos.tx_hash_buy = result.get("tx_hash")
                 await db.commit()
 
-                _log.info(f"COPY BUY: ${token_symbol} {size_sol} SOL — copying {wallet_label}")
+                mode = "PAPER" if paper_mode else "LIVE"
+                _log.info(f"{mode} COPY BUY: ${token_symbol} {size_sol} SOL — copying {wallet_label}")
                 await _send_telegram(
-                    f"📋 *COPY BUY: ${token_symbol}*\n\n"
+                    f"📋 *{mode} COPY BUY: ${token_symbol}*\n\n"
                     f"Copying: {wallet_label or wallet_addr[:12]}\n"
                     f"Size: {size_sol} SOL (${size_usd:.2f})\n"
                     f"MC: ${mc:,.0f}\n"
@@ -601,21 +608,26 @@ async def _execute_buy(token_addr: str, token_symbol: str, wallet_addr: str,
 async def _execute_sell(pos: CopyPosition, reason: str, config: dict):
     """Execute a sell on a copy position."""
     try:
-        result = await _copy_sell_token(
-            token_mint=pos.token_address,
-            slippage_bps=config["sell_slippage_bps"],
-            priority_fee=config["priority_fee_lamports"],
-        )
+        paper_mode = config.get("paper_mode", True)
 
-        if not result.get("success") and result.get("error") == "No balance":
-            async with async_session() as db:
-                p = await db.get(CopyPosition, pos.id)
-                if p and p.status == "OPEN":
-                    p.status = "CLOSED"
-                    p.close_reason = "No on-chain balance"
-                    p.closed_at = datetime.utcnow()
-                    await db.commit()
-            return
+        if paper_mode:
+            result = {"success": True, "tx_hash": "paper_mode"}
+        else:
+            result = await _copy_sell_token(
+                token_mint=pos.token_address,
+                slippage_bps=config["sell_slippage_bps"],
+                priority_fee=config["priority_fee_lamports"],
+            )
+
+            if not result.get("success") and result.get("error") == "No balance":
+                async with async_session() as db:
+                    p = await db.get(CopyPosition, pos.id)
+                    if p and p.status == "OPEN":
+                        p.status = "CLOSED"
+                        p.close_reason = "No on-chain balance"
+                        p.closed_at = datetime.utcnow()
+                        await db.commit()
+                return
 
         price, _, _ = await _get_price_mc(pos.token_address)
         entry = float(pos.entry_price)
@@ -898,7 +910,16 @@ async def _auto_discover():
         return
 
     async with async_session() as db:
+        # Check current wallet count
+        current_count = (await db.execute(
+            select(func.count()).select_from(TrackedWallet).where(TrackedWallet.active == True)
+        )).scalar() or 0
+        max_wallets = config.get("max_tracked_wallets", 10)
+
         for item in items:
+            if current_count >= max_wallets:
+                break
+
             addr = item.get("wallet_address") or item.get("address", "")
             if not addr:
                 continue
@@ -932,9 +953,11 @@ async def _auto_discover():
                     tier="S" if winrate >= 0.65 and profit >= 25000 else "A",
                 )
                 db.add(wallet)
+                current_count += 1
                 _log.info(f"Auto-discovered wallet: {label} (WR:{winrate:.0%}, profit:${profit:,.0f})")
 
         await db.commit()
+        _log.info(f"Tracked wallets: {current_count}/{max_wallets}")
 
 
 # === MAIN LOOP ===
@@ -953,10 +976,13 @@ async def run():
     await _auto_discover()
 
     wallets = await _get_tracked_wallets()
-    _log.info(f"Tracking {len(wallets)} wallets: {', '.join(w.label or w.address[:12] for w in wallets)}")
+    mode = "PAPER MODE" if config.get("paper_mode", True) else "LIVE MODE"
+    _log.info(f"Copy Trade Bot: {mode} — tracking {len(wallets)} wallets")
+    _log.info(f"Wallets: {', '.join(w.label or w.address[:12] for w in wallets) or 'none yet (will auto-discover)'}")
     _log.info(f"Config: size={config['position_size_sol']} SOL, max={config['max_open_positions']}, "
               f"SL={config['stop_loss_pct']}%, TP={config['take_profit_pct']}%, "
-              f"hold={config['max_hold_hours']}h, min_wr={config['min_wallet_winrate']:.0%}")
+              f"hold={config['max_hold_hours']}h, min_wr={config['min_wallet_winrate']:.0%}, "
+              f"max_wallets={config.get('max_tracked_wallets', 10)}")
 
     stats_refresh = 0
     discover_refresh = 0
