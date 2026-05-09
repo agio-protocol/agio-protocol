@@ -804,25 +804,13 @@ async def _evaluate_copy(token_addr: str, symbol: str, wallet: TrackedWallet,
             _log.info(f"SKIP copy ${symbol}: max positions ({open_count})")
             return
 
-        # Cooldown — don't re-enter same token within N minutes
-        cutoff = datetime.utcnow() - timedelta(minutes=config["cooldown_minutes"])
-        recent = (await db.execute(
+        # ONE entry per token EVER — no re-entries after close
+        ever_traded = (await db.execute(
             select(func.count()).select_from(CopyPosition)
-            .where(CopyPosition.token_address == token_addr,
-                   CopyPosition.opened_at >= cutoff)
+            .where(CopyPosition.token_address == token_addr)
         )).scalar() or 0
-        if recent > 0:
-            _log.info(f"SKIP copy ${symbol}: cooldown active")
-            return
-
-        # Don't double up — skip if already holding
-        existing = (await db.execute(
-            select(CopyPosition)
-            .where(CopyPosition.token_address == token_addr,
-                   CopyPosition.status == "OPEN")
-        )).scalar_one_or_none()
-        if existing:
-            _log.info(f"SKIP copy ${symbol}: already holding")
+        if ever_traded > 0:
+            _log.info(f"SKIP copy ${symbol}: already traded this token (1-per-token rule)")
             return
 
     # Get current price and MC
