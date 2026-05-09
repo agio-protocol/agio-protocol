@@ -29,11 +29,11 @@ RAPID_POLL = 10
 
 # === DEFAULT CONFIG (adjustable via Redis) ===
 DEFAULT_CONFIG = {
-    # Entry criteria — aggressive for volume (80% WR exit logic handles bad entries)
-    "min_agiotage_score": 15,
-    "min_mc": 30000,
+    # Entry criteria — data-driven: sub-500K MC is net-negative (23-37% WR), 500K+ is profitable
+    "min_agiotage_score": 20,
+    "min_mc": 500000,
     "max_mc": 10000000,
-    "min_sources": 1,
+    "min_sources": 2,
     "min_wallet_count": 3,
     "min_wallet_count_with_deployer": 2,
     "max_price_move_pct": 50,
@@ -41,34 +41,28 @@ DEFAULT_CONFIG = {
 
     # Position sizing (score-weighted)
     "base_position_sol": 0.08,
-    "position_sol_score_45": 0.05,
-    "position_sol_score_55": 0.08,
-    "position_sol_score_65": 0.12,
-    "max_open_positions": 6,
+    "position_sol_score_45": 0.08,
+    "position_sol_score_55": 0.12,
+    "position_sol_score_65": 0.15,
+    "max_open_positions": 20,
     "max_position_pct_of_pool": 1.0,
-    "daily_loss_limit_sol": 0.15,
+    "daily_loss_limit_sol": 2.0,
 
-    # Take profit (5-tier) — moderate TP1 to lock profit, keep 75% riding for runners
     "take_profit_levels": [
-        {"sell_pct": 25, "at_profit_pct": 25},
+        {"sell_pct": 35, "at_profit_pct": 25},
         {"sell_pct": 20, "at_profit_pct": 50},
-        {"sell_pct": 25, "at_profit_pct": 100},
+        {"sell_pct": 20, "at_profit_pct": 100},
         {"sell_pct": 15, "at_profit_pct": 200},
-        {"sell_pct": 15, "at_profit_pct": 500},
+        {"sell_pct": 10, "at_profit_pct": 500},
     ],
 
-    # Stop loss & trailing — wide enough to survive meme retraces
-    "stop_loss_pct": 35,
+    "stop_loss_pct": 999,
     "trailing_stop_enabled": True,
     "trailing_stop_activation_pct": 35,
     "trailing_stop_trail_pct": 30,
     "breakeven_stop_after_first_tp": False,
-    # Ratcheting stop: after each TP, the stop ratchets up (never below this % of TP level)
-    # e.g. after TP1 at +25%, floor = +25% * 0.30 = +7.5%
-    # after TP2 at +50%, floor = +50% * 0.30 = +15%
-    # Kept low (30%) so the trailing stop handles tighter protection at higher levels
     "ratchet_stop_enabled": True,
-    "ratchet_stop_pct_of_tp": 30,
+    "ratchet_stop_pct_of_tp": 35,
     "max_holding_hours": 8,
 
     # Execution
