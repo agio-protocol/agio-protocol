@@ -49,7 +49,7 @@ DEFAULT_CONFIG = {
 
     # Wallet quality filters — council reviewed
     "min_wallet_winrate": 0.65,
-    "min_wallet_profit": 25000,
+    "min_wallet_profit": 10000,
     "min_wallet_trades": 30,
     "block_tags": ["sandwich_bot", "mev_bot"],
     "max_tracked_wallets": 10,
@@ -697,15 +697,23 @@ async def handle_helius_swap(wallet_address: str, tx_hash: str, timestamp: int,
     if not config.get("enabled"):
         return
 
-    # Check if this wallet is one we track
+    # Check if this wallet is one we track in DB — if not, auto-add from Helius subscription
     async with async_session() as db:
         wallet = (await db.execute(
             select(TrackedWallet)
             .where(TrackedWallet.address == wallet_address, TrackedWallet.active == True)
         )).scalar_one_or_none()
 
-    if not wallet:
-        return
+        if not wallet:
+            # Helius only sends events for wallets we subscribed to — auto-add to DB
+            wallet = TrackedWallet(
+                address=wallet_address,
+                label=wallet_address[:12],
+                tier="A",
+            )
+            db.add(wallet)
+            await db.commit()
+            _log.info(f"Auto-added Helius wallet: {wallet_address[:12]}")
 
     # Handle BUY
     if bought_token:
