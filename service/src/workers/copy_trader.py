@@ -42,9 +42,10 @@ POLL_INTERVAL = 15  # seconds between wallet checks
 
 DEFAULT_CONFIG = {
     "enabled": True,
-    "position_size_sol": 0.15,
+    "position_size_sol": 0.10,
     "max_open_positions": 5,
-    "daily_loss_limit_sol": 1.0,
+    "daily_loss_limit_sol": 0.50,
+    "min_sol_reserve": 0.05,  # always keep this much SOL for gas
 
     # Wallet quality filters
     "min_wallet_winrate": 0.50,
@@ -728,9 +729,33 @@ async def _poll_wallets(config: dict):
         _seen_tx_hashes.clear()
 
 
+async def _get_copy_wallet_sol_balance() -> float:
+    """Get SOL balance of the copy trader wallet."""
+    try:
+        address = _get_copy_wallet_address()
+        rpc = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(rpc, json={
+                "jsonrpc": "2.0", "id": 1, "method": "getBalance",
+                "params": [address],
+            }, timeout=10)
+            if resp.status_code == 200:
+                return resp.json().get("result", {}).get("value", 0) / 1e9
+    except Exception:
+        pass
+    return 0
+
+
 async def _evaluate_copy(token_addr: str, symbol: str, wallet: TrackedWallet,
                          wallet_buy_usd: float, config: dict):
     """Evaluate whether to copy a wallet's buy."""
+
+    # Check SOL balance — don't trade if insufficient
+    balance = await _get_copy_wallet_sol_balance()
+    needed = config["position_size_sol"] + config.get("min_sol_reserve", 0.05)
+    if balance < needed:
+        _log.info(f"SKIP copy ${symbol}: insufficient SOL ({balance:.4f} < {needed:.4f} needed)")
+        return
 
     # Check daily loss limit
     daily_loss = await _get_daily_loss()
