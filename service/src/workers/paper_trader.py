@@ -49,11 +49,10 @@ DEFAULT_CONFIG = {
     "daily_loss_limit_sol": 2.0,
 
     "take_profit_levels": [
-        {"sell_pct": 35, "at_profit_pct": 25},
+        {"sell_pct": 45, "at_profit_pct": 25},
         {"sell_pct": 20, "at_profit_pct": 50},
         {"sell_pct": 20, "at_profit_pct": 100},
         {"sell_pct": 15, "at_profit_pct": 200},
-        {"sell_pct": 10, "at_profit_pct": 500},
     ],
 
     "stop_loss_pct": 35,
@@ -62,7 +61,7 @@ DEFAULT_CONFIG = {
     "trailing_stop_trail_pct": 30,
     "breakeven_stop_after_first_tp": False,
     "ratchet_stop_enabled": True,
-    "ratchet_stop_pct_of_tp": 35,
+    "ratchet_stop_pct_of_tp": 45,
     "max_holding_hours": 8,
 
     # Execution
