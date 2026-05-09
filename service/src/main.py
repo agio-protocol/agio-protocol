@@ -55,6 +55,7 @@ async def lifespan(app: FastAPI):
     from .workers.crypto_paper_trader import CryptoPaperPosition, CryptoPaperTrade  # noqa
     from .workers.stock_paper_trader import StockPaperPosition, StockPaperTrade  # noqa
     from .workers.momentum_scanner import MomentumSignal, VolumeBaseline  # noqa
+    from .workers.copy_trader import CopyPosition, CopyTrade, TrackedWallet  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Add new columns to meme_deployments if missing
@@ -110,12 +111,14 @@ async def lifespan(app: FastAPI):
     from .workers.crypto_paper_trader import run as crypto_trader_run
     from .workers.stock_paper_trader import run as stock_trader_run
     from .workers.momentum_scanner import run as momentum_run
+    from .workers.copy_trader import run as copy_trader_run
     correlation_task = asyncio.create_task(correlation_run())
     telegram_task = asyncio.create_task(telegram_run())
     paper_task = asyncio.create_task(paper_trader_run())
     crypto_trader_task = asyncio.create_task(crypto_trader_run())
     stock_trader_task = asyncio.create_task(stock_trader_run())
     momentum_task = asyncio.create_task(momentum_run())
+    copy_trader_task = asyncio.create_task(copy_trader_run())
     yield
     meme_task.cancel()
     moltbook_task.cancel()
@@ -131,6 +134,7 @@ async def lifespan(app: FastAPI):
     crypto_trader_task.cancel()
     stock_trader_task.cancel()
     momentum_task.cancel()
+    copy_trader_task.cancel()
     await engine.dispose()
 
 
