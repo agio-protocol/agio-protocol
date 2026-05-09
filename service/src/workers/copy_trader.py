@@ -35,7 +35,7 @@ from ..models.base import Base
 _log = logging.getLogger("copy-trader")
 
 GMGN_HOST = "https://openapi.gmgn.ai"
-POLL_INTERVAL = 20  # seconds between wallet checks (balanced for GMGN rate limits)
+POLL_INTERVAL = 60  # fallback polling — Helius webhooks handle real-time detection
 
 
 # === CONFIG ===
@@ -683,7 +683,68 @@ async def _execute_sell(pos: CopyPosition, reason: str, config: dict):
         _log.error(f"Copy sell error for {pos.token_symbol}: {e}")
 
 
-# === POLL AND MANAGE ===
+# === HELIUS WEBHOOK HANDLER (real-time, replaces polling) ===
+
+async def handle_helius_swap(wallet_address: str, tx_hash: str, timestamp: int,
+                             bought_token: dict | None, sold_token: dict | None,
+                             amount_sol: float):
+    """Called by the Helius webhook endpoint when a tracked wallet swaps."""
+    if tx_hash in _seen_tx_hashes:
+        return
+    _seen_tx_hashes[tx_hash] = time.time()
+
+    config = await get_config()
+    if not config.get("enabled"):
+        return
+
+    # Check if this wallet is one we track
+    async with async_session() as db:
+        wallet = (await db.execute(
+            select(TrackedWallet)
+            .where(TrackedWallet.address == wallet_address, TrackedWallet.active == True)
+        )).scalar_one_or_none()
+
+    if not wallet:
+        return
+
+    # Handle BUY
+    if bought_token:
+        token_addr = bought_token["mint"]
+        token_amount = bought_token.get("amount", 0)
+
+        # Get symbol from DexScreener
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"https://api.dexscreener.com/token-pairs/v1/solana/{token_addr}", timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    pairs = data if isinstance(data, list) else data.get("pairs", [])
+                    symbol = pairs[0].get("baseToken", {}).get("symbol", "???")[:20] if pairs else "???"
+                else:
+                    symbol = "???"
+        except Exception:
+            symbol = "???"
+
+        skip_symbols = config.get("skip_symbols", [])
+        if symbol.upper() in skip_symbols:
+            return
+
+        sol_price = await _get_sol_price()
+        usd_value = amount_sol * sol_price if amount_sol > 0 else 0
+        if usd_value < config.get("min_buy_usd", 100) and amount_sol > 0:
+            return
+
+        _log.info(f"HELIUS: {wallet.label} bought ${symbol} ({amount_sol:.3f} SOL / ${usd_value:.0f})")
+        await _evaluate_copy(token_addr, symbol, wallet, usd_value, config)
+
+    # Handle SELL — copy-sell if we hold the token
+    elif sold_token and config.get("copy_sell"):
+        token_addr = sold_token["mint"]
+        await _check_copy_sell(token_addr, wallet_address, config)
+
+
+# === POLL AND MANAGE (fallback when Helius unavailable) ===
 
 async def _poll_single_wallet(wallet: TrackedWallet, config: dict):
     """Poll a single wallet for new trades."""
