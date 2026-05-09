@@ -145,10 +145,13 @@ async def search_jobs(
     db: AsyncSession = Depends(get_db),
 ):
     """Search jobs. Default shows OPEN and BIDDING (accepting bids)."""
+    PUBLIC_STATUSES = {"OPEN", "BIDDING"}
     if status == "OPEN":
-        query = select(Job).where(Job.status.in_(("OPEN", "BIDDING")))
-    else:
+        query = select(Job).where(Job.status.in_(PUBLIC_STATUSES))
+    elif status in PUBLIC_STATUSES:
         query = select(Job).where(Job.status == status)
+    else:
+        query = select(Job).where(Job.status.in_(PUBLIC_STATUSES))
     if category:
         query = query.where(Job.category == category)
     query = query.where(Job.budget >= min_budget, Job.budget <= max_budget)
@@ -156,7 +159,7 @@ async def search_jobs(
     query = query.offset((page - 1) * limit).limit(limit)
 
     jobs = (await db.execute(query)).scalars().all()
-    count_filter = Job.status.in_(("OPEN", "BIDDING")) if status == "OPEN" else Job.status == status
+    count_filter = Job.status.in_(PUBLIC_STATUSES) if status not in PUBLIC_STATUSES or status == "OPEN" else Job.status == status
     total = (await db.execute(
         select(func.count()).select_from(Job).where(count_filter)
     )).scalar() or 0
@@ -304,26 +307,63 @@ async def accept_bid(
 @router.post("/{job_id}/submit")
 async def submit_work(
     job_id: int,
-    authorization: str = Header(None), agio_id: str = Query(...),
+    request: Request = None,
+    authorization: str = Header(None),
+    agio_id: str = Query(None),
     content: str = Query(None),
     url: str = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Submit completed work."""
+    """Submit completed work. Accepts any format — JSON body, query params, or form data."""
+    import json as _json
+
+    agent_id = agio_id
+    work_content = content
+    work_url = url
+
+    # Parse JSON body if present — accept ANY field names
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            agent_id = agent_id or body.get("agio_id") or body.get("agent_id") or body.get("bidder_id")
+            work_content = work_content or body.get("content") or body.get("work") or body.get("deliverable") or body.get("submission") or body.get("text") or body.get("description") or body.get("report") or body.get("result") or body.get("output")
+            work_url = work_url or body.get("url") or body.get("deliverable_url") or body.get("github_url") or body.get("link") or body.get("repo") or body.get("github") or body.get("pr_url")
+
+            # If agent sent extra fields we didn't catch, dump them all as content
+            if not work_content and not work_url:
+                extra = {k: v for k, v in body.items() if k not in ("agio_id", "agent_id", "bidder_id") and v}
+                if extra:
+                    work_content = _json.dumps(extra, indent=2)
+    except Exception:
+        pass
+
+    # Try form data as fallback
+    if not work_content and not work_url:
+        try:
+            form = await request.form()
+            work_content = form.get("content") or form.get("work") or form.get("text")
+            work_url = work_url or form.get("url") or form.get("link")
+            agent_id = agent_id or form.get("agio_id")
+        except Exception:
+            pass
+
+    if not agent_id:
+        raise HTTPException(400, "agio_id required (query param or in JSON body)")
+
     from .auth_guard import verify_agent
-    await verify_agent(agio_id, authorization)
+    await verify_agent(agent_id, authorization)
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalar_one_or_none()
     if not job or job.status != "IN_PROGRESS":
         raise HTTPException(400, "Job not in progress")
 
     bid = (await db.execute(select(JobBid).where(JobBid.id == job.accepted_bid_id))).scalar_one_or_none()
-    if not bid or bid.bidder_agent != agio_id:
+    if not bid or bid.bidder_agent != agent_id:
         raise HTTPException(403, "Only the accepted worker can submit")
 
     deliverable = JobDeliverable(
-        job_id=job_id, agent_id=agio_id,
-        content=content[:10000] if content else None,
-        deliverable_url=url,
+        job_id=job_id, agent_id=agent_id,
+        content=work_content[:10000] if work_content else None,
+        deliverable_url=work_url,
     )
     db.add(deliverable)
     job.status = "SUBMITTED"

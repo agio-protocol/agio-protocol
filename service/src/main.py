@@ -212,6 +212,9 @@ try:
             self._x402 = _X402(app, routes=x402_routes, server=x402_server)
 
         async def dispatch(self, request: StarletteRequest, call_next):
+            # Skip x402 for webhook endpoints (they have their own auth)
+            if request.url.path.startswith("/v1/copy-trader/webhook"):
+                return await call_next(request)
             auth = request.headers.get("authorization", "")
             if auth.startswith("Bearer ses_") or auth.startswith("Bearer agt_"):
                 return await call_next(request)

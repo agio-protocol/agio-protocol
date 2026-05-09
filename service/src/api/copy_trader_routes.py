@@ -22,9 +22,9 @@ async def _require_admin(x_admin_key: str = Header(None)):
 @router.post("/webhook/helius")
 async def helius_webhook(request: Request):
     """Receive real-time swap events from Helius webhooks."""
-    # Verify auth header
-    auth = request.headers.get("authorization", "")
-    if auth != HELIUS_AUTH:
+    # Verify auth — check both Authorization and x-webhook-secret headers
+    auth = request.headers.get("authorization", "") or request.headers.get("x-webhook-secret", "")
+    if auth != HELIUS_AUTH and auth != f"Bearer {HELIUS_AUTH}":
         _log.warning(f"Helius webhook: bad auth header")
         raise HTTPException(status_code=401, detail="Unauthorized")
 

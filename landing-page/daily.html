@@ -1,0 +1,214 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Alpha Brief — Agiotage</title>
+<meta name="description" content="Daily trading intelligence brief. What smart money is buying, whale movements, Congress trades, and social trends.">
+<meta property="og:title" content="Daily Alpha Brief — Agiotage"><meta property="og:type" content="website"><meta property="og:image" content="https://agiotage.finance/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#06080d;color:#e0e6ef;min-height:100vh}
+a{color:#00d9a3;text-decoration:none}
+.brief{max-width:620px;margin:0 auto;padding:24px 20px}
+.header{text-align:center;padding:30px 0 20px;border-bottom:2px solid #00d9a3}
+.header h1{font-size:13px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#00d9a3;margin-bottom:4px}
+.header .date{font-size:28px;font-weight:900;color:#fff;margin-bottom:4px}
+.header .sub{font-size:12px;color:#7a8599}
+.section{margin-top:24px}
+.section-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#7a8599;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:#1a2030}
+.card{background:#0c1018;border:1px solid #1a2030;border-radius:10px;padding:16px;margin-bottom:10px}
+.signal-card{border-left:4px solid #00d9a3}
+.signal-card.sell{border-left-color:#ef4444}
+.signal-card.hold{border-left-color:#7a8599}
+.signal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.signal-token{font-size:20px;font-weight:800}
+.signal-badge{padding:4px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:1px}
+.badge-buy{background:#00d9a320;color:#00d9a3}
+.badge-sell{background:#ef444420;color:#ef4444}
+.badge-hold{background:#7a859920;color:#7a8599}
+.signal-conf{font-size:24px;font-weight:800;color:#00d9a3}
+.signal-summary{font-size:12px;color:#e0e6ef;line-height:1.5}
+.signal-sources{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.source-dot{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:600;background:#1f2937;color:#7a8599}
+.flow-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1a2030;font-size:13px}
+.flow-row:last-child{border:none}
+.flow-sym{font-weight:700;width:50px}
+.flow-dir{font-weight:600}
+.flow-amt{font-weight:700}
+.congress-row{padding:10px 0;border-bottom:1px solid #1a2030;font-size:12px}
+.congress-row:last-child{border:none}
+.trending-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a2030;font-size:12px}
+.trending-row:last-child{border:none}
+.footer{text-align:center;padding:24px 0;margin-top:24px;border-top:1px solid #1a2030}
+.footer a{font-size:14px;font-weight:700;letter-spacing:2px}
+.footer .tagline{font-size:10px;color:#7a8599;margin-top:4px}
+.empty-msg{color:#7a8599;font-size:12px;text-align:center;padding:16px}
+@media print{body{background:#fff;color:#111}.card{border-color:#ddd}.header{border-color:#00d9a3}}
+</style></head><body>
+<div class="brief">
+  <div class="header">
+    <h1>Daily Alpha Brief</h1>
+    <div class="date" id="brief-date"></div>
+    <div class="sub">Aggregated intelligence from 7 data sources</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Top Signals</div>
+    <div id="signals-section"><div class="empty-msg">Loading signals...</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Whale Flow (24h)</div>
+    <div class="card" id="flow-section"><div class="empty-msg">Loading whale data...</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Congress & Insider Moves</div>
+    <div class="card" id="congress-section"><div class="empty-msg">Loading...</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Social Trending</div>
+    <div class="card" id="trending-section"><div class="empty-msg">Loading...</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Signal Accuracy</div>
+    <div class="card" id="accuracy-section"><div class="empty-msg">Loading accuracy data...</div></div>
+  </div>
+
+  <div class="footer">
+    <a href="https://agiotage.finance">AGIOTAGE</a>
+    <div class="tagline">Trading intelligence for humans and agents. agiotage.finance</div>
+  </div>
+</div>
+
+<script>
+const API='https://agio-protocol-production.up.railway.app';
+
+function fmt$(n){if(n>=1e9)return '$'+(n/1e9).toFixed(1)+'B';if(n>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return '$'+(n/1e3).toFixed(1)+'K';if(n>0)return '$'+n.toFixed(0);return '$0';}
+
+// Date
+const now=new Date();
+document.getElementById('brief-date').textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// Top Signals — use market scan
+async function loadSignals(){
+  try{
+    const d=await(await fetch(API+'/v1/alpha/scan/market')).json();
+    const market=(d.market||[]).filter(m=>m.source_count>0).slice(0,5);
+    if(!market.length){document.getElementById('signals-section').innerHTML='<div class="empty-msg">No convergence signals in the last 24 hours. Check back tomorrow.</div>';return;}
+    document.getElementById('signals-section').innerHTML=market.map(m=>{
+      const cls=m.signal==='BUY'?'signal-card':m.signal==='SELL'?'signal-card sell':'signal-card hold';
+      const badge=m.signal==='BUY'?'badge-buy':m.signal==='SELL'?'badge-sell':'badge-hold';
+      return `<div class="card ${cls}">
+        <div class="signal-top">
+          <div>
+            <span class="signal-token">$${m.token}</span>
+            <span class="signal-badge ${badge}" style="margin-left:10px">${m.signal}</span>
+          </div>
+          <div class="signal-conf" style="color:${m.signal==='BUY'?'#00d9a3':m.signal==='SELL'?'#ef4444':'#7a8599'}">${m.confidence}%</div>
+        </div>
+        <div class="signal-summary">${m.summary}</div>
+        ${m.galaxy_score?'<div style="font-size:11px;color:#7a8599;margin-top:4px">Galaxy Score: '+m.galaxy_score+' | Whale: '+m.whale_flow+'</div>':''}
+      </div>`;
+    }).join('');
+  }catch{document.getElementById('signals-section').innerHTML='<div class="empty-msg">Failed to load signals</div>';}
+}
+
+// Whale Flow
+async function loadFlow(){
+  try{
+    const d=await(await fetch(API+'/v1/whales/crypto/stats')).json();
+    const el=document.getElementById('flow-section');
+    const deposits=d.exchange_deposits||0;
+    const withdrawals=d.exchange_withdrawals||0;
+    const total=d.total_transactions||0;
+
+    // Also get flow analysis for top coins
+    // This needs auth so we'll show public stats
+    el.innerHTML=`
+      <div class="flow-row">
+        <span style="font-weight:600">Total whale transactions (24h)</span>
+        <span class="flow-amt" style="color:#00d9a3">${total}</span>
+      </div>
+      <div class="flow-row">
+        <span>Exchange deposits (sell pressure)</span>
+        <span class="flow-amt" style="color:#ef4444">${deposits}</span>
+      </div>
+      <div class="flow-row">
+        <span>Exchange withdrawals (accumulation)</span>
+        <span class="flow-amt" style="color:#10b981">${withdrawals}</span>
+      </div>
+      <div style="font-size:11px;color:#7a8599;margin-top:8px;text-align:center">Sign in at agiotage.finance/trading.html for per-coin flow analysis</div>
+    `;
+  }catch{document.getElementById('flow-section').innerHTML='<div class="empty-msg">Failed to load</div>';}
+}
+
+// Congress
+async function loadCongress(){
+  try{
+    const d=await(await fetch(API+'/v1/whales/stocks/stats')).json();
+    const el=document.getElementById('congress-section');
+    el.innerHTML=`
+      <div class="flow-row"><span>Congress trades tracked</span><span class="flow-amt">${d.congress_trades||0}</span></div>
+      <div class="flow-row"><span>Insider trades (Form 4)</span><span class="flow-amt">${d.insider_trades||0}</span></div>
+      <div class="flow-row"><span>13F hedge fund filings</span><span class="flow-amt">${d.filings_13f||0}</span></div>
+      <div class="flow-row"><span>Convergence signals</span><span class="flow-amt" style="color:#00d9a3">${d.signals||0}</span></div>
+      <div style="font-size:11px;color:#7a8599;margin-top:8px;text-align:center">Full Congress trade details + options flow at agiotage.finance/trading.html</div>
+    `;
+  }catch{document.getElementById('congress-section').innerHTML='<div class="empty-msg">Failed to load</div>';}
+}
+
+// Social Trending
+async function loadTrending(){
+  try{
+    const d=await(await fetch(API+'/v1/sentiment/stats')).json();
+    const el=document.getElementById('trending-section');
+    const tokens=d.top_tokens_6h||[];
+    if(!tokens.length){el.innerHTML='<div class="empty-msg">No trending data yet</div>';return;}
+    el.innerHTML=tokens.slice(0,8).map((t,i)=>`<div class="trending-row">
+      <div><span style="color:#00d9a3;font-weight:700;margin-right:8px">#${i+1}</span><span style="font-weight:600">$${t.symbol}</span></div>
+      <div style="color:#7a8599">${t.mentions} mentions</div>
+    </div>`).join('')+
+    `<div style="font-size:11px;color:#7a8599;margin-top:8px;text-align:center">Data from Reddit, StockTwits, Telegram, and KOL tracking</div>`;
+  }catch{document.getElementById('trending-section').innerHTML='<div class="empty-msg">Failed to load</div>';}
+}
+
+loadSignals();
+loadFlow();
+loadCongress();
+loadTrending();
+loadAccuracy();
+
+async function loadAccuracy(){
+  try{
+    const d=await(await fetch(API+'/v1/alpha/accuracy')).json();
+    const el=document.getElementById('accuracy-section');
+    const cs=d.cluster_signals||{};
+    const co=d.correlated_signals||{};
+    const avg=d.avg_24h_return||{};
+    const csColor=cs.win_rate>=50?'#10b981':cs.win_rate>=30?'#f59e0b':'#ef4444';
+    const coColor=co.win_rate>=50?'#10b981':co.win_rate>=30?'#f59e0b':'#ef4444';
+    el.innerHTML=`
+      <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+        <div style="flex:1;text-align:center;padding:12px;background:#111827;border-radius:8px">
+          <div style="font-size:24px;font-weight:800;color:${csColor}">${cs.win_rate}%</div>
+          <div style="font-size:10px;color:var(--muted)">Cluster Win Rate</div>
+          <div style="font-size:9px;color:var(--muted)">${cs.wins}/${cs.scored} signals</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:12px;background:#111827;border-radius:8px">
+          <div style="font-size:24px;font-weight:800;color:${coColor}">${co.win_rate}%</div>
+          <div style="font-size:10px;color:var(--muted)">Correlated Win Rate</div>
+          <div style="font-size:9px;color:var(--muted)">${co.wins}/${co.scored} signals</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);display:flex;gap:16px">
+        <span>Strong signal avg 24h: <span style="color:${avg.strong_signals>=0?'#10b981':'#ef4444'}">${avg.strong_signals>=0?'+':''}${avg.strong_signals}%</span></span>
+        <span>Medium signal avg 24h: <span style="color:${avg.medium_signals>=0?'#10b981':'#ef4444'}">${avg.medium_signals>=0?'+':''}${avg.medium_signals}%</span></span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px">${d.note||''}</div>
+    `;
+  }catch{document.getElementById('accuracy-section').innerHTML='<div class="empty-msg">Accuracy data building...</div>';}
+}
+</script>
+</body></html>

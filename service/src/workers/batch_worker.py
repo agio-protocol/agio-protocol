@@ -109,6 +109,74 @@ def dynamic_interval(queue_depth: int) -> int:
     return settings.batch_interval_seconds  # default
 
 
+SYNC_ABI = json.loads('[{"inputs":[{"name":"token","type":"address"}],"name":"syncTrackedBalance","outputs":[],"stateMutability":"nonpayable","type":"function"}]')
+USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+_last_sync = 0
+
+async def _sync_vault_balance():
+    """Call syncTrackedBalance on the vault before each batch to prevent invariant failures."""
+    global _last_sync
+    import time
+    # Only sync once per 5 minutes to avoid excessive gas
+    if time.time() - _last_sync < 300:
+        return
+
+    try:
+        w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
+        vault_addr = settings.vault_address
+        if not vault_addr:
+            return
+
+        vault = w3.eth.contract(address=Web3.to_checksum_address(vault_addr), abi=SYNC_ABI)
+
+        # Check if sync is needed: compare actual USDC balance vs tracked
+        erc20_abi = [{"inputs":[{"name":"a","type":"address"}],"name":"balanceOf","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"}]
+        usdc = w3.eth.contract(address=Web3.to_checksum_address(USDC_BASE), abi=erc20_abi)
+        actual = usdc.functions.balanceOf(Web3.to_checksum_address(vault_addr)).call()
+
+        # Try to read totalTrackedBalance
+        tracked_abi = [{"inputs":[{"name":"token","type":"address"}],"name":"totalTrackedBalance","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"}]
+        vault_tracked = w3.eth.contract(address=Web3.to_checksum_address(vault_addr), abi=tracked_abi)
+        try:
+            tracked = vault_tracked.functions.totalTrackedBalance(Web3.to_checksum_address(USDC_BASE)).call()
+        except Exception:
+            tracked = actual  # Can't read tracked, assume equal
+
+        if actual == tracked:
+            _last_sync = time.time()
+            return
+
+        logger.info(f"Vault balance mismatch: actual={actual} tracked={tracked}, syncing...")
+
+        # Build and send sync transaction
+        from eth_account import Account
+        private_key = settings.batch_submitter_private_key
+        account = Account.from_key(private_key)
+
+        tx = vault.functions.syncTrackedBalance(
+            Web3.to_checksum_address(USDC_BASE)
+        ).build_transaction({
+            "from": account.address,
+            "nonce": w3.eth.get_transaction_count(account.address),
+            "gas": 100_000,
+            "gasPrice": w3.eth.gas_price,
+            "chainId": 8453,
+        })
+        signed = account.sign_transaction(tx)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+
+        if receipt.status == 1:
+            logger.info(f"Vault synced successfully: tx={tx_hash.hex()[:16]}...")
+        else:
+            logger.error(f"Vault sync transaction reverted: tx={tx_hash.hex()[:16]}...")
+
+        _last_sync = time.time()
+    except Exception as e:
+        logger.error(f"Vault sync error: {e}")
+
+
 async def run_worker():
     """Main batch worker loop with dynamic interval."""
     logger.info(f"Batch worker started. Dynamic batching enabled, "
@@ -215,6 +283,12 @@ async def run_worker():
                 await _return_to_queue(raw_payments, batch_id_hex)
                 await asyncio.sleep(settings.batch_interval_seconds * 2)
                 continue
+
+            # 5b. Auto-sync vault tracked balance before submission
+            try:
+                await _sync_vault_balance()
+            except Exception as e:
+                logger.warning(f"Vault sync failed (non-fatal): {e}")
 
             # 6. Submit to blockchain
             try:

@@ -1,14 +1,37 @@
 # Copyright (c) 2026 Agiotage Protocol. All rights reserved. Proprietary and confidential.
 """Agent registration service with anti-spam and progressive trust."""
 import hashlib
+import re
 from decimal import Decimal
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.agent import Agent
 from ..core.exceptions import DuplicateAgent
+
+
+def _is_evm_address(addr: str) -> bool:
+    return bool(re.fullmatch(r"0x[0-9a-fA-F]{40}", addr))
+
+
+def _is_solana_address(addr: str) -> bool:
+    BASE58_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
+    return bool(BASE58_RE.match(addr))
+
+
+def normalize_wallet(addr: str) -> tuple[str, str]:
+    """Normalize wallet address and detect chain.
+    EVM: lowercased (case-insensitive). Solana: original case preserved (case-sensitive base58).
+    Returns (normalized_address, chain).
+    """
+    addr = addr.strip()
+    if _is_evm_address(addr):
+        return addr.lower(), "base"
+    if _is_solana_address(addr):
+        return addr, "solana"
+    raise ValueError(f"Invalid wallet address format. Expected EVM (0x...) or Solana (base58).")
 
 
 TRUST_LEVELS = {
@@ -40,11 +63,16 @@ async def register_agent(
     if not wallet_address or len(wallet_address) < 10:
         raise ValueError("Invalid wallet address")
 
-    wallet_lower = wallet_address.lower()
+    normalized, chain = normalize_wallet(wallet_address)
 
-    existing = (await db.execute(
-        select(Agent).where(Agent.wallet_address == wallet_lower)
-    )).scalar_one_or_none()
+    if chain == "base":
+        existing = (await db.execute(
+            select(Agent).where(Agent.wallet_address == normalized)
+        )).scalar_one_or_none()
+    else:
+        existing = (await db.execute(
+            select(Agent).where(func.lower(Agent.wallet_address) == normalized.lower())
+        )).scalar_one_or_none()
 
     if existing:
         raise DuplicateAgent()
@@ -55,8 +83,8 @@ async def register_agent(
 
     agent = Agent(
         agio_id=agio_id,
-        wallet_address=wallet_lower,
-        metadata_json=metadata or {"name": name},
+        wallet_address=normalized,
+        metadata_json=metadata or {"name": name, "chain": chain},
     )
     db.add(agent)
     await db.commit()

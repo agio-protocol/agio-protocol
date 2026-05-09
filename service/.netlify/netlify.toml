@@ -1,5 +1,4 @@
 plugins = []
-headers = []
 redirects = []
 
 [functions]
@@ -7,8 +6,9 @@ redirects = []
 [functions."*"]
 
 [build]
-publish = "/Users/jeffreywylie/agio-protocol"
+publish = "/Users/jeffreywylie/agio-protocol/service"
 publishOrigin = "default"
+base = "/Users/jeffreywylie/agio-protocol/service"
 
 [build.environment]
 
@@ -23,3 +23,22 @@ publishOrigin = "default"
 [build.processing.js]
 
 [build.services]
+
+[[headers]]
+for = "/*.html"
+
+[headers.values]
+Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+for = "/nav.js"
+
+[headers.values]
+Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+for = "/.well-known/*"
+
+[headers.values]
+Cache-Control = "public, max-age=3600"
+Access-Control-Allow-Origin = "*"

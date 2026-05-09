@@ -94,15 +94,16 @@ async def submit_batch_to_chain(
 
     signature = sign_batch(payments, batch_id)
 
-    nonce = w3.eth.get_transaction_count(account.address)
+    nonce = w3.eth.get_transaction_count(account.address, "pending")
+    base_fee = w3.eth.gas_price
     tx = contract.functions.submitBatch(
         payment_tuples, batch_id, signature
     ).build_transaction({
         "from": account.address,
         "nonce": nonce,
         "gas": 5_000_000,
-        "maxFeePerGas": w3.eth.gas_price * 2,
-        "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei"),
+        "maxFeePerGas": max(base_fee * 3, w3.to_wei(0.1, "gwei")),
+        "maxPriorityFeePerGas": max(w3.to_wei(0.01, "gwei"), base_fee // 10),
     })
 
     signed_tx = account.sign_transaction(tx)

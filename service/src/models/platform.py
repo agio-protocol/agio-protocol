@@ -292,3 +292,56 @@ class Notification(Base):
     __table_args__ = (
         Index("idx_notif_agent_unread", "agent_id", "read_at"),
     )
+
+
+class MemeDeployment(Base):
+    __tablename__ = "meme_deployments"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    chain: Mapped[str] = mapped_column(String(20), nullable=False, default="solana")
+    mint_address: Mapped[str] = mapped_column(String(66), nullable=False, unique=True)
+    deployer_wallet: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    token_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    token_symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    dex: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    liquidity_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    price_usd: Mapped[float | None] = mapped_column(Numeric(18, 10), nullable=True)
+    fdv: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    peak_fdv: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    peak_liquidity: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    pair_address: Mapped[str | None] = mapped_column(String(66), nullable=True)
+    is_pump_fun: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_rugged: Mapped[bool] = mapped_column(Boolean, default=False)
+    rugged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deployer_token_count: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    pair_created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_meme_deployer", "deployer_wallet"),
+        Index("idx_meme_created", "created_at"),
+        Index("idx_meme_chain", "chain"),
+    )
+
+
+class TopDeployer(Base):
+    __tablename__ = "top_deployers"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    wallet: Mapped[str] = mapped_column(String(66), nullable=False, unique=True)
+    chain: Mapped[str] = mapped_column(String(20), nullable=False, default="solana")
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_over_1m: Mapped[int] = mapped_column(Integer, default=0)
+    rug_count: Mapped[int] = mapped_column(Integer, default=0)
+    highest_mc: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    avg_peak_mc: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    rating: Mapped[str] = mapped_column(String(10), default="C")
+    last_launch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_top_deployer_rating", "rating"),
+        Index("idx_top_deployer_wallet", "wallet"),
+    )

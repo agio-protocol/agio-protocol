@@ -1,0 +1,171 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AGIOTAGE News Feed — Live Crypto & Market Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#06080d;--card:#0c1018;--border:#1a2030;--text:#e0e6ef;--muted:#7a8599;--accent:#00d9a3}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.page{max-width:1200px;margin:0 auto;padding:20px 24px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+.feed-layout{display:flex;gap:20px}
+.feed-main{flex:1;min-width:0}
+.feed-sidebar{width:380px;flex-shrink:0}
+.section-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.news-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px}
+.news-item:hover{border-color:#374151}
+.news-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.news-author{font-weight:700;font-size:13px;color:var(--accent)}
+.news-source{font-size:10px;color:var(--muted);padding:2px 6px;background:#1f2937;border-radius:3px}
+.news-text{font-size:13px;line-height:1.6;margin-bottom:6px;word-break:break-word}
+.news-meta{font-size:10px;color:var(--muted);display:flex;gap:12px;align-items:center}
+.news-sentiment{padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.sent-bull{background:#10b98120;color:#10b981}
+.sent-vbull{background:#10b98130;color:#10b981;font-weight:700}
+.sent-bear{background:#ef444420;color:#ef4444}
+.sent-vbear{background:#ef444430;color:#ef4444;font-weight:700}
+.sent-neutral{background:#6b728020;color:#9ca3af}
+.filter-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted)}
+.filter-btn.active{background:var(--accent);color:#06080d;border-color:var(--accent)}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.empty{color:var(--muted);text-align:center;padding:40px;font-size:13px}
+.twitter-embed{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;height:calc(100vh - 120px);position:sticky;top:20px}
+@media(max-width:900px){.feed-layout{flex-direction:column}.feed-sidebar{width:100%}.twitter-embed{height:500px;position:static}}
+</style></head><body>
+<div id="agio-nav"></div>
+<script>window.AGIO_PAGE="news";</script>
+<script src="/nav.js"></script>
+
+<div class="page">
+  <h1><span class="live-dot"></span> News Feed</h1>
+  <p class="subtitle">Live intelligence from top crypto, memecoin, and market voices. Sentiment-scored and filtered.</p>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFeedFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFeedFilter('meme',this)">Memecoins</button>
+    <button class="filter-btn" onclick="setFeedFilter('crypto',this)">Crypto</button>
+    <button class="filter-btn" onclick="setFeedFilter('stocks',this)">Stocks</button>
+    <button class="filter-btn" onclick="setFeedFilter('kol',this)">KOL Only</button>
+    <button class="filter-btn" onclick="setFeedFilter('bullish',this)">Bullish</button>
+    <button class="filter-btn" onclick="setFeedFilter('bearish',this)">Bearish</button>
+  </div>
+
+  <div class="feed-layout">
+    <div class="feed-main" id="feed-content">
+      <div class="empty">Loading feed...</div>
+    </div>
+    <div class="feed-sidebar">
+      <div class="section-label">Live X/Twitter Feed</div>
+      <div class="twitter-embed" id="twitter-embed">
+        <iframe src="https://syndication.twitter.com/srv/timeline-list/screen-name/agiotagefi/list/crypto-intel?dnt=true&theme=dark"
+          style="width:100%;height:100%;border:none" allowtransparency="true"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://agio-protocol-production.up.railway.app';
+let currentFilter = 'all';
+
+function timeAgo(iso){const s=Math.floor((Date.now()-new Date(iso))/1000);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+
+function setFeedFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadFeed();
+}
+
+function sentimentBadge(sentiment, score) {
+  if (!sentiment) return '';
+  const cls = sentiment === 'VERY_BULLISH' ? 'sent-vbull' :
+              sentiment === 'BULLISH' ? 'sent-bull' :
+              sentiment === 'VERY_BEARISH' ? 'sent-vbear' :
+              sentiment === 'BEARISH' ? 'sent-bear' : 'sent-neutral';
+  const label = sentiment.replace('_', ' ');
+  const scoreStr = score != null ? ` (${score > 0 ? '+' : ''}${score})` : '';
+  return `<span class="news-sentiment ${cls}">${label}${scoreStr}</span>`;
+}
+
+async function loadFeed() {
+  const session = getSession();
+  const token = localStorage.getItem('agiotage_token');
+  if (!session || !token) {
+    document.getElementById('feed-content').innerHTML = `<div class="empty">
+      <h3 style="margin-bottom:8px">Sign in to access the News Feed</h3>
+      <p>Live sentiment-scored intelligence from 60+ top accounts.</p>
+      <button onclick="toggleSignIn()" style="margin-top:12px;padding:10px 24px;background:var(--accent);color:#06080d;border:none;border-radius:6px;font-weight:600;cursor:pointer">Sign In</button>
+    </div>`;
+    return;
+  }
+
+  let url = API + '/v1/sentiment/mentions?limit=100';
+  if (currentFilter === 'meme') url += '&category=meme';
+  else if (currentFilter === 'crypto') url += '&category=crypto';
+  else if (currentFilter === 'stocks') url += '&category=stocks';
+
+  try {
+    const d = await (await authFetch(url)).json();
+    if (d.detail) {
+      document.getElementById('feed-content').innerHTML = '<div class="empty">Session expired. Please sign in again.</div>';
+      return;
+    }
+
+    let mentions = d.mentions || [];
+
+    // Apply additional filters
+    if (currentFilter === 'kol') {
+      mentions = mentions.filter(m => m.platform === 'twitter_kol' || (m.source || '').includes('@'));
+    } else if (currentFilter === 'bullish') {
+      mentions = mentions.filter(m => m.sentiment === 'BULLISH' || m.sentiment === 'VERY_BULLISH');
+    } else if (currentFilter === 'bearish') {
+      mentions = mentions.filter(m => m.sentiment === 'BEARISH' || m.sentiment === 'VERY_BEARISH');
+    }
+
+    if (!mentions.length) {
+      document.getElementById('feed-content').innerHTML = '<div class="empty">No mentions matching this filter. Try "All" to see everything.</div>';
+      return;
+    }
+
+    document.getElementById('feed-content').innerHTML = mentions.map(m => {
+      const platformIcons = {
+        reddit: '&#128172; Reddit',
+        telegram: '&#9992; Telegram',
+        stocktwits: '&#128200; StockTwits',
+        twitter_kol: '&#120143; X/Twitter',
+        coingecko: '&#129422; CoinGecko'
+      };
+      const isKol = m.platform === 'twitter_kol' || (m.source || '').includes('@');
+
+      return `<div class="news-item" ${isKol ? 'style="border-left:2px solid var(--accent)"' : ''}>
+        <div class="news-header">
+          <div>
+            <span class="news-author">$${m.token_symbol}</span>
+            ${isKol ? '<span style="font-size:10px;color:var(--accent);margin-left:6px">KOL</span>' : ''}
+          </div>
+          <span class="news-source">${platformIcons[m.platform] || m.platform}</span>
+        </div>
+        <div class="news-text">${(m.text || '').replace(/</g, '&lt;')}</div>
+        <div class="news-meta">
+          <span>${m.source || ''}</span>
+          ${sentimentBadge(m.sentiment, m.score)}
+          ${m.conviction ? '<span>Conviction: ' + m.conviction + '/100</span>' : ''}
+          <span>${timeAgo(m.detected_at)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch {
+    document.getElementById('feed-content').innerHTML = '<div class="empty">Failed to load feed</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadFeed();
+  setInterval(loadFeed, 30000);
+});
+</script>
+</body></html>

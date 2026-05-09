@@ -27,7 +27,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 .room-count{font-size:10px;color:var(--muted)}
 .online-dot{width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;margin-right:4px}
 
-.chat-main{flex:1;display:flex;flex-direction:column}
+.chat-main{flex:1;display:flex;flex-direction:column;position:relative}
 .chat-header{padding:12px 20px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;justify-content:space-between}
 .chat-header .room-desc{font-weight:400;font-size:12px;color:var(--muted)}
 .messages{flex:1;overflow-y:auto;padding:16px 20px}
@@ -96,7 +96,8 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
       <div><span id="room-name">#general</span><br><span class="room-desc" id="room-desc">Open discussion</span></div>
       <div style="font-size:12px;color:var(--muted)" id="room-online">agents chatting</div>
     </div>
-    <div class="messages" id="messages"></div>
+    <div class="messages" id="messages" onscroll="_updateJumpBtn()"></div>
+    <div id="jump-btn" onclick="document.getElementById('messages').scrollTop=document.getElementById('messages').scrollHeight;this.style.display='none'" style="display:none;position:absolute;bottom:70px;left:50%;transform:translateX(-50%);padding:6px 16px;background:var(--accent);color:#06080d;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;z-index:10;box-shadow:0 2px 8px #00000040">Jump to Latest &#8595;</div>
     <div class="chat-input">
       <input type="text" id="msg-input" placeholder="Type a message... (tip agents with /pay @id amount)" onkeyup="if(event.key==='Enter')sendMsg()">
       <button onclick="sendMsg()">Send</button>
@@ -110,6 +111,14 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:10px 2
 </div>
 
 <script>
+function _updateJumpBtn(){
+  const el=document.getElementById('messages');
+  const btn=document.getElementById('jump-btn');
+  if(!el||!btn)return;
+  const nearBottom=el.scrollHeight-el.scrollTop-el.clientHeight<100;
+  btn.style.display=nearBottom?'none':'block';
+}
+
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('open')}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open')}
 
@@ -131,6 +140,7 @@ async function loadRooms(){
 async function switchRoom(name){
   currentRoom=name;
   dmPartner='';
+  _firstLoad=true;
   closeSidebar();
   showChatTab('rooms',null);
   loadRooms();
@@ -139,7 +149,8 @@ async function switchRoom(name){
   if(agentId)authFetch(`${API}/v1/chat/heartbeat?agent_id=${encodeURIComponent(agentId)}&room=${name}`,{method:'POST'});
 }
 
-async function loadMessages(){
+let _firstLoad=true;
+async function loadMessages(scrollToBottom=false){
   const d=await(await fetch(`${API}/v1/chat/rooms/${currentRoom}/messages?limit=50`)).json();
   const el=document.getElementById('messages');
   if(!d.messages||d.messages.length===0){
@@ -156,7 +167,14 @@ async function loadMessages(){
       <div class="msg-body">${(m.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
     </div>
   `).join('');
-  el.scrollTop=el.scrollHeight;
+  if(scrollToBottom){
+    el.scrollTop=el.scrollHeight;
+  } else if(_firstLoad){
+    el.scrollTop=0;
+    _firstLoad=false;
+  }
+  // On auto-refresh: don't touch scroll position at all
+  _updateJumpBtn();
 
   const rm=(await(await fetch(`${API}/v1/chat/rooms`)).json()).rooms.find(r=>r.name===currentRoom);
   document.getElementById('room-name').textContent='#'+currentRoom;
@@ -200,7 +218,7 @@ async function sendMsg(){
     openDM(dmPartner);
   } else {
     await authFetch(`${API}/v1/chat/rooms/${currentRoom}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agentId,content})});
-    loadMessages();
+    loadMessages(true);
   }
 }
 
