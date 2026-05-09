@@ -1098,14 +1098,16 @@ async def run():
     _log.info("Agiotage Meme Trading Bot v2 starting")
     await asyncio.sleep(55)
 
-    # Clear stale Redis config on startup so new defaults take effect.
-    # Any runtime config changes via API will re-populate Redis.
+    # Force config v3 — ensures all code-level changes are active.
+    # Increment CONFIG_VERSION when defaults change to force a flush.
+    CONFIG_VERSION = 3
     try:
         from ..core.redis import redis_client
-        old_config = await redis_client.get("paper_trader_config")
-        if old_config:
-            _log.info("Clearing stale Redis config — new defaults will apply")
+        stored_version = await redis_client.get("paper_trader_config_version")
+        if stored_version != str(CONFIG_VERSION):
+            _log.info(f"Config version mismatch ({stored_version} != {CONFIG_VERSION}) — forcing fresh defaults")
             await redis_client.delete("paper_trader_config")
+            await redis_client.set("paper_trader_config_version", str(CONFIG_VERSION))
     except Exception:
         pass
 
