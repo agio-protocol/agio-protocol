@@ -252,6 +252,13 @@ async def _check_token_security(token_address: str) -> dict:
                     reasons.append(f"sell_tax={data['sell_tax']}")
                 if float(data.get("buy_tax", 0) or 0) > 0.10:
                     reasons.append(f"buy_tax={data['buy_tax']}")
+                if data.get("renounced_mint") not in (1, "1", True, "true", "yes"):
+                    reasons.append("mint_not_renounced")
+                if data.get("renounced_freeze_account") not in (1, "1", True, "true", "yes"):
+                    reasons.append("freeze_not_renounced")
+                top10 = float(data.get("top_10_holder_rate", 0) or 0)
+                if top10 > 0.40:
+                    reasons.append(f"top10_hold={top10:.0%}")
                 return {"safe": len(reasons) == 0, "reasons": reasons}
     except:
         pass
