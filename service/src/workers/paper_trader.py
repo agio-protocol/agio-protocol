@@ -40,11 +40,11 @@ DEFAULT_CONFIG = {
     "signal_lookback_minutes": 10,
 
     # Position sizing (score-weighted)
-    "base_position_sol": 0.08,
-    "position_sol_score_45": 0.08,
-    "position_sol_score_55": 0.12,
-    "position_sol_score_65": 0.15,
-    "max_open_positions": 20,
+    "base_position_sol": 0.20,
+    "position_sol_score_45": 0.20,
+    "position_sol_score_55": 0.25,
+    "position_sol_score_65": 0.30,
+    "max_open_positions": 8,
     "max_position_pct_of_pool": 1.0,
     "daily_loss_limit_sol": 2.0,
 
