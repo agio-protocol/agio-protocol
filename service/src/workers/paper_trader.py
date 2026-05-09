@@ -56,7 +56,7 @@ DEFAULT_CONFIG = {
         {"sell_pct": 10, "at_profit_pct": 500},
     ],
 
-    "stop_loss_pct": 999,
+    "stop_loss_pct": 35,
     "trailing_stop_enabled": True,
     "trailing_stop_activation_pct": 35,
     "trailing_stop_trail_pct": 30,
