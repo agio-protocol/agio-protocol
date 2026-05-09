@@ -48,9 +48,9 @@ DEFAULT_CONFIG = {
     "min_sol_reserve": 0.05,  # always keep this much SOL for gas
 
     # Wallet quality filters
-    "min_wallet_winrate": 0.50,
+    "min_wallet_winrate": 0.65,
     "min_wallet_profit": 5000,
-    "min_wallet_trades": 20,
+    "min_wallet_trades": 30,
     "block_tags": ["sandwich_bot", "mev_bot"],
 
     # Entry filters
