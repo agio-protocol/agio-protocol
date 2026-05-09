@@ -81,6 +81,9 @@ DEFAULT_CONFIG = {
 
     # Filters
     "skip_symbols": ["WSOL", "WETH", "WBTC", "USDC", "USDT", "SOL"],
+
+    # Volume filter — skip tokens with weak 1h volume (weak volume = straight to -97%)
+    "min_volume_h1": 10000,
 }
 
 
@@ -193,7 +196,7 @@ async def _get_price_mc(token_addr: str) -> tuple:
 
 
 async def _get_price_mc_liquidity(token_addr: str) -> tuple:
-    """Get price, MC, and liquidity USD from DexScreener."""
+    """Get price, MC, liquidity USD, and 1h volume from DexScreener."""
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -206,10 +209,12 @@ async def _get_price_mc_liquidity(token_addr: str) -> tuple:
                     price = float(pair.get("priceUsd", 0) or 0)
                     mc = float(pair.get("fdv", 0) or 0)
                     liq = float(pair.get("liquidity", {}).get("usd", 0) or 0) if isinstance(pair.get("liquidity"), dict) else 0
-                    return price, mc, liq
+                    vol_data = pair.get("volume", {})
+                    vol_h1 = float(vol_data.get("h1", 0) or 0) if isinstance(vol_data, dict) else 0
+                    return price, mc, liq, vol_h1
     except:
         pass
-    return 0, 0, 0
+    return 0, 0, 0, 0
 
 
 async def _get_sol_price() -> float:
@@ -416,10 +421,16 @@ async def _check_for_entries():
                 _log.info(f"SKIP ${symbol}: recently opened (7min dedup)")
                 continue
 
-            # 4c. Get current price, MC, and liquidity from DexScreener
-            price, mc, liquidity = await _get_price_mc_liquidity(signal.token_address)
+            # 4c. Get current price, MC, liquidity, and volume from DexScreener
+            price, mc, liquidity, vol_h1 = await _get_price_mc_liquidity(signal.token_address)
             if price <= 0:
                 _log.info(f"SKIP ${symbol}: no price from DexScreener")
+                continue
+
+            # 4c2. Volume filter — weak volume signals tend to rug
+            min_vol = config.get("min_volume_h1", 10000)
+            if min_vol > 0 and vol_h1 < min_vol:
+                _log.info(f"SKIP ${symbol}: 1h volume ${vol_h1:,.0f} < min ${min_vol:,.0f}")
                 continue
 
             # 4d. Skip if MC out of range
@@ -565,7 +576,7 @@ async def _check_for_entries():
                 _log.info(f"SKIP ${symbol}: {len(sources)} sources < {config['min_sources']}")
                 continue
 
-            _log.info(f"PASSED ${symbol}: score={score} sources={','.join(sources)} wallets={wallet_count} MC=${mc:,.0f}")
+            _log.info(f"PASSED ${symbol}: score={score} sources={','.join(sources)} wallets={wallet_count} MC=${mc:,.0f} vol1h=${vol_h1:,.0f}")
 
             # 4k. Bot saturation check
             try:
@@ -685,6 +696,7 @@ async def _check_for_entries():
                 f"Price: ${price:.8f}\n"
                 f"MC: ${mc:,.0f}\n"
                 f"Liquidity: ${liquidity:,.0f}\n"
+                f"1h Vol: ${vol_h1:,.0f}\n"
                 f"Size: {position_sol} SOL (${actual_size_usd:.2f})\n"
                 f"Score: {score}\n"
                 f"Sources: {', '.join(sources)}{tx_line}\n\n"
@@ -1099,6 +1111,7 @@ async def run():
               f"ratchet={'ON' if config.get('ratchet_stop_enabled') else 'OFF'} ({config.get('ratchet_stop_pct_of_tp', 0)}% of TP), "
               f"breakeven={'ON' if config.get('breakeven_stop_after_first_tp') else 'OFF'}, "
               f"daily_limit={config['daily_loss_limit_sol']} SOL, "
+              f"min_vol_h1=${config.get('min_volume_h1', 0):,}, "
               f"TP: [{tp_summary}], sell_slip={config['sell_slippage_bps']}bps")
 
     while True:
