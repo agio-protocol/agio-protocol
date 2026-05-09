@@ -35,7 +35,7 @@ from ..models.base import Base
 _log = logging.getLogger("copy-trader")
 
 GMGN_HOST = "https://openapi.gmgn.ai"
-POLL_INTERVAL = 15  # seconds between wallet checks
+POLL_INTERVAL = 20  # seconds between wallet checks (balanced for GMGN rate limits)
 
 
 # === CONFIG ===
@@ -743,9 +743,14 @@ async def _poll_wallets(config: dict):
     if not wallets:
         return
 
-    # Poll all wallets concurrently instead of sequentially
-    await asyncio.gather(*[_poll_single_wallet(w, config) for w in wallets],
-                         return_exceptions=True)
+    # Poll wallets in small batches to avoid GMGN rate limits
+    batch_size = 3
+    for i in range(0, len(wallets), batch_size):
+        batch = wallets[i:i + batch_size]
+        await asyncio.gather(*[_poll_single_wallet(w, config) for w in batch],
+                             return_exceptions=True)
+        if i + batch_size < len(wallets):
+            await asyncio.sleep(2)
 
     # Evict old hashes (keep last hour)
     if len(_seen_tx_hashes) > 2000:
