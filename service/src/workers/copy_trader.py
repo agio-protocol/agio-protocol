@@ -45,23 +45,24 @@ DEFAULT_CONFIG = {
     "position_size_sol": 0.10,
     "max_open_positions": 5,
     "daily_loss_limit_sol": 0.50,
-    "min_sol_reserve": 0.05,  # always keep this much SOL for gas
+    "min_sol_reserve": 0.05,
 
-    # Wallet quality filters
+    # Wallet quality filters — council reviewed
     "min_wallet_winrate": 0.65,
-    "min_wallet_profit": 5000,
+    "min_wallet_profit": 25000,
     "min_wallet_trades": 30,
     "block_tags": ["sandwich_bot", "mev_bot"],
     "max_tracked_wallets": 10,
-    "paper_mode": True,  # set False to execute real trades
+    "paper_mode": True,
 
     # Entry filters
-    "max_price_pump_pct": 30,  # skip if token pumped >30% since wallet bought
+    "max_price_pump_pct": 30,
     "min_mc": 100000,
     "max_mc": 50000000,
     "min_volume_h1": 5000,
-    "min_buy_usd": 100,  # ignore tiny buys from tracked wallets
+    "min_buy_usd": 100,
     "cooldown_minutes": 30,
+    "max_trade_age_seconds": 60,
 
     # Security
     "require_mint_renounced": True,
@@ -71,13 +72,13 @@ DEFAULT_CONFIG = {
     # Exit rules
     "stop_loss_pct": 25,
     "take_profit_pct": 50,
-    "copy_sell": True,  # sell when the wallet we copied sells
-    "max_hold_hours": 12,
+    "copy_sell": True,
+    "max_hold_hours": 6,
 
     # Execution
     "buy_slippage_bps": 300,
     "sell_slippage_bps": 500,
-    "priority_fee_lamports": 50000,
+    "priority_fee_lamports": 200000,
 
     # Skip stables/wrapped
     "skip_symbols": ["WSOL", "WETH", "WBTC", "USDC", "USDT", "SOL"],
@@ -160,7 +161,7 @@ class TrackedWallet(Base):
 
 _daily_loss_sol = 0.0
 _daily_loss_date = ""
-_seen_tx_hashes: set[str] = set()
+_seen_tx_hashes: dict[str, float] = {}  # tx_hash -> timestamp
 
 # Separate wallet for copy trading — uses COPY_TRADER_PRIVATE_KEY env var
 COPY_WALLET_KEY_ENV = "COPY_TRADER_PRIVATE_KEY"
@@ -635,6 +636,13 @@ async def _execute_sell(pos: CopyPosition, reason: str, config: dict):
         sol_price = await _get_sol_price()
         pnl_usd = float(pos.position_size_usd) * (pnl_pct / 100)
 
+        paper_mode = config.get("paper_mode", True)
+
+        # Only mark CLOSED if sell succeeded or we're in paper mode
+        if not result.get("success") and not paper_mode:
+            _log.warning(f"COPY SELL FAILED: ${pos.token_symbol} — {result.get('error')} — position stays OPEN")
+            return
+
         async with async_session() as db:
             p = await db.get(CopyPosition, pos.id)
             if p:
@@ -662,7 +670,7 @@ async def _execute_sell(pos: CopyPosition, reason: str, config: dict):
                 loss_sol = abs(pnl_usd) / sol_price if sol_price > 0 else 0
                 await _track_daily_loss(loss_sol)
 
-        mode = "LIVE" if result and result.get("success") else "PAPER"
+        mode = "PAPER" if paper_mode else "LIVE"
         _log.info(f"COPY SELL ({mode}): ${pos.token_symbol} @ {pnl_pct:+.1f}% — {reason}")
         emoji = "🟢" if pnl_pct > 0 else "🔴"
         await _send_telegram(
@@ -677,68 +685,74 @@ async def _execute_sell(pos: CopyPosition, reason: str, config: dict):
 
 # === POLL AND MANAGE ===
 
+async def _poll_single_wallet(wallet: TrackedWallet, config: dict):
+    """Poll a single wallet for new trades."""
+    try:
+        data = await _gmgn_get("/v1/user/wallet_activities",
+                                {"chain": "sol", "wallet_address": wallet.address, "limit": 10})
+        if not data:
+            return
+
+        activities = data.get("data", data)
+        if isinstance(activities, dict):
+            activities = activities.get("list", activities.get("activities", []))
+        if not isinstance(activities, list):
+            return
+
+        for act in activities:
+            tx_hash = act.get("tx_hash", "")
+            if not tx_hash or tx_hash in _seen_tx_hashes:
+                continue
+            _seen_tx_hashes[tx_hash] = time.time()
+
+            side = (act.get("event_type") or act.get("side") or "").lower()
+            if side not in ("buy",):
+                if side == "sell" and config.get("copy_sell"):
+                    token_addr = act.get("token_address", "")
+                    if token_addr:
+                        await _check_copy_sell(token_addr, wallet.address, config)
+                continue
+
+            token_addr = act.get("token_address", "")
+            symbol = (act.get("token_symbol") or act.get("symbol") or "")[:20]
+            amount_usd = float(act.get("amount_usd", 0) or act.get("cost_usd", 0) or 0)
+
+            if not token_addr or not symbol:
+                continue
+            if symbol.upper() in config["skip_symbols"]:
+                continue
+            if amount_usd < config["min_buy_usd"]:
+                continue
+
+            ts = act.get("timestamp") or act.get("block_timestamp")
+            max_age = config.get("max_trade_age_seconds", 60)
+            if ts and isinstance(ts, (int, float)):
+                trade_age = time.time() - ts
+                if trade_age > max_age:
+                    continue
+
+            await _evaluate_copy(token_addr, symbol, wallet, amount_usd, config)
+
+    except Exception as e:
+        _log.debug(f"Wallet poll error {wallet.label}: {e}")
+
+
 async def _poll_wallets(config: dict):
-    """Check tracked wallets for new buys."""
+    """Check all tracked wallets concurrently for new buys."""
     wallets = await _get_tracked_wallets()
     if not wallets:
         return
 
-    for wallet in wallets:
-        try:
-            data = await _gmgn_get("/v1/user/wallet_activities",
-                                    {"chain": "sol", "wallet_address": wallet.address, "limit": 10})
-            if not data:
-                continue
+    # Poll all wallets concurrently instead of sequentially
+    await asyncio.gather(*[_poll_single_wallet(w, config) for w in wallets],
+                         return_exceptions=True)
 
-            activities = data.get("data", data)
-            if isinstance(activities, dict):
-                activities = activities.get("list", activities.get("activities", []))
-            if not isinstance(activities, list):
-                continue
-
-            for act in activities:
-                tx_hash = act.get("tx_hash", "")
-                if not tx_hash or tx_hash in _seen_tx_hashes:
-                    continue
-                _seen_tx_hashes.add(tx_hash)
-
-                side = (act.get("event_type") or act.get("side") or "").lower()
-                if side not in ("buy",):
-                    # For sells, check if we should copy-sell
-                    if side == "sell" and config.get("copy_sell"):
-                        token_addr = act.get("token_address", "")
-                        if token_addr:
-                            await _check_copy_sell(token_addr, wallet.address, config)
-                    continue
-
-                token_addr = act.get("token_address", "")
-                symbol = (act.get("token_symbol") or act.get("symbol") or "")[:20]
-                amount_usd = float(act.get("amount_usd", 0) or act.get("cost_usd", 0) or 0)
-
-                if not token_addr or not symbol:
-                    continue
-                if symbol.upper() in config["skip_symbols"]:
-                    continue
-                if amount_usd < config["min_buy_usd"]:
-                    continue
-
-                # Check if trade is recent (within last 5 min)
-                ts = act.get("timestamp") or act.get("block_timestamp")
-                if ts and isinstance(ts, (int, float)):
-                    trade_age = time.time() - ts
-                    if trade_age > 300:
-                        continue
-
-                await _evaluate_copy(token_addr, symbol, wallet, amount_usd, config)
-
-            await asyncio.sleep(1)
-
-        except Exception as e:
-            _log.debug(f"Wallet poll error {wallet.label}: {e}")
-
-    # Trim seen hashes to prevent memory leak
-    if len(_seen_tx_hashes) > 5000:
+    # Evict old hashes (keep last hour)
+    if len(_seen_tx_hashes) > 2000:
+        cutoff = time.time() - 3600
+        to_keep = {k: v for k, v in _seen_tx_hashes.items() if v > cutoff}
         _seen_tx_hashes.clear()
+        _seen_tx_hashes.update(to_keep)
 
 
 async def _get_copy_wallet_sol_balance() -> float:
@@ -855,7 +869,12 @@ async def _manage_positions(config: dict):
     for pos in positions:
         try:
             price, mc, _ = await _get_price_mc(pos.token_address)
+
+            # If price is 0, check if position has been open too long — force close
             if price <= 0:
+                age_hours = (datetime.utcnow() - pos.opened_at).total_seconds() / 3600
+                if age_hours >= config["max_hold_hours"]:
+                    await _execute_sell(pos, f"Force close — no price data after {age_hours:.1f}h", config)
                 continue
 
             entry = float(pos.entry_price)
@@ -997,15 +1016,15 @@ async def run():
             # Manage open positions
             await _manage_positions(config)
 
-            # Refresh wallet stats periodically
+            # Refresh wallet stats every 30 min (catch degradation fast)
             stats_refresh += POLL_INTERVAL
-            if stats_refresh >= 7200:
+            if stats_refresh >= 1800:
                 await _refresh_wallet_stats()
                 stats_refresh = 0
 
-            # Re-discover wallets periodically
+            # Re-discover wallets every 2 hours
             discover_refresh += POLL_INTERVAL
-            if discover_refresh >= 14400:  # 4 hours
+            if discover_refresh >= 7200:
                 await _auto_discover()
                 discover_refresh = 0
 
