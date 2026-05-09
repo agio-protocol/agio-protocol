@@ -531,7 +531,7 @@ async def _check_for_entries():
 
             # Followed wallet signals for same token
             try:
-                from .wallet_follow import FollowedWalletTrade
+                from .wallet_follow import WalletTrade as FollowedWalletTrade
                 fw_count = (await db.execute(
                     select(func.count()).select_from(FollowedWalletTrade)
                     .where(FollowedWalletTrade.token_address == signal.token_address,
