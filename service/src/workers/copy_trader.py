@@ -998,26 +998,26 @@ async def _auto_discover():
         )).scalar() or 0
         max_wallets = config.get("max_tracked_wallets", 10)
 
+        # GMGN smartmoney returns trades, not wallet profiles.
+        # Extract unique wallets and add those with smart_degen tag.
+        seen_addrs = set()
         for item in items:
             if current_count >= max_wallets:
                 break
 
-            addr = item.get("wallet_address") or item.get("address", "")
-            if not addr:
+            addr = item.get("maker", "") or item.get("wallet_address", "")
+            if not addr or addr in seen_addrs:
                 continue
+            seen_addrs.add(addr)
 
-            winrate = float(item.get("winrate", 0) or 0)
-            profit = float(item.get("realized_profit", 0) or item.get("pnl", 0) or 0)
-            trades = int(item.get("total_trades", 0) or item.get("buy_count", 0) or 0)
-            tags = item.get("tags", [])
+            maker_info = item.get("maker_info", {})
+            tags = maker_info.get("tags", []) if isinstance(maker_info, dict) else []
 
             if isinstance(tags, list) and any(t in config["block_tags"] for t in tags):
                 continue
-            if winrate < config["min_wallet_winrate"]:
-                continue
-            if profit < config["min_wallet_profit"]:
-                continue
-            if trades < config["min_wallet_trades"]:
+
+            # Require smart_degen tag — these are GMGN's verified profitable wallets
+            if "smart_degen" not in tags:
                 continue
 
             existing = (await db.execute(
@@ -1025,18 +1025,15 @@ async def _auto_discover():
             )).scalar_one_or_none()
 
             if not existing:
-                label = item.get("name") or item.get("twitter_username") or addr[:12]
+                label = maker_info.get("twitter_username") or maker_info.get("name") or addr[:12]
                 wallet = TrackedWallet(
                     address=addr,
                     label=label,
-                    winrate=Decimal(str(winrate)),
-                    realized_profit=Decimal(str(profit)),
-                    total_trades=trades,
-                    tier="S" if winrate >= 0.65 and profit >= 25000 else "A",
+                    tier="A",
                 )
                 db.add(wallet)
                 current_count += 1
-                _log.info(f"Auto-discovered wallet: {label} (WR:{winrate:.0%}, profit:${profit:,.0f})")
+                _log.info(f"Auto-discovered wallet: {label} (tags: {','.join(tags)})")
 
         await db.commit()
         _log.info(f"Tracked wallets: {current_count}/{max_wallets}")
