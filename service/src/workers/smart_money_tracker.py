@@ -209,9 +209,9 @@ def _calc_signal_strength(wallet_count: int, full_positions: int, kol_count: int
 
 async def _poll_smart_money_trades():
     """Fetch recent smart money and KOL trades, store new ones."""
-    async with httpx.AsyncClient() as client:
-        sm_data = await _gmgn_get("/v1/user/smartmoney", {"chain": "sol", "limit": 200}, client)
-        kol_data = await _gmgn_get("/v1/user/kol", {"chain": "sol", "limit": 100}, client)
+    from ..services.gmgn_client import get_smart_money_trades, get_kol_trades
+    sm_data = await get_smart_money_trades()
+    kol_data = await get_kol_trades()
 
     all_trades = []
 

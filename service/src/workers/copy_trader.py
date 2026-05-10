@@ -482,8 +482,8 @@ async def _refresh_wallet_stats():
         )).scalars().all()
 
         for wallet in wallets:
-            data = await _gmgn_get("/v1/user/wallet_stats",
-                                   {"chain": "sol", "address": wallet.address, "period": "30d"})
+            from ..services.gmgn_client import get_wallet_stats
+            data = await get_wallet_stats(wallet.address)
             if not data:
                 continue
             stats = data.get("data", data)
@@ -757,8 +757,8 @@ async def handle_helius_swap(wallet_address: str, tx_hash: str, timestamp: int,
 async def _poll_single_wallet(wallet: TrackedWallet, config: dict):
     """Poll a single wallet for new trades."""
     try:
-        data = await _gmgn_get("/v1/user/wallet_activities",
-                                {"chain": "sol", "wallet_address": wallet.address, "limit": 10})
+        from ..services.gmgn_client import get_wallet_activities
+        data = await get_wallet_activities(wallet.address)
         if not data:
             return
 
@@ -980,7 +980,8 @@ async def _manage_positions(config: dict):
 async def _auto_discover():
     """Find top-performing wallets from GMGN smart money feed."""
     config = await get_config()
-    data = await _gmgn_get("/v1/user/smartmoney", {"chain": "sol", "limit": 100})
+    from ..services.gmgn_client import get_smart_money_trades
+    data = await get_smart_money_trades(limit=100)
     if not data:
         return
 

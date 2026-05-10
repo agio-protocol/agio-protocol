@@ -149,8 +149,9 @@ def _calc_tier(score: float, winrate: float, pnl_5x: int) -> str:
 
 async def _auto_discover_wallets():
     """Find new high-performing wallets from GMGN smart money data."""
-    async with httpx.AsyncClient() as client:
-        data = await _gmgn_get("/v1/user/smartmoney", {"chain": "sol", "limit": 200}, client)
+    from ..services.gmgn_client import get_smart_money_trades
+    data = await get_smart_money_trades()
+    if True:  # keep indentation
         if not data:
             return
 
@@ -221,13 +222,11 @@ async def _poll_wallet_trades():
     wallet_addrs = [w.wallet for w in wallets]
     wallet_map = {w.wallet: w for w in wallets}
 
-    async with httpx.AsyncClient() as client:
-        # Use GMGN follow-wallet or check individual wallets
+    from ..services.gmgn_client import get_wallet_activities
+    if True:  # keep indentation
         for wallet in wallets[:20]:
-            data = await _gmgn_get("/v1/user/wallet_activities",
-                {"chain": "sol", "wallet_address": wallet.wallet, "limit": 10}, client)
+            data = await get_wallet_activities(wallet.wallet)
             if not data:
-                await asyncio.sleep(0.5)
                 continue
 
             activities = data.get("data", data)
@@ -390,12 +389,11 @@ async def _refresh_wallet_stats():
 
     _log.info(f"Refreshing stats for {len(wallets)} followed wallets")
 
-    async with httpx.AsyncClient() as client:
+    from ..services.gmgn_client import get_wallet_stats
+    if True:  # keep indentation
         for w in wallets:
-            data = await _gmgn_get("/v1/user/wallet_stats",
-                {"chain": "sol", "wallet_address": w.wallet, "period": "7d"}, client)
+            data = await get_wallet_stats(w.wallet, period="7d")
             if not data:
-                await asyncio.sleep(1.5)
                 continue
 
             stats = data.get("data", data)
