@@ -371,11 +371,11 @@ async def _evaluate_token(token: dict, config: dict):
     dev_pct = token.get("dev_pct", 0)
 
     if holders < config["min_holders"]:
-        _log.debug(f"SKIP {symbol}: {holders} holders < {config['min_holders']}")
+        _log.info(f"SKIP {symbol}: {holders} holders < {config['min_holders']}")
         return
 
     if volume_sol < config["min_volume_sol"]:
-        _log.debug(f"SKIP {symbol}: {volume_sol:.1f} SOL vol < {config['min_volume_sol']}")
+        _log.info(f"SKIP {symbol}: {volume_sol:.1f} SOL vol < {config['min_volume_sol']}")
         return
 
     if dev_pct > config["max_dev_pct"]:
@@ -383,7 +383,7 @@ async def _evaluate_token(token: dict, config: dict):
         return
 
     if sell_count > 0 and buy_count / max(sell_count, 1) < config["min_buy_sell_ratio"]:
-        _log.debug(f"SKIP {symbol}: buy/sell ratio {buy_count}/{sell_count} too low")
+        _log.info(f"SKIP {symbol}: buy/sell ratio {buy_count}/{sell_count} too low")
         return
 
     # Token age check
@@ -391,7 +391,7 @@ async def _evaluate_token(token: dict, config: dict):
     if created_at:
         age_min = (time.time() - created_at) / 60
         if age_min > config["max_token_age_minutes"]:
-            _log.debug(f"SKIP {symbol}: {age_min:.0f}min old > {config['max_token_age_minutes']}min")
+            _log.info(f"SKIP {symbol}: {age_min:.0f}min old > {config['max_token_age_minutes']}min")
             return
 
     # All filters passed — execute snipe
@@ -620,6 +620,8 @@ async def _run_websocket(config: dict):
                         if tx_type == "create":
                             # New token created — track it for curve monitoring
                             mint = data.get("mint", "")
+                            symbol = data.get("symbol", "?")
+                            _log.info(f"NEW TOKEN: ${symbol} mint={mint[:20]}... curve={_calc_curve_pct(float(data.get('vSolInBondingCurve',0) or 0)):.0f}%")
                             if mint:
                                 _tracked_tokens[mint] = {
                                     "symbol": data.get("symbol", ""),
