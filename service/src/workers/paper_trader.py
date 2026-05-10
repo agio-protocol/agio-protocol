@@ -395,6 +395,29 @@ async def _check_for_entries():
                 _log.info(f"SKIP ${symbol}: in skip_symbols list")
                 continue
 
+            # 4a2. Wallet balance safety check — never trade if insufficient SOL
+            try:
+                from .paper_trader import _get_sol_balance
+            except ImportError:
+                pass
+            try:
+                wallet_bal = 0
+                async with httpx.AsyncClient() as _hc:
+                    from ..services.jupiter_swap import get_wallet_address
+                    _addr = get_wallet_address()
+                    _resp = await _hc.post(
+                        os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
+                        json={"jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [_addr]},
+                        timeout=10)
+                    if _resp.status_code == 200:
+                        wallet_bal = _resp.json().get("result", {}).get("value", 0) / 1e9
+                needed = config["base_position_sol"] + 0.01  # position + gas
+                if wallet_bal < needed:
+                    _log.info(f"SKIP ${symbol}: wallet {wallet_bal:.4f} SOL < {needed} needed")
+                    continue
+            except Exception:
+                pass
+
             # 4b. 1-per-token rule — never enter a token we've traded before (open or closed)
             ever_traded = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
