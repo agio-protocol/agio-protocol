@@ -708,7 +708,7 @@ async def _run_websocket(config: dict):
                                 del _tracked_tokens[mint]
 
         except Exception as e:
-            _log.error(f"PumpPortal WebSocket error: {type(e).__name__}: {e}")
+            _log.error(f"PumpPortal WebSocket error: {type(e).__name__}: {e}", exc_info=True)
             await asyncio.sleep(10)
 
 
@@ -717,9 +717,22 @@ async def _run_websocket(config: dict):
 async def run():
     try:
         _log.info("Pump.fun Graduation Sniper starting")
-        await asyncio.sleep(45)
+        await asyncio.sleep(5)
 
-        # Load previously traded mints to prevent re-entry after restart
+        # Only one worker should run the sniper (gunicorn runs 2 workers)
+        try:
+            from ..core.redis import redis_client
+            import uuid as _uuid
+            worker_id = str(_uuid.uuid4())[:8]
+            claimed = await redis_client.set("sniper_worker_lock", worker_id, nx=True, ex=60)
+            if not claimed:
+                _log.info("Sniper: another worker owns the lock — this instance will idle")
+                while True:
+                    await asyncio.sleep(300)
+        except Exception:
+            pass  # If Redis fails, proceed anyway
+
+        # Load previously traded mints
         try:
             async with async_session() as db:
                 all_mints = (await db.execute(select(SnipePosition.mint))).scalars().all()
@@ -739,9 +752,8 @@ async def run():
             while True:
                 await asyncio.sleep(300)
 
+        # Refresh lock periodically inside websocket loop
         await _run_websocket(config)
     except Exception as e:
-        _log.error(f"Sniper FATAL ERROR: {e}")
-        import traceback
-        _log.error(traceback.format_exc())
+        _log.error(f"Sniper FATAL ERROR: {e}", exc_info=True)
         raise
