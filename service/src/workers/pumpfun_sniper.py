@@ -51,8 +51,8 @@ DEFAULT_CONFIG = {
     # Entry filters — bonding curve progress
     "min_curve_pct": 25,
     "max_curve_pct": 50,
-    "min_holders": 50,
-    "min_volume_sol": 5.0,
+    "min_holders": 15,
+    "min_volume_sol": 3.0,
     "max_dev_pct": 5.0,
     "min_buy_sell_ratio": 1.5,
     "max_token_age_minutes": 120,
@@ -621,13 +621,15 @@ async def _run_websocket(config: dict):
                             # New token created — track it for curve monitoring
                             mint = data.get("mint", "")
                             symbol = data.get("symbol", "?")
-                            _log.info(f"NEW TOKEN: ${symbol} mint={mint[:20]}... curve={_calc_curve_pct(float(data.get('vSolInBondingCurve',0) or 0)):.0f}%")
-                            if mint:
+                            v_sol = float(data.get("vSolInBondingCurve", 0) or 0)
+                            curve = _calc_curve_pct(v_sol)
+                            if mint and curve >= 15:
+                                # Only track tokens already showing momentum (15%+ curve)
                                 _tracked_tokens[mint] = {
                                     "symbol": data.get("symbol", ""),
                                     "name": data.get("name", ""),
                                     "dev": data.get("traderPublicKey", ""),
-                                    "v_sol": float(data.get("vSolInBondingCurve", 0) or 0),
+                                    "v_sol": v_sol,
                                     "v_tokens": float(data.get("vTokensInBondingCurve", 0) or 0),
                                     "created_at": time.time(),
                                     "holders": set(),
@@ -635,7 +637,7 @@ async def _run_websocket(config: dict):
                                     "sells": 0,
                                     "volume_sol": float(data.get("initialBuy", 0) or 0),
                                 }
-                                # Subscribe to trades for this token
+                                _log.info(f"TRACKING: ${symbol} curve={curve:.0f}% mint={mint[:20]}...")
                                 await ws.send(_json.dumps({
                                     "method": "subscribeTokenTrade",
                                     "keys": [mint],
