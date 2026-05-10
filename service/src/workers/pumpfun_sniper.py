@@ -588,8 +588,14 @@ async def _run_websocket(config: dict):
     while True:
         try:
             _log.info(f"Connecting to PumpPortal WebSocket: {PUMPPORTAL_WS}")
-            async with websockets.connect(PUMPPORTAL_WS, ping_interval=30,
-                                          open_timeout=15, close_timeout=5) as ws:
+            async with websockets.connect(
+                PUMPPORTAL_WS,
+                ping_interval=30,
+                open_timeout=30,
+                close_timeout=5,
+                additional_headers={"User-Agent": "AgiotageSniper/1.0"},
+                max_size=2**20,
+            ) as ws:
                 _log.info("PumpPortal WebSocket connected")
 
                 # Subscribe to new tokens and migrations
@@ -702,8 +708,8 @@ async def _run_websocket(config: dict):
                                 del _tracked_tokens[mint]
 
         except Exception as e:
-            _log.error(f"PumpPortal WebSocket error: {e}")
-            await asyncio.sleep(5)
+            _log.error(f"PumpPortal WebSocket error: {type(e).__name__}: {e}")
+            await asyncio.sleep(10)
 
 
 # === MAIN LOOP ===
