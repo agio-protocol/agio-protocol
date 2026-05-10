@@ -587,7 +587,9 @@ async def _run_websocket(config: dict):
     """Connect to PumpPortal WebSocket and process events."""
     while True:
         try:
-            async with websockets.connect(PUMPPORTAL_WS, ping_interval=30) as ws:
+            _log.info(f"Connecting to PumpPortal WebSocket: {PUMPPORTAL_WS}")
+            async with websockets.connect(PUMPPORTAL_WS, ping_interval=30,
+                                          open_timeout=15, close_timeout=5) as ws:
                 _log.info("PumpPortal WebSocket connected")
 
                 # Subscribe to new tokens and migrations
@@ -707,27 +709,33 @@ async def _run_websocket(config: dict):
 # === MAIN LOOP ===
 
 async def run():
-    _log.info("Pump.fun Graduation Sniper starting")
-    await asyncio.sleep(45)
-
-    # Load previously traded mints to prevent re-entry after restart
     try:
-        async with async_session() as db:
-            all_mints = (await db.execute(select(SnipePosition.mint))).scalars().all()
-            _seen_mints.update(all_mints)
-            _log.info(f"Loaded {len(_seen_mints)} previously traded mints")
-    except Exception:
-        pass
+        _log.info("Pump.fun Graduation Sniper starting")
+        await asyncio.sleep(45)
 
-    config = await get_config()
-    mode = "PAPER MODE" if config.get("paper_mode", True) else "LIVE MODE"
-    _log.info(f"Sniper: {mode} — size={config['position_size_sol']} SOL, "
-              f"max={config['max_open_positions']}, curve={config['min_curve_pct']}-{config['max_curve_pct']}%, "
-              f"SL={config['stop_loss_pct']}%, TP1={config['tp1_pct']}%, TP2={config['tp2_pct']}%")
+        # Load previously traded mints to prevent re-entry after restart
+        try:
+            async with async_session() as db:
+                all_mints = (await db.execute(select(SnipePosition.mint))).scalars().all()
+                _seen_mints.update(all_mints)
+                _log.info(f"Loaded {len(_seen_mints)} previously traded mints")
+        except Exception as e:
+            _log.warning(f"Could not load seen mints: {e}")
 
-    if not config.get("enabled"):
-        _log.info("Sniper disabled in config")
-        while True:
-            await asyncio.sleep(300)
+        config = await get_config()
+        mode = "PAPER MODE" if config.get("paper_mode", True) else "LIVE MODE"
+        _log.info(f"Sniper: {mode} — size={config['position_size_sol']} SOL, "
+                  f"max={config['max_open_positions']}, curve={config['min_curve_pct']}-{config['max_curve_pct']}%, "
+                  f"SL={config['stop_loss_pct']}%, TP1={config['tp1_pct']}%, TP2={config['tp2_pct']}%")
 
-    await _run_websocket(config)
+        if not config.get("enabled"):
+            _log.info("Sniper disabled in config")
+            while True:
+                await asyncio.sleep(300)
+
+        await _run_websocket(config)
+    except Exception as e:
+        _log.error(f"Sniper FATAL ERROR: {e}")
+        import traceback
+        _log.error(traceback.format_exc())
+        raise
