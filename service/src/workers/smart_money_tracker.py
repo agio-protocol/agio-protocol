@@ -351,13 +351,14 @@ async def _detect_clusters(db: AsyncSession):
         except Exception:
             pass
 
+        symbol = trades[0].token_symbol or ""
+
         # Block if MC is under $100K OR if we couldn't determine MC (likely garbage)
         if current_mc < 100_000:
             _log.debug(f"Skipping {symbol} — MC ${current_mc:,.0f} under $100K threshold")
             continue
         full_positions = sum(1 for t in trades if t.is_full_position)
         kol_count = len(set(t.wallet for t in trades if t.is_kol))
-        symbol = trades[0].token_symbol or ""
 
         # IMPROVEMENT #2: Look up wallet scores and calculate weighted quality
         wallet_data = {}
