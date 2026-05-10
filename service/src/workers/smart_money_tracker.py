@@ -19,11 +19,15 @@ _log = logging.getLogger("smart-money")
 
 GMGN_HOST = "https://openapi.gmgn.ai"
 GMGN_API_KEY = os.getenv("GMGN_API_KEY", "")
+HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
+HELIUS_RPC = "https://api-mainnet.helius-rpc.com"
+SOL_MINT = "So11111111111111111111111111111111111111112"
 
 POLL_INTERVAL = 15
 LEADERBOARD_REFRESH = 14400  # 4 hours
 CLUSTER_WINDOW_MINUTES = 30
 CLUSTER_MIN_WALLETS = 3
+_gmgn_consecutive_failures = 0
 
 
 async def _gmgn_get(path: str, params: dict, client: httpx.AsyncClient) -> dict | None:
@@ -284,6 +288,145 @@ async def _poll_smart_money_trades():
             _log.info(f"Stored {new_count} new smart money trades")
 
         # Run cluster detection
+        await _detect_clusters(db)
+
+
+async def _poll_helius_backup():
+    """Backup data source: poll tracked wallets via Helius enhanced transactions API.
+    Runs when GMGN fails (403/timeout). Uses wallets already in our DB."""
+    if not HELIUS_API_KEY:
+        return
+
+    async with async_session() as db:
+        # Get top-scoring wallets we already know about
+        wallets = (await db.execute(
+            select(SmartMoneyWallet)
+            .where(SmartMoneyWallet.score > 0)
+            .order_by(SmartMoneyWallet.score.desc())
+            .limit(20)
+        )).scalars().all()
+
+        if not wallets:
+            _log.debug("Helius backup: no wallets to poll")
+            return
+
+        existing_hashes = set((await db.execute(
+            select(SmartMoneyTrade.tx_hash)
+            .where(SmartMoneyTrade.created_at >= datetime.utcnow() - timedelta(hours=2))
+        )).scalars().all())
+
+        new_count = 0
+        async with httpx.AsyncClient() as client:
+            for wallet in wallets[:10]:  # batch of 10 to stay within rate limits
+                try:
+                    resp = await client.get(
+                        f"{HELIUS_RPC}/v0/addresses/{wallet.wallet}/transactions",
+                        params={"api-key": HELIUS_API_KEY, "type": "SWAP", "limit": 5},
+                        timeout=10)
+
+                    if resp.status_code != 200:
+                        continue
+
+                    txns = resp.json()
+                    if not isinstance(txns, list):
+                        continue
+
+                    for tx in txns:
+                        sig = tx.get("signature", "")
+                        if not sig or sig in existing_hashes:
+                            continue
+
+                        tx_type = tx.get("type", "")
+                        if tx_type != "SWAP":
+                            continue
+
+                        # Parse the swap
+                        events = tx.get("events", {})
+                        swap = events.get("swap", {})
+                        if not swap:
+                            continue
+
+                        token_inputs = swap.get("tokenInputs", [])
+                        token_outputs = swap.get("tokenOutputs", [])
+                        native_input = swap.get("nativeInput")
+                        native_output = swap.get("nativeOutput")
+
+                        # Determine side and token
+                        token_addr = ""
+                        symbol = ""
+                        side = ""
+                        amount_usd = 0
+
+                        if native_input and token_outputs:
+                            side = "buy"
+                            sol_amount = (native_input.get("amount", 0) or 0) / 1e9
+                            amount_usd = sol_amount * 150  # rough SOL price estimate
+                            for tok in token_outputs:
+                                mint = tok.get("mint", "")
+                                if mint and mint != SOL_MINT:
+                                    token_addr = mint
+                                    break
+
+                        elif native_output and token_inputs:
+                            side = "sell"
+                            sol_amount = (native_output.get("amount", 0) or 0) / 1e9
+                            amount_usd = sol_amount * 150
+                            for tok in token_inputs:
+                                mint = tok.get("mint", "")
+                                if mint and mint != SOL_MINT:
+                                    token_addr = mint
+                                    break
+
+                        if not token_addr or not side:
+                            continue
+
+                        # Get symbol from DexScreener (quick lookup)
+                        try:
+                            ds_resp = await client.get(
+                                f"https://api.dexscreener.com/token-pairs/v1/solana/{token_addr}",
+                                timeout=5)
+                            if ds_resp.status_code == 200:
+                                pairs = ds_resp.json()
+                                if isinstance(pairs, list) and pairs:
+                                    symbol = pairs[0].get("baseToken", {}).get("symbol", "")[:20]
+                                elif isinstance(pairs, dict):
+                                    p_list = pairs.get("pairs", [])
+                                    if p_list:
+                                        symbol = p_list[0].get("baseToken", {}).get("symbol", "")[:20]
+                        except Exception:
+                            pass
+
+                        ts = tx.get("timestamp", 0)
+                        trade_time = datetime.utcfromtimestamp(ts) if ts else datetime.utcnow()
+
+                        trade = SmartMoneyTrade(
+                            tx_hash=sig,
+                            wallet=wallet.wallet,
+                            wallet_name=wallet.name or "",
+                            wallet_twitter=wallet.twitter or "",
+                            token_address=token_addr,
+                            token_symbol=symbol or "???",
+                            side=side,
+                            amount_usd=Decimal(str(round(amount_usd, 2))),
+                            price_usd=Decimal("0"),
+                            is_full_position=False,
+                            is_kol=False,
+                            trade_time=trade_time,
+                        )
+                        db.add(trade)
+                        existing_hashes.add(sig)
+                        new_count += 1
+
+                except Exception as e:
+                    _log.debug(f"Helius backup error for {wallet.wallet[:12]}: {e}")
+
+                await asyncio.sleep(0.5)  # rate limit friendly
+
+        if new_count:
+            await db.commit()
+            _log.info(f"Helius backup: stored {new_count} new trades")
+
+        # Run cluster detection on the combined data
         await _detect_clusters(db)
 
 
@@ -639,7 +782,24 @@ async def run():
 
     while True:
         try:
+            global _gmgn_consecutive_failures
             await _poll_smart_money_trades()
+
+            # Check if GMGN returned data — if not, use Helius backup
+            # _poll_smart_money_trades stores trades, so check if any were stored recently
+            async with async_session() as db:
+                recent = (await db.execute(
+                    select(func.count()).select_from(SmartMoneyTrade)
+                    .where(SmartMoneyTrade.created_at >= datetime.utcnow() - timedelta(minutes=2))
+                )).scalar() or 0
+
+            if recent == 0:
+                _gmgn_consecutive_failures += 1
+                if _gmgn_consecutive_failures >= 3:
+                    _log.info(f"GMGN dry ({_gmgn_consecutive_failures} cycles) — using Helius backup")
+                    await _poll_helius_backup()
+            else:
+                _gmgn_consecutive_failures = 0
 
             # Refresh leaderboard every 4 hours
             if time.time() - last_leaderboard > LEADERBOARD_REFRESH:
