@@ -395,29 +395,16 @@ async def _check_for_entries():
                 _log.info(f"SKIP ${symbol}: in skip_symbols list")
                 continue
 
-            # 4b. Skip if already have open or recently opened position for this token (dedup)
-            # Check by BOTH token_address AND token_symbol to prevent double-firing
-            existing = (await db.execute(
+            # 4b. 1-per-token rule — never enter a token we've traded before (open or closed)
+            ever_traded = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
                 .where(
                     (PaperPosition.token_address == signal.token_address) |
                     (PaperPosition.token_symbol == symbol),
-                    PaperPosition.status.in_(["OPEN"]),
                 )
             )).scalar() or 0
-            if existing > 0:
-                _log.info(f"SKIP ${symbol}: already have {existing} open position(s)")
-                continue
-            recent_entry = (await db.execute(
-                select(func.count()).select_from(PaperPosition)
-                .where(
-                    (PaperPosition.token_address == signal.token_address) |
-                    (PaperPosition.token_symbol == symbol),
-                    PaperPosition.opened_at >= datetime.utcnow() - timedelta(minutes=7),
-                )
-            )).scalar() or 0
-            if recent_entry > 0:
-                _log.info(f"SKIP ${symbol}: recently opened (7min dedup)")
+            if ever_traded > 0:
+                _log.info(f"SKIP ${symbol}: already traded (1-per-token rule)")
                 continue
 
             # 4c. Get current price, MC, liquidity, and volume from DexScreener
