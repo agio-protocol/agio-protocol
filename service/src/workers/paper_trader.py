@@ -33,7 +33,7 @@ DEFAULT_CONFIG = {
     "min_agiotage_score": 20,
     "min_mc": 250000,
     "max_mc": 10000000,
-    "min_sources": 1,
+    "min_sources": 2,
     "min_wallet_count": 3,
     "min_wallet_count_with_deployer": 2,
     "max_price_move_pct": 50,
