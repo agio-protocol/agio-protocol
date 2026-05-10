@@ -18,6 +18,8 @@ import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import websockets
+
 import httpx
 from sqlalchemy import select, func, String, Text, Integer, BigInteger, Numeric, Boolean, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column
@@ -583,8 +585,6 @@ async def _close_position(pos: SnipePosition, sell_pct: float, reason: str,
 
 async def _run_websocket(config: dict):
     """Connect to PumpPortal WebSocket and process events."""
-    import websockets
-
     while True:
         try:
             async with websockets.connect(PUMPPORTAL_WS, ping_interval=30) as ws:

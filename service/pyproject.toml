@@ -19,6 +19,7 @@ dependencies = [
     "x402[fastapi]>=2.0",
     "solders>=0.21",
     "base58>=2.1",
+    "websockets>=13.0",
 ]
 
 [project.optional-dependencies]
