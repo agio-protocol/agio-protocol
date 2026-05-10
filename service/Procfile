@@ -2,3 +2,5 @@ web: gunicorn src.main:app --worker-class uvicorn.workers.UvicornWorker --worker
 worker: python -m src.workers.batch_worker_prod
 reconciler: python -m src.workers.reconciler_prod
 oracle: python -m src.workers.oracle_prod
+copytrader: python src/workers/run_copy_trader.py
+sniper: python src/workers/run_sniper.py

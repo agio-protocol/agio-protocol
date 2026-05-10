@@ -113,16 +113,13 @@ async def lifespan(app: FastAPI):
     from .workers.crypto_paper_trader import run as crypto_trader_run
     from .workers.stock_paper_trader import run as stock_trader_run
     from .workers.momentum_scanner import run as momentum_run
-    from .workers.copy_trader import run as copy_trader_run
-    from .workers.pumpfun_sniper import run as sniper_run
+    # copy_trader and pumpfun_sniper run as separate Railway services (not inside gunicorn)
     correlation_task = asyncio.create_task(correlation_run())
     telegram_task = asyncio.create_task(telegram_run())
     paper_task = asyncio.create_task(paper_trader_run())
     crypto_trader_task = asyncio.create_task(crypto_trader_run())
     stock_trader_task = asyncio.create_task(stock_trader_run())
     momentum_task = asyncio.create_task(momentum_run())
-    copy_trader_task = asyncio.create_task(copy_trader_run())
-    sniper_task = asyncio.create_task(sniper_run())
     yield
     meme_task.cancel()
     moltbook_task.cancel()
@@ -138,8 +135,6 @@ async def lifespan(app: FastAPI):
     crypto_trader_task.cancel()
     stock_trader_task.cancel()
     momentum_task.cancel()
-    copy_trader_task.cancel()
-    sniper_task.cancel()
     await engine.dispose()
 
 
