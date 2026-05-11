@@ -401,19 +401,12 @@ async def _get_price_mc(token_addr: str) -> tuple[float, float, float]:
 
 
 async def _check_security(token_addr: str) -> dict:
-    """Check token security via GMGN. Returns {safe, reasons}."""
-    api_key = os.getenv("GMGN_API_KEY", "")
-    if not api_key:
-        return {"safe": True, "reasons": []}
+    """Check token security via centralized GMGN client. Returns {safe, reasons}."""
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{GMGN_HOST}/v1/token/security",
-                params={"chain": "sol", "address": token_addr,
-                        "timestamp": int(time.time()), "client_id": str(uuid.uuid4())},
-                headers={"X-APIKEY": api_key}, timeout=8)
-            if resp.status_code == 200:
-                data = resp.json().get("data", {})
+        from ..services.gmgn_client import get_token_security
+        result = await get_token_security(token_addr)
+        if result:
+            data = result.get("data", {})
                 reasons = []
                 if data.get("is_honeypot") == "yes":
                     reasons.append("honeypot")
