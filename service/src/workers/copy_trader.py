@@ -407,19 +407,19 @@ async def _check_security(token_addr: str) -> dict:
         result = await get_token_security(token_addr)
         if result:
             data = result.get("data", {})
-                reasons = []
-                if data.get("is_honeypot") == "yes":
-                    reasons.append("honeypot")
-                if float(data.get("sell_tax", 0) or 0) > 0.10:
-                    reasons.append("high_sell_tax")
-                if data.get("renounced_mint") not in (1, "1", True, "true", "yes"):
-                    reasons.append("mint_not_renounced")
-                if data.get("renounced_freeze_account") not in (1, "1", True, "true", "yes"):
-                    reasons.append("freeze_not_renounced")
-                top10 = float(data.get("top_10_holder_rate", 0) or 0)
-                if top10 > 0.40:
-                    reasons.append(f"top10={top10:.0%}")
-                return {"safe": len(reasons) == 0, "reasons": reasons}
+            reasons = []
+            if data.get("is_honeypot") == "yes":
+                reasons.append("honeypot")
+            if float(data.get("sell_tax", 0) or 0) > 0.10:
+                reasons.append("high_sell_tax")
+            if data.get("renounced_mint") not in (1, "1", True, "true", "yes"):
+                reasons.append("mint_not_renounced")
+            if data.get("renounced_freeze_account") not in (1, "1", True, "true", "yes"):
+                reasons.append("freeze_not_renounced")
+            top10 = float(data.get("top_10_holder_rate", 0) or 0)
+            if top10 > 0.40:
+                reasons.append(f"top10={top10:.0%}")
+            return {"safe": len(reasons) == 0, "reasons": reasons}
     except Exception:
         pass
     return {"safe": True, "reasons": []}
