@@ -723,19 +723,6 @@ async def run():
         _log.info("Pump.fun Graduation Sniper starting")
         await asyncio.sleep(5)
 
-        # Only one worker should run the sniper (gunicorn runs 2 workers)
-        try:
-            from ..core.redis import redis_client
-            import uuid as _uuid
-            worker_id = str(_uuid.uuid4())[:8]
-            claimed = await redis_client.set("sniper_worker_lock", worker_id, nx=True, ex=60)
-            if not claimed:
-                _log.info("Sniper: another worker owns the lock — this instance will idle")
-                while True:
-                    await asyncio.sleep(300)
-        except Exception:
-            pass  # If Redis fails, proceed anyway
-
         # Load previously traded mints
         try:
             async with async_session() as db:

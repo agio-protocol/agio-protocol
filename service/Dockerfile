@@ -41,9 +41,9 @@ CMD sh -c '\
   elif [ "$WORKER_CMD" = "marketing" ]; then \
     python -m src.workers.marketing_agent; \
   elif [ "$WORKER_CMD" = "copytrader" ]; then \
-    python src/workers/run_copy_trader.py; \
+    python -m src.workers.run_copy_trader; \
   elif [ "$WORKER_CMD" = "sniper" ]; then \
-    python src/workers/run_sniper.py; \
+    python -m src.workers.run_sniper; \
   else \
     gunicorn src.main:app --worker-class uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --access-logfile - --error-logfile -; \
   fi'
