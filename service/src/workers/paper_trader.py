@@ -111,6 +111,15 @@ class PaperPosition(Base):
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Exit engine fields
+    entry_liquidity_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    position_size_tokens_original: Mapped[int | None] = mapped_column(Numeric(18, 0), nullable=True)
+    position_size_tokens_remaining: Mapped[int | None] = mapped_column(Numeric(18, 0), nullable=True)
+    stop_price: Mapped[float | None] = mapped_column(Numeric(18, 10), nullable=True)
+    trailing_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    tier_1_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    tier_2_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    tier_3_done: Mapped[bool] = mapped_column(Boolean, default=False)
     __table_args__ = (
         Index("idx_pp_status", "status"),
         Index("idx_pp_opened", "opened_at"),
@@ -660,6 +669,16 @@ async def _check_for_entries():
                     continue
 
             # 4o. Record position and trade
+            # Snapshot token count from live buy quote, or estimate from USD / price
+            _tokens_received = 0
+            if live_tx and live_tx.get("success"):
+                _tokens_received = int(live_tx.get("quote", {}).get("out_amount", 0) or 0)
+            if _tokens_received <= 0 and price > 0:
+                # Estimate for paper mode: USD value / token price, assume 6 decimals
+                _tokens_received = int((actual_size_usd / price) * 1e6)
+
+            _initial_stop = Decimal(str(round(price * 0.60, 10)))  # 40% below entry
+
             position = PaperPosition(
                 token_address=signal.token_address,
                 token_symbol=symbol,
@@ -674,6 +693,15 @@ async def _check_for_entries():
                 entry_signal=signal.signal_strength,
                 entry_sources=",".join(sources),
                 agiotage_score=score,
+                # Exit engine fields
+                entry_liquidity_usd=Decimal(str(round(liquidity, 2))),
+                position_size_tokens_original=Decimal(str(_tokens_received)),
+                position_size_tokens_remaining=Decimal(str(_tokens_received)),
+                stop_price=_initial_stop,
+                trailing_active=False,
+                tier_1_done=False,
+                tier_2_done=False,
+                tier_3_done=False,
             )
             db.add(position)
 
@@ -770,344 +798,10 @@ async def _manage_positions():
                 except Exception:
                     pass
 
-            price, mc = await _get_price_mc(pos.token_address)
-            if price <= 0:
-                continue
-
-            entry = float(pos.entry_price)
-            if entry <= 0:
-                continue
-            pnl_pct = ((price - entry) / entry) * 100
-            pnl_usd = (pnl_pct / 100) * float(pos.position_size_usd) * (float(pos.remaining_pct) / 100)
-            highest = max(float(pos.highest_price or price), price)
-
-            pos.current_price = Decimal(str(price))
-            pos.current_mc = Decimal(str(mc))
-            pos.highest_price = Decimal(str(highest))
-            pos.pnl_pct = Decimal(str(round(pnl_pct, 4)))
-            pos.pnl_usd = Decimal(str(round(pnl_usd, 2)))
-            pos.last_updated = datetime.utcnow()
-
-            remaining = float(pos.remaining_pct)
-
-            # 1c. Rapid poll check -- if within threshold% of any TP level or SL
-            threshold = config.get("rapid_poll_threshold_pct", 5)
-            sl_pct = config["stop_loss_pct"]
-            for tp in config["take_profit_levels"]:
-                if abs(pnl_pct - tp["at_profit_pct"]) <= threshold:
-                    _rapid_poll_needed = True
-                    break
-            if abs(pnl_pct - (-sl_pct)) <= threshold:
-                _rapid_poll_needed = True
-
-            # Determine highest TP level hit so far (for ratcheting stop)
-            highest_tp_hit_pct = 0
-            first_tp_hit = False
-            for tp in config["take_profit_levels"]:
-                existing_tp = (await db.execute(
-                    select(PaperTrade)
-                    .where(PaperTrade.position_id == pos.id,
-                           PaperTrade.reason.contains(f"TP {tp['at_profit_pct']}%"))
-                )).scalar_one_or_none()
-                if existing_tp:
-                    highest_tp_hit_pct = max(highest_tp_hit_pct, tp["at_profit_pct"])
-                    first_tp_hit = True
-
-            # 1d. Check take profit levels (5-tier)
-            for tp in config["take_profit_levels"]:
-                if pnl_pct >= tp["at_profit_pct"] and remaining > 0:
-                    sell_pct = min(tp["sell_pct"], remaining)
-                    if sell_pct <= 0:
-                        continue
-
-                    # Check if we already took this TP level
-                    existing_tp = (await db.execute(
-                        select(PaperTrade)
-                        .where(PaperTrade.position_id == pos.id,
-                               PaperTrade.reason.contains(f"TP {tp['at_profit_pct']}%"))
-                    )).scalar_one_or_none()
-                    if existing_tp:
-                        continue
-
-                    # Live sell if enabled — use sell_pct of TOTAL balance
-                    live_tx = await _live_sell(pos.token_address, sell_pct,
-                                               f"TP {tp['at_profit_pct']}% ${pos.token_symbol}",
-                                               slippage_bps=config["sell_slippage_bps"])
-
-                    # If live mode is on and sell FAILED, skip DB update — retry next cycle
-                    if live_tx and not live_tx.get("success"):
-                        _log.warning(f"TP sell failed for ${pos.token_symbol}, will retry next cycle")
-                        continue
-
-                    tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
-
-                    usd_val = float(pos.position_size_usd) * (sell_pct / 100) * (1 + pnl_pct / 100)
-                    trade = PaperTrade(
-                        position_id=pos.id, action="SELL",
-                        pct_of_position=sell_pct, price=Decimal(str(price)),
-                        usd_value=Decimal(str(round(usd_val, 2))),
-                        pnl_pct=Decimal(str(round(pnl_pct, 4))),
-                        reason=f"TP {tp['at_profit_pct']}% hit -- sold {sell_pct}%{tx_tag}"[:100],
-                    )
-                    db.add(trade)
-                    pos.remaining_pct = Decimal(str(remaining - sell_pct))
-                    remaining -= sell_pct
-
-                    mode = "LIVE" if live_tx and live_tx.get("success") else "PAPER"
-                    _log.info(f"{mode} SELL (TP): ${pos.token_symbol} {sell_pct}% @ +{pnl_pct:.1f}%")
-
-                    await _send_telegram(
-                        f"*{mode} SELL: ${pos.token_symbol}*\n"
-                        f"TP {tp['at_profit_pct']}% hit\n"
-                        f"Sold {sell_pct}% @ +{pnl_pct:.1f}%\n"
-                        f"Value: ${usd_val:.2f}"
-                    )
-
-                    # 1e. Update ratchet stop tracking
-                    if not first_tp_hit:
-                        first_tp_hit = True
-                    highest_tp_hit_pct = max(highest_tp_hit_pct, tp["at_profit_pct"])
-
-            # 1f. Check stop loss (with ratcheting stop after TPs)
-            sl_pct = config["stop_loss_pct"]
-            ratchet_floor = 0  # minimum PNL% before stop fires
-            close_reason = f"Stop loss ({pnl_pct:.1f}%)"
-
-            if first_tp_hit and config.get("ratchet_stop_enabled", False) and highest_tp_hit_pct > 0:
-                # Ratchet stop: after TP hits, stop moves up to X% of the highest TP level hit
-                ratchet_pct = config.get("ratchet_stop_pct_of_tp", 40)
-                ratchet_floor = highest_tp_hit_pct * (ratchet_pct / 100)
-                sl_triggered = pnl_pct <= ratchet_floor
-                close_reason = f"Ratchet stop ({pnl_pct:.1f}%, floor +{ratchet_floor:.0f}%)"
-            elif first_tp_hit and config.get("breakeven_stop_after_first_tp", False):
-                # Legacy breakeven stop (disabled by default now)
-                sl_triggered = pnl_pct <= 2.0
-                close_reason = f"Breakeven stop ({pnl_pct:.1f}%)"
-            elif sl_pct >= 100:
-                sl_triggered = False  # Stop loss disabled when set >= 100
-            else:
-                sl_triggered = pnl_pct <= -sl_pct
-
-            if sl_triggered and remaining > 0:
-                slippage = config["sell_slippage_bps"]
-
-                live_tx = await _live_sell(pos.token_address, 100,
-                                           f"SL ${pos.token_symbol}", slippage_bps=slippage)
-
-                # If live sell failed, retry next cycle — don't close position in DB
-                if live_tx and not live_tx.get("success"):
-                    _log.warning(f"SL sell failed for ${pos.token_symbol}, will retry next cycle")
-                    continue
-
-                tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
-
-                usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
-                trade = PaperTrade(
-                    position_id=pos.id, action="SELL",
-                    pct_of_position=remaining, price=Decimal(str(price)),
-                    usd_value=Decimal(str(round(usd_val, 2))),
-                    pnl_pct=Decimal(str(round(pnl_pct, 4))),
-                    reason=f"{close_reason}{tx_tag}"[:100],
-                )
-                db.add(trade)
-                pos.remaining_pct = Decimal("0")
-                pos.status = "CLOSED"
-                pos.close_reason = close_reason
-                pos.closed_at = datetime.utcnow()
-
-                # Track daily loss if it was a loss
-                if pnl_pct < 0:
-                    sol_price = await _get_sol_price()
-                    if sol_price > 0:
-                        loss_sol = abs(float(pos.position_size_usd) * (remaining / 100) * (pnl_pct / 100)) / sol_price
-                        await _track_daily_loss(loss_sol)
-
-                mode = "LIVE" if live_tx and live_tx.get("success") else "PAPER"
-                _log.info(f"{mode} SELL (SL): ${pos.token_symbol} 100% @ {pnl_pct:.1f}%")
-                await _send_telegram(
-                    f"*{mode} STOP LOSS: ${pos.token_symbol}*\n"
-                    f"{close_reason}\n"
-                    f"Sold {remaining:.0f}% @ {pnl_pct:.1f}%\n"
-                    f"Value: ${usd_val:.2f}"
-                )
-                continue  # Position closed, skip further checks
-
-            # 1g. Check trailing stop
-            if config["trailing_stop_enabled"] and remaining > 0:
-                highest_pnl = ((highest - entry) / entry) * 100
-                if highest_pnl >= config["trailing_stop_activation_pct"]:
-                    trail_from = highest * (1 - config["trailing_stop_trail_pct"] / 100)
-                    if price <= trail_from:
-                        live_tx = await _live_sell(pos.token_address, 100,
-                                                   f"TRAIL ${pos.token_symbol}",
-                                                   slippage_bps=config["sell_slippage_bps"])
-
-                        # If live sell failed, retry next cycle
-                        if live_tx and not live_tx.get("success"):
-                            _log.warning(f"Trail sell failed for ${pos.token_symbol}, will retry")
-                            continue
-
-                        tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
-
-                        usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
-                        trade = PaperTrade(
-                            position_id=pos.id, action="SELL",
-                            pct_of_position=remaining, price=Decimal(str(price)),
-                            usd_value=Decimal(str(round(usd_val, 2))),
-                            pnl_pct=Decimal(str(round(pnl_pct, 4))),
-                            reason=f"Trailing stop (peak +{highest_pnl:.1f}%, now +{pnl_pct:.1f}%){tx_tag}"[:100],
-                        )
-                        db.add(trade)
-                        pos.remaining_pct = Decimal("0")
-                        pos.status = "CLOSED"
-                        pos.close_reason = f"Trailing stop (+{pnl_pct:.1f}% from +{highest_pnl:.1f}% peak)"
-                        pos.closed_at = datetime.utcnow()
-
-                        # Track daily loss if applicable
-                        if pnl_pct < 0:
-                            sol_price = await _get_sol_price()
-                            if sol_price > 0:
-                                loss_sol = abs(float(pos.position_size_usd) * (remaining / 100) * (pnl_pct / 100)) / sol_price
-                                await _track_daily_loss(loss_sol)
-
-                        mode = "LIVE" if live_tx and live_tx.get("success") else "PAPER"
-                        _log.info(f"{mode} SELL (TRAIL): ${pos.token_symbol} @ +{pnl_pct:.1f}% (peak +{highest_pnl:.1f}%)")
-                        await _send_telegram(
-                            f"*{mode} TRAILING STOP: ${pos.token_symbol}*\n"
-                            f"Peak: +{highest_pnl:.1f}%\n"
-                            f"Sold @ +{pnl_pct:.1f}%\n"
-                            f"Value: ${usd_val:.2f}"
-                        )
-                        continue  # Position closed
-
-            # 1h. Check max holding time
-            age_hours = (datetime.utcnow() - pos.opened_at).total_seconds() / 3600
-            if age_hours >= config["max_holding_hours"] and remaining > 0:
-                live_tx = await _live_sell(pos.token_address, 100,
-                                           f"MAX HOLD ${pos.token_symbol}",
-                                           slippage_bps=config["sell_slippage_bps"])
-
-                # If live sell failed, retry next cycle
-                if live_tx and not live_tx.get("success"):
-                    _log.warning(f"Max hold sell failed for ${pos.token_symbol}, will retry")
-                    continue
-
-                tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
-
-                usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
-                trade = PaperTrade(
-                    position_id=pos.id, action="SELL",
-                    pct_of_position=remaining, price=Decimal(str(price)),
-                    usd_value=Decimal(str(round(usd_val, 2))),
-                    pnl_pct=Decimal(str(round(pnl_pct, 4))),
-                    reason=f"Max hold time ({config['max_holding_hours']}h) @ {pnl_pct:.1f}%{tx_tag}"[:100],
-                )
-                db.add(trade)
-                pos.remaining_pct = Decimal("0")
-                pos.status = "CLOSED"
-                pos.close_reason = f"Max hold time ({pnl_pct:.1f}%)"
-                pos.closed_at = datetime.utcnow()
-
-                # Track daily loss if applicable
-                if pnl_pct < 0:
-                    sol_price = await _get_sol_price()
-                    if sol_price > 0:
-                        loss_sol = abs(float(pos.position_size_usd) * (remaining / 100) * (pnl_pct / 100)) / sol_price
-                        await _track_daily_loss(loss_sol)
-
-                mode = "LIVE" if live_tx and live_tx.get("success") else "PAPER"
-                _log.info(f"{mode} SELL (MAX HOLD): ${pos.token_symbol} @ {pnl_pct:.1f}% after {age_hours:.1f}h")
-                await _send_telegram(
-                    f"*{mode} MAX HOLD: ${pos.token_symbol}*\n"
-                    f"Held {age_hours:.1f}h (max {config['max_holding_hours']}h)\n"
-                    f"Sold @ {pnl_pct:.1f}%\n"
-                    f"Value: ${usd_val:.2f}"
-                )
-                continue  # Position closed
-
-            # 1i. Deployer dump detection -- check if deployer sold >5% of supply
-            # Only check once per position per 60 seconds to prevent duplicate panic sells
-            _dump_check_key = f"dump_checked:{pos.id}"
-            _dump_already_checked = False
-            try:
-                from ..core.redis import redis_client
-                if await redis_client.get(_dump_check_key):
-                    _dump_already_checked = True
-                else:
-                    await redis_client.set(_dump_check_key, "1", ex=60)
-            except Exception:
-                pass
-            if not _dump_already_checked and (signal_has_deployer := pos.entry_sources and "deployer" in (pos.entry_sources or "")):
-                try:
-                    from ..models.platform import TopDeployer
-                    from .smart_money_tracker import TokenDeployment
-                    td = (await db.execute(
-                        select(TokenDeployment).where(TokenDeployment.token_address == pos.token_address)
-                    )).scalar_one_or_none()
-                    if td and td.deployer_wallet:
-                        # Check GMGN for deployer sells
-                        api_key = os.getenv("GMGN_API_KEY", "")
-                        if api_key:
-                            try:
-                                async with httpx.AsyncClient() as client:
-                                    resp = await client.get(
-                                        f"https://openapi.gmgn.ai/v1/token/security",
-                                        params={"chain": "sol", "address": pos.token_address,
-                                                "timestamp": int(time.time()), "client_id": str(uuid.uuid4())},
-                                        headers={"X-APIKEY": api_key}, timeout=8)
-                                    if resp.status_code == 200:
-                                        sec_data = resp.json().get("data", {})
-                                        creator_pct = float(sec_data.get("creator_token_status", {}).get("sell_pct", 0) or 0)
-                                        if creator_pct > 5:
-                                            # PANIC SELL -- deployer dumped
-                                            live_tx = await _live_sell(
-                                                pos.token_address, 100,
-                                                f"DEPLOYER DUMP ${pos.token_symbol}",
-                                                slippage_bps=config["panic_slippage_bps"])
-                                            tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
-
-                                            usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
-                                            trade = PaperTrade(
-                                                position_id=pos.id, action="SELL",
-                                                pct_of_position=remaining, price=Decimal(str(price)),
-                                                usd_value=Decimal(str(round(usd_val, 2))),
-                                                pnl_pct=Decimal(str(round(pnl_pct, 4))),
-                                                reason=f"DEPLOYER DUMP ({creator_pct:.1f}% sold){tx_tag}"[:100],
-                                            )
-                                            db.add(trade)
-                                            pos.remaining_pct = Decimal("0")
-                                            pos.status = "CLOSED"
-                                            pos.close_reason = f"Deployer dump ({creator_pct:.1f}% sold)"
-                                            pos.closed_at = datetime.utcnow()
-
-                                            if pnl_pct < 0:
-                                                sol_price = await _get_sol_price()
-                                                if sol_price > 0:
-                                                    loss_sol = abs(float(pos.position_size_usd) * (remaining / 100) * (pnl_pct / 100)) / sol_price
-                                                    await _track_daily_loss(loss_sol)
-
-                                            mode = "LIVE" if live_tx and live_tx.get("success") else "PAPER"
-                                            _log.warning(f"{mode} PANIC SELL (DEPLOYER DUMP): ${pos.token_symbol} -- "
-                                                          f"deployer sold {creator_pct:.1f}% @ {pnl_pct:.1f}%")
-                                            await _send_telegram(
-                                                f"*{mode} DEPLOYER DUMP: ${pos.token_symbol}*\n"
-                                                f"Deployer sold {creator_pct:.1f}% of supply!\n"
-                                                f"PANIC SOLD @ {pnl_pct:.1f}%\n"
-                                                f"Value: ${usd_val:.2f}"
-                                            )
-                                            # Mark as closed and skip rest
-                                            remaining = 0
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-
-            # Close position if fully sold
-            if float(pos.remaining_pct) <= 0 and pos.status == "OPEN":
-                pos.status = "CLOSED"
-                pos.closed_at = datetime.utcnow()
-                if not pos.close_reason:
-                    pos.close_reason = "Fully sold via take profits"
+            # Delegate all exit logic to the exit engine
+            from .exit_engine import manage_position_tick
+            from .exit_config import EXIT_CONFIG
+            await manage_position_tick(pos, db, EXIT_CONFIG)
 
             await asyncio.sleep(0.5)
 
