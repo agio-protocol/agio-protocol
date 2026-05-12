@@ -283,32 +283,40 @@ async def sell_token(
 
 
 async def get_token_balance(token_mint: str) -> tuple[int, float, int]:
-    """Get balance of a specific token.
+    """Get balance of a specific token (checks both SPL Token and Token-2022).
 
     Returns: (raw_amount, ui_amount, decimals)
     """
     address = get_wallet_address()
+    TOKEN_PROGRAMS = [
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",   # SPL Token
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",   # Token-2022
+    ]
 
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(SOLANA_RPC, json={
-                "jsonrpc": "2.0", "id": 1,
-                "method": "getTokenAccountsByOwner",
-                "params": [address, {"mint": token_mint}, {"encoding": "jsonParsed"}],
-            }, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                accounts = data.get("result", {}).get("value", [])
-                for acc in accounts:
-                    info = acc.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
-                    if info.get("mint") == token_mint:
-                        ta = info.get("tokenAmount", {})
-                        return (
-                            int(ta.get("amount", 0)),
-                            float(ta.get("uiAmount", 0)),
-                            int(ta.get("decimals", 6)),
-                        )
-        except Exception as exc:
-            _log.warning("Failed to fetch token balance for %s: %s", token_mint, exc)
+        for program_id in TOKEN_PROGRAMS:
+            try:
+                resp = await client.post(SOLANA_RPC, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getTokenAccountsByOwner",
+                    "params": [address, {"mint": token_mint, "programId": program_id},
+                               {"encoding": "jsonParsed"}],
+                }, timeout=10)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    accounts = data.get("result", {}).get("value", [])
+                    for acc in accounts:
+                        info = acc.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
+                        if info.get("mint") == token_mint:
+                            ta = info.get("tokenAmount", {})
+                            raw = int(ta.get("amount", 0))
+                            if raw > 0:
+                                return (
+                                    raw,
+                                    float(ta.get("uiAmount", 0)),
+                                    int(ta.get("decimals", 6)),
+                                )
+            except Exception as exc:
+                _log.warning("Failed to fetch token balance for %s: %s", token_mint, exc)
 
     return (0, 0.0, 6)
