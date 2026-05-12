@@ -113,7 +113,22 @@ async def lifespan(app: FastAPI):
     from .workers.crypto_paper_trader import run as crypto_trader_run
     from .workers.stock_paper_trader import run as stock_trader_run
     from .workers.momentum_scanner import run as momentum_run
-    # copy_trader and pumpfun_sniper run as separate Railway services (not inside gunicorn)
+    # Copy trader: entries via Helius webhook (copy_trader_routes.py)
+    # Position management runs here (lightweight — no GMGN polling)
+    from .workers.copy_trader import _manage_positions as copy_manage
+    async def _copy_position_loop():
+        import asyncio as _aio
+        from .workers.copy_trader import get_config as _get_copy_config
+        await _aio.sleep(60)
+        while True:
+            try:
+                cfg = await _get_copy_config()
+                await copy_manage(cfg)
+            except Exception:
+                pass
+            await _aio.sleep(30)
+    copy_mgr_task = asyncio.create_task(_copy_position_loop())
+    # pumpfun_sniper runs as separate Railway service
     correlation_task = asyncio.create_task(correlation_run())
     telegram_task = asyncio.create_task(telegram_run())
     paper_task = asyncio.create_task(paper_trader_run())
@@ -121,6 +136,7 @@ async def lifespan(app: FastAPI):
     stock_trader_task = asyncio.create_task(stock_trader_run())
     momentum_task = asyncio.create_task(momentum_run())
     yield
+    copy_mgr_task.cancel()
     meme_task.cancel()
     moltbook_task.cancel()
     backfill_task.cancel()
