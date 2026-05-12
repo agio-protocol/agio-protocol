@@ -418,27 +418,16 @@ async def _check_for_entries():
             except Exception:
                 pass
 
-            # 4b. Dedup — don't re-enter a token we already have open
-            existing_open = (await db.execute(
+            # 4b. Dedup — don't enter a token we've traded in the last 4 hours
+            recent_any = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
                 .where(
                     PaperPosition.token_address == signal.token_address,
-                    PaperPosition.status == "OPEN",
+                    PaperPosition.opened_at >= datetime.utcnow() - timedelta(hours=4),
                 )
             )).scalar() or 0
-            if existing_open > 0:
-                _log.info(f"SKIP ${symbol}: already have open position")
-                continue
-            # Cooldown — don't re-enter within 30 min of last close
-            recent_closed = (await db.execute(
-                select(func.count()).select_from(PaperPosition)
-                .where(
-                    PaperPosition.token_address == signal.token_address,
-                    PaperPosition.closed_at >= datetime.utcnow() - timedelta(minutes=30),
-                )
-            )).scalar() or 0
-            if recent_closed > 0:
-                _log.info(f"SKIP ${symbol}: recently closed (30min cooldown)")
+            if recent_any > 0:
+                _log.info(f"SKIP ${symbol}: traded in last 4h (dedup)")
                 continue
 
             # 4c. Get current price, MC, liquidity, and volume from DexScreener
