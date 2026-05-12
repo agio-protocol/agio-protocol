@@ -276,26 +276,31 @@ async def _is_live_mode() -> bool:
 
 
 async def _live_sell(token_address: str, sell_pct: float, reason: str, slippage_bps: int = 500) -> dict | None:
-    """Execute a live sell if live mode is on. Returns tx result or None."""
+    """Execute a live sell if live mode is on.
+    sell_pct is % of TOTAL on-chain balance to sell (not remaining position).
+    Returns tx result or None (paper mode).
+    Returns {"success": False, ...} on failure so caller can decide whether to update DB.
+    """
     if not await _is_live_mode():
         return None
     try:
         from ..services.jupiter_swap import sell_token, get_token_balance
         raw_balance, ui_balance, decimals = await get_token_balance(token_address)
         if raw_balance <= 0:
-            return None
+            _log.warning(f"LIVE SELL: {reason} — no on-chain balance found")
+            return {"success": False, "error": "no_balance", "tx_hash": None}
         sell_amount = int(raw_balance * (sell_pct / 100))
         if sell_amount <= 0:
-            return None
+            return {"success": False, "error": "sell_amount_zero", "tx_hash": None}
         result = await sell_token(token_address, sell_amount, decimals, slippage_bps=slippage_bps)
         if result.get("success"):
-            _log.info(f"LIVE SELL: {reason} tx={result.get('tx_hash')}")
+            _log.info(f"LIVE SELL OK: {reason} tx={result.get('tx_hash')}")
         else:
-            _log.error(f"LIVE SELL FAILED: {reason} -- {result.get('error')}")
+            _log.error(f"LIVE SELL FAILED: {reason} — {result.get('error')}")
         return result
     except Exception as e:
-        _log.error(f"LIVE SELL ERROR: {e}")
-        return None
+        _log.error(f"LIVE SELL ERROR: {reason} — {e}")
+        return {"success": False, "error": str(e), "tx_hash": None}
 
 
 # === TELEGRAM ALERT ===
@@ -753,21 +758,17 @@ async def _manage_positions():
         )).scalars().all()
 
         for pos in positions:
-            # Verify we actually hold this token on-chain before managing
+            # Check on-chain balance — log warning if zero but DON'T auto-close
+            # The Token-2022 fix should find balances correctly now
             if await _is_live_mode():
                 try:
                     from ..services.jupiter_swap import get_token_balance
                     raw_bal, _, _ = await get_token_balance(pos.token_address)
                     if raw_bal <= 0:
-                        _log.warning(f"SYNC: ${pos.token_symbol} not held on-chain, closing DB position")
-                        pos.status = "CLOSED"
-                        pos.close_reason = "On-chain balance zero (already sold)"
-                        pos.closed_at = datetime.utcnow()
-                        pos.remaining_pct = Decimal("0")
-                        await db.commit()
-                        continue
+                        _log.warning(f"BALANCE CHECK: ${pos.token_symbol} shows 0 on-chain — may be Token-2022 or already sold")
+                        # Don't auto-close — let the sell logic handle it
                 except Exception:
-                    pass  # If balance check fails, proceed normally
+                    pass
 
             price, mc = await _get_price_mc(pos.token_address)
             if price <= 0:
@@ -828,10 +829,16 @@ async def _manage_positions():
                     if existing_tp:
                         continue
 
-                    # Live sell if enabled
+                    # Live sell if enabled — use sell_pct of TOTAL balance
                     live_tx = await _live_sell(pos.token_address, sell_pct,
                                                f"TP {tp['at_profit_pct']}% ${pos.token_symbol}",
                                                slippage_bps=config["sell_slippage_bps"])
+
+                    # If live mode is on and sell FAILED, skip DB update — retry next cycle
+                    if live_tx and not live_tx.get("success"):
+                        _log.warning(f"TP sell failed for ${pos.token_symbol}, will retry next cycle")
+                        continue
+
                     tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
 
                     usd_val = float(pos.position_size_usd) * (sell_pct / 100) * (1 + pnl_pct / 100)
@@ -886,6 +893,12 @@ async def _manage_positions():
 
                 live_tx = await _live_sell(pos.token_address, 100,
                                            f"SL ${pos.token_symbol}", slippage_bps=slippage)
+
+                # If live sell failed, retry next cycle — don't close position in DB
+                if live_tx and not live_tx.get("success"):
+                    _log.warning(f"SL sell failed for ${pos.token_symbol}, will retry next cycle")
+                    continue
+
                 tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
 
                 usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
@@ -928,6 +941,12 @@ async def _manage_positions():
                         live_tx = await _live_sell(pos.token_address, 100,
                                                    f"TRAIL ${pos.token_symbol}",
                                                    slippage_bps=config["sell_slippage_bps"])
+
+                        # If live sell failed, retry next cycle
+                        if live_tx and not live_tx.get("success"):
+                            _log.warning(f"Trail sell failed for ${pos.token_symbol}, will retry")
+                            continue
+
                         tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
 
                         usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
@@ -967,6 +986,12 @@ async def _manage_positions():
                 live_tx = await _live_sell(pos.token_address, 100,
                                            f"MAX HOLD ${pos.token_symbol}",
                                            slippage_bps=config["sell_slippage_bps"])
+
+                # If live sell failed, retry next cycle
+                if live_tx and not live_tx.get("success"):
+                    _log.warning(f"Max hold sell failed for ${pos.token_symbol}, will retry")
+                    continue
+
                 tx_tag = f" [LIVE tx:{live_tx['tx_hash'][:12]}]" if live_tx and live_tx.get("success") else ""
 
                 usd_val = float(pos.position_size_usd) * (remaining / 100) * (1 + pnl_pct / 100)
