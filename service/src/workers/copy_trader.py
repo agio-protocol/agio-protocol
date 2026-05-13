@@ -62,7 +62,7 @@ DEFAULT_CONFIG = {
     "min_volume_h1": 5000,
     "min_buy_usd": 100,
     "cooldown_minutes": 30,
-    "max_trade_age_seconds": 60,
+    "max_trade_age_seconds": 120,
 
     # Security
     "require_mint_renounced": True,
@@ -748,52 +748,105 @@ async def handle_helius_swap(wallet_address: str, tx_hash: str, timestamp: int,
 # === POLL AND MANAGE (fallback when Helius unavailable) ===
 
 async def _poll_single_wallet(wallet: TrackedWallet, config: dict):
-    """Poll a single wallet for new trades."""
+    """Poll a single wallet for new swaps via Helius REST API."""
+    helius_key = os.getenv("HELIUS_API_KEY", "")
+    if not helius_key:
+        return
     try:
-        from ..services.gmgn_client import get_wallet_activities
-        data = await get_wallet_activities(wallet.address)
-        if not data:
-            return
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.helius.xyz/v0/addresses/{wallet.address}/transactions",
+                params={"api-key": helius_key, "type": "SWAP", "limit": 5},
+                timeout=10)
+            if resp.status_code != 200:
+                return
+            txns = resp.json()
+            if not isinstance(txns, list):
+                return
 
-        activities = data.get("data", data)
-        if isinstance(activities, dict):
-            activities = activities.get("list", activities.get("activities", []))
-        if not isinstance(activities, list):
-            return
-
-        for act in activities:
-            tx_hash = act.get("tx_hash", "")
-            if not tx_hash or tx_hash in _seen_tx_hashes:
+        sol_mint = "So11111111111111111111111111111111111111112"
+        for tx in txns:
+            sig = tx.get("signature", "")
+            if not sig or sig in _seen_tx_hashes:
                 continue
-            _seen_tx_hashes[tx_hash] = time.time()
+            _seen_tx_hashes[sig] = time.time()
 
-            side = (act.get("event_type") or act.get("side") or "").lower()
-            if side not in ("buy",):
-                if side == "sell" and config.get("copy_sell"):
-                    token_addr = act.get("token_address", "")
-                    if token_addr:
-                        await _check_copy_sell(token_addr, wallet.address, config)
+            if tx.get("type") != "SWAP":
                 continue
 
-            token_addr = act.get("token_address", "")
-            symbol = (act.get("token_symbol") or act.get("symbol") or "")[:20]
-            amount_usd = float(act.get("amount_usd", 0) or act.get("cost_usd", 0) or 0)
-
-            if not token_addr or not symbol:
-                continue
-            if symbol.upper() in config["skip_symbols"]:
-                continue
-            if amount_usd < config["min_buy_usd"]:
+            # Parse swap: SOL in = buy, SOL out = sell
+            events = tx.get("events", {})
+            swap = events.get("swap", {})
+            if not swap:
                 continue
 
-            ts = act.get("timestamp") or act.get("block_timestamp")
-            max_age = config.get("max_trade_age_seconds", 60)
-            if ts and isinstance(ts, (int, float)):
-                trade_age = time.time() - ts
-                if trade_age > max_age:
-                    continue
+            native_input = swap.get("nativeInput")
+            native_output = swap.get("nativeOutput")
+            token_outputs = swap.get("tokenOutputs", [])
+            token_inputs = swap.get("tokenInputs", [])
 
-            await _evaluate_copy(token_addr, symbol, wallet, amount_usd, config)
+            token_addr = ""
+            side = ""
+            amount_sol = 0
+
+            if native_input and token_outputs:
+                side = "buy"
+                amount_sol = (native_input.get("amount", 0) or 0) / 1e9
+                for tok in token_outputs:
+                    mint = tok.get("mint", "")
+                    if mint and mint != sol_mint:
+                        token_addr = mint
+                        break
+            elif native_output and token_inputs:
+                side = "sell"
+                amount_sol = (native_output.get("amount", 0) or 0) / 1e9
+                for tok in token_inputs:
+                    mint = tok.get("mint", "")
+                    if mint and mint != sol_mint:
+                        token_addr = mint
+                        break
+
+            if not token_addr or not side:
+                continue
+
+            # Check trade age
+            ts = tx.get("timestamp", 0)
+            max_age = config.get("max_trade_age_seconds", 120)
+            if ts and (time.time() - ts) > max_age:
+                continue
+
+            # Get symbol from DexScreener
+            symbol = "???"
+            try:
+                async with httpx.AsyncClient() as client:
+                    ds_resp = await client.get(
+                        f"https://api.dexscreener.com/token-pairs/v1/solana/{token_addr}",
+                        timeout=5)
+                    if ds_resp.status_code == 200:
+                        pairs = ds_resp.json()
+                        if isinstance(pairs, list) and pairs:
+                            symbol = pairs[0].get("baseToken", {}).get("symbol", "???")[:20]
+                        elif isinstance(pairs, dict):
+                            p_list = pairs.get("pairs", [])
+                            if p_list:
+                                symbol = p_list[0].get("baseToken", {}).get("symbol", "???")[:20]
+            except Exception:
+                pass
+
+            skip_symbols = config.get("skip_symbols", [])
+            if symbol.upper() in skip_symbols:
+                continue
+
+            sol_price = await _get_sol_price()
+            usd_value = amount_sol * sol_price
+            if usd_value < config.get("min_buy_usd", 100):
+                continue
+
+            if side == "buy":
+                _log.info(f"HELIUS: {wallet.label} bought ${symbol} ({amount_sol:.3f} SOL / ${usd_value:.0f})")
+                await _evaluate_copy(token_addr, symbol, wallet, usd_value, config)
+            elif side == "sell" and config.get("copy_sell"):
+                await _check_copy_sell(token_addr, wallet.address, config)
 
     except Exception as e:
         _log.debug(f"Wallet poll error {wallet.label}: {e}")

@@ -29,7 +29,8 @@ from ..models.base import Base
 
 _log = logging.getLogger("pumpfun-sniper")
 
-PUMPPORTAL_WS = "wss://pumpportal.fun/api/data"
+_PP_API_KEY = os.getenv("PUMPPORTAL_API_KEY", "")
+PUMPPORTAL_WS = f"wss://pumpportal.fun/api/data?api-key={_PP_API_KEY}" if _PP_API_KEY else "wss://pumpportal.fun/api/data"
 PUMPPORTAL_API = "https://pumpportal.fun/api"
 GRADUATION_SOL = 85  # ~$69K MC, tokens graduate when curve holds ~85 SOL
 
@@ -617,6 +618,10 @@ async def _run_websocket(config: dict):
                         data = _json.loads(message)
                         tx_type = data.get("txType", "")
 
+                        # Log all message types for debugging
+                        if tx_type and tx_type not in ("create",):
+                            _log.debug(f"WS msg: txType={tx_type} mint={data.get('mint','')[:16]}")
+
                         if tx_type == "create":
                             # New token created — track it for curve monitoring
                             mint = data.get("mint", "")
@@ -646,6 +651,8 @@ async def _run_websocket(config: dict):
                         elif tx_type in ("buy", "sell"):
                             mint = data.get("mint", "")
                             if mint in _tracked_tokens:
+                                t_sym = _tracked_tokens[mint].get("symbol", "?")
+                                _log.info(f"TRADE: ${t_sym} {tx_type} mint={mint[:16]}...")
                                 t = _tracked_tokens[mint]
                                 t["v_sol"] = float(data.get("vSolInBondingCurve", 0) or 0)
                                 t["v_tokens"] = float(data.get("vTokensInBondingCurve", 0) or 0)

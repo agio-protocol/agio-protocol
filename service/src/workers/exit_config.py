@@ -12,6 +12,8 @@ EXIT_CONFIG = {
     "TIER_2_TRIGGER": 2.00,           # sell 25% at 2x
     "TIER_3_TRIGGER": 3.00,           # sell 25% at 3x
     "MAX_HOLD_MS": 8 * 60 * 60 * 1000,
+    "FLAT_EXIT_HOURS": 4,              # exit if <10% move after 4 hours
+    "FLAT_EXIT_THRESHOLD_PCT": 10,     # "flat" = less than this % move
     "LIQUIDITY_RUG_THRESHOLD": 0.70,
     "SLIPPAGE_GUARD_PCT": 0.15,
     "CHUNK_EXIT_PIECES": 3,

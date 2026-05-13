@@ -324,6 +324,17 @@ async def manage_position_tick(pos, db, config: dict | None = None) -> bool:
             await _exit_all(pos, db, f"Liquidity rug ({liq_ratio:.0%})", price, pnl_pct, cfg)
             return True
 
+    # 2c. Flat position exit: if held > FLAT_EXIT_HOURS with < FLAT_EXIT_THRESHOLD move
+    flat_hours = cfg.get("FLAT_EXIT_HOURS", 4)
+    flat_threshold = cfg.get("FLAT_EXIT_THRESHOLD_PCT", 10)
+    age_hours = age_ms / 3600000
+    if age_hours >= flat_hours:
+        pnl_pct = ((price - entry_price) / entry_price) * 100
+        if abs(pnl_pct) < flat_threshold:
+            _log.info(f"FLAT EXIT: ${pos.token_symbol} {pnl_pct:+.1f}% after {age_hours:.1f}h (threshold {flat_threshold}%)")
+            await _exit_all(pos, db, f"Flat exit ({pnl_pct:+.1f}% after {age_hours:.1f}h)", price, pnl_pct, cfg)
+            return True
+
     # ----- 3. Track high -----
     highest = max(float(pos.highest_price or price), price)
     pos.highest_price = Decimal(str(highest))

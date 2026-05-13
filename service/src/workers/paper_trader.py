@@ -31,8 +31,8 @@ RAPID_POLL = 10
 DEFAULT_CONFIG = {
     # Entry criteria — data-driven: sub-500K MC is net-negative (23-37% WR), 500K+ is profitable
     "min_agiotage_score": 20,
-    "min_mc": 250000,
-    "max_mc": 10000000,
+    "min_mc": 550000,
+    "max_mc": 1000000,
     "min_sources": 2,
     "min_wallet_count": 3,
     "min_wallet_count_with_deployer": 2,
