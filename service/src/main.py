@@ -85,6 +85,14 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE sentiment_signals ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT 'crypto'",
             "ALTER TABLE social_mentions ADD COLUMN IF NOT EXISTS sentiment_score INTEGER",
             "ALTER TABLE social_mentions ADD COLUMN IF NOT EXISTS conviction INTEGER",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS entry_liquidity_usd NUMERIC(18,2)",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS position_size_tokens_original NUMERIC(18,0)",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS position_size_tokens_remaining NUMERIC(18,0)",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS stop_price NUMERIC(18,10)",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS trailing_active BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS tier_1_done BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS tier_2_done BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS tier_3_done BOOLEAN DEFAULT FALSE",
         ]:
             try:
                 await conn.execute(__import__('sqlalchemy').text(col_sql))
