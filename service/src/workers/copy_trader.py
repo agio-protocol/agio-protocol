@@ -774,37 +774,61 @@ async def _poll_single_wallet(wallet: TrackedWallet, config: dict):
             if tx.get("type") != "SWAP":
                 continue
 
-            # Parse swap: SOL in = buy, SOL out = sell
+            # Parse swap from events.swap OR fallback to tokenTransfers
             events = tx.get("events", {})
             swap = events.get("swap", {})
-            if not swap:
-                continue
-
-            native_input = swap.get("nativeInput")
-            native_output = swap.get("nativeOutput")
-            token_outputs = swap.get("tokenOutputs", [])
-            token_inputs = swap.get("tokenInputs", [])
+            token_transfers = tx.get("tokenTransfers", [])
 
             token_addr = ""
             side = ""
             amount_sol = 0
 
-            if native_input and token_outputs:
-                side = "buy"
-                amount_sol = (native_input.get("amount", 0) or 0) / 1e9
-                for tok in token_outputs:
-                    mint = tok.get("mint", "")
-                    if mint and mint != sol_mint:
+            if swap:
+                # Preferred: use events.swap
+                native_input = swap.get("nativeInput")
+                native_output = swap.get("nativeOutput")
+                token_outputs = swap.get("tokenOutputs", [])
+                token_inputs = swap.get("tokenInputs", [])
+
+                if native_input and token_outputs:
+                    side = "buy"
+                    amount_sol = (native_input.get("amount", 0) or 0) / 1e9
+                    for tok in token_outputs:
+                        mint = tok.get("mint", "")
+                        if mint and mint != sol_mint:
+                            token_addr = mint
+                            break
+                elif native_output and token_inputs:
+                    side = "sell"
+                    amount_sol = (native_output.get("amount", 0) or 0) / 1e9
+                    for tok in token_inputs:
+                        mint = tok.get("mint", "")
+                        if mint and mint != sol_mint:
+                            token_addr = mint
+                            break
+            elif token_transfers:
+                # Fallback: parse tokenTransfers
+                wallet_addr = wallet.address
+                for tt in token_transfers:
+                    mint = tt.get("mint", "")
+                    amt = float(tt.get("tokenAmount", 0) or 0)
+                    to_acc = tt.get("toUserAccount", "")
+                    from_acc = tt.get("fromUserAccount", "")
+                    if mint == sol_mint:
+                        continue
+                    if amt > 0 and to_acc == wallet_addr:
+                        side = "buy"
                         token_addr = mint
-                        break
-            elif native_output and token_inputs:
-                side = "sell"
-                amount_sol = (native_output.get("amount", 0) or 0) / 1e9
-                for tok in token_inputs:
-                    mint = tok.get("mint", "")
-                    if mint and mint != sol_mint:
+                    elif amt > 0 and from_acc == wallet_addr:
+                        side = "sell"
                         token_addr = mint
+                    if token_addr:
                         break
+                # Get SOL amount from native transfers
+                for nt in tx.get("nativeTransfers", []):
+                    sol_amt = (nt.get("amount", 0) or 0) / 1e9
+                    if sol_amt > 0.01:
+                        amount_sol = max(amount_sol, sol_amt)
 
             if not token_addr or not side:
                 continue
@@ -896,12 +920,13 @@ async def _evaluate_copy(token_addr: str, symbol: str, wallet: TrackedWallet,
                          wallet_buy_usd: float, config: dict):
     """Evaluate whether to copy a wallet's buy."""
 
-    # Check SOL balance — don't trade if insufficient
-    balance = await _get_copy_wallet_sol_balance()
-    needed = config["position_size_sol"] + config.get("min_sol_reserve", 0.05)
-    if balance < needed:
-        _log.info(f"SKIP copy ${symbol}: insufficient SOL ({balance:.4f} < {needed:.4f} needed)")
-        return
+    # Check SOL balance — skip in paper mode
+    if not config.get("paper_mode", True):
+        balance = await _get_copy_wallet_sol_balance()
+        needed = config["position_size_sol"] + config.get("min_sol_reserve", 0.05)
+        if balance < needed:
+            _log.info(f"SKIP copy ${symbol}: insufficient SOL ({balance:.4f} < {needed:.4f} needed)")
+            return
 
     # Check daily loss limit
     daily_loss = await _get_daily_loss()
@@ -1117,6 +1142,7 @@ async def run():
             config = await get_config()
 
             # Poll wallets for new trades
+            _log.info(f"Polling {len(await _get_tracked_wallets())} wallets via Helius...")
             await _poll_wallets(config)
 
             # Manage open positions
