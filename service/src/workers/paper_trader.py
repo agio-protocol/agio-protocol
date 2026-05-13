@@ -798,10 +798,34 @@ async def _manage_positions():
                 except Exception:
                     pass
 
-            # Delegate all exit logic to the exit engine
-            from .exit_engine import manage_position_tick
-            from .exit_config import EXIT_CONFIG
-            await manage_position_tick(pos, db, EXIT_CONFIG)
+            # Delegate exit logic to exit engine, fallback to basic stop if DB columns missing
+            try:
+                from .exit_engine import manage_position_tick
+                from .exit_config import EXIT_CONFIG
+                await manage_position_tick(pos, db, EXIT_CONFIG)
+            except Exception as _exit_err:
+                # Fallback: basic stop loss + timeout if exit engine fails (missing DB columns)
+                if pnl_pct <= -40:
+                    live_tx = await _live_sell(pos.token_address, 100,
+                                               f"FALLBACK SL ${pos.token_symbol}",
+                                               slippage_bps=500)
+                    if not live_tx or live_tx.get("success", False) or live_tx is None:
+                        pos.remaining_pct = Decimal("0")
+                        pos.status = "CLOSED"
+                        pos.close_reason = f"Fallback stop ({pnl_pct:.1f}%)"
+                        pos.closed_at = datetime.utcnow()
+                        _log.info(f"FALLBACK SELL (SL): ${pos.token_symbol} @ {pnl_pct:.1f}%")
+                age_hours = (datetime.utcnow() - pos.opened_at).total_seconds() / 3600
+                if age_hours >= 6 and float(pos.remaining_pct) > 0:
+                    live_tx = await _live_sell(pos.token_address, 100,
+                                               f"FALLBACK TIMEOUT ${pos.token_symbol}",
+                                               slippage_bps=500)
+                    if not live_tx or live_tx.get("success", False) or live_tx is None:
+                        pos.remaining_pct = Decimal("0")
+                        pos.status = "CLOSED"
+                        pos.close_reason = f"Fallback timeout ({pnl_pct:.1f}%)"
+                        pos.closed_at = datetime.utcnow()
+                        _log.info(f"FALLBACK SELL (TIMEOUT): ${pos.token_symbol} @ {pnl_pct:.1f}%")
 
             await asyncio.sleep(0.5)
 
