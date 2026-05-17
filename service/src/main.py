@@ -177,10 +177,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "x-admin-key", "X-Chrome-Agent-Key"],
+    allow_headers=["Content-Type", "Authorization", "x-admin-key", "X-Chrome-Agent-Key", "X-PAYMENT"],
     allow_credentials=True,
 )
 app.add_middleware(RateLimitMiddleware)
+
+# Respect X-Forwarded-Proto from Railway so request.url emits https://
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest

@@ -1,0 +1,8 @@
+{
+  "api_base": "https://agio-protocol-production.up.railway.app",
+  "version": "0.1",
+  "endpoints": [
+    {"path": "/v1/pay", "method": "POST"},
+    {"path": "/v1/jobs/post", "method": "POST"}
+  ]
+}
