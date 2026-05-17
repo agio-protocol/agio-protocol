@@ -204,8 +204,8 @@ async def _exit_all(pos, db, reason: str, current_price: float, pnl_pct: float, 
 
 
 async def _tier_sell(pos, db, tier_name: str, current_price: float, pnl_pct: float,
-                     slippage_bps: int = 500) -> bool:
-    """Sell 25% of ORIGINAL token amount for a tier scale-out.
+                     slippage_bps: int = 500, sell_pct: float = 0.25) -> bool:
+    """Sell a percentage of ORIGINAL token amount for a tier scale-out.
     Returns True if sell was recorded, False if it failed or was skipped.
     """
     from .paper_trader import PaperTrade
@@ -215,7 +215,7 @@ async def _tier_sell(pos, db, tier_name: str, current_price: float, pnl_pct: flo
     if original_tokens <= 0 or remaining_tokens <= 0:
         return False
 
-    sell_tokens = original_tokens // 4  # 25% of original
+    sell_tokens = int(original_tokens * sell_pct)
     sell_tokens = min(sell_tokens, remaining_tokens)  # Don't sell more than we have
     if sell_tokens <= 0:
         return False
@@ -386,7 +386,8 @@ async def manage_position_tick(pos, db, config: dict | None = None) -> bool:
 
     # ----- 7. TIERED SCALE-OUTS (each fires once, sells 25% of ORIGINAL) -----
     if gain >= cfg["TIER_1_TRIGGER"] and not pos.tier_1_done:
-        success = await _tier_sell(pos, db, "TIER-1 (1.5x)", price, pnl_pct)
+        t1_sell_pct = cfg.get("TIER_1_SELL_PCT", 0.25)
+        success = await _tier_sell(pos, db, "TIER-1 (1.5x)", price, pnl_pct, sell_pct=t1_sell_pct)
         if success:
             pos.tier_1_done = True
             modified = True

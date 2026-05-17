@@ -12,7 +12,10 @@ import httpx
 _log = logging.getLogger("jupiter-swap")
 
 JUPITER_API = "https://api.jup.ag/swap/v1"
-SOLANA_RPC = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+_helius_key = os.getenv("HELIUS_API_KEY", "")
+SOLANA_RPC_READ = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+SOLANA_RPC_SEND = f"https://mainnet.helius-rpc.com/?api-key={_helius_key}" if _helius_key else SOLANA_RPC_READ
+SOLANA_RPC = SOLANA_RPC_READ
 
 # Common token mints
 SOL_MINT = "So11111111111111111111111111111111111111112"
@@ -150,13 +153,12 @@ async def execute_swap(quote: dict, priority_fee_lamports: int = 50000) -> dict:
             signed_tx = VersionedTransaction(tx.message, [keypair])
             signed_bytes = bytes(signed_tx)
 
-            # Send to Solana
-            send_resp = await client.post(SOLANA_RPC, json={
+            send_resp = await client.post(SOLANA_RPC_SEND, json={
                 "jsonrpc": "2.0", "id": 1,
                 "method": "sendTransaction",
                 "params": [
                     base64.b64encode(signed_bytes).decode("utf-8"),
-                    {"encoding": "base64", "skipPreflight": False, "maxRetries": 3},
+                    {"encoding": "base64", "skipPreflight": True, "maxRetries": 5},
                 ],
             }, timeout=30)
 
@@ -293,30 +295,48 @@ async def get_token_balance(token_mint: str) -> tuple[int, float, int]:
         "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",   # Token-2022
     ]
 
+    rpc = SOLANA_RPC_SEND if SOLANA_RPC_SEND != SOLANA_RPC_READ else SOLANA_RPC_READ
+
     async with httpx.AsyncClient() as client:
-        for program_id in TOKEN_PROGRAMS:
-            try:
-                resp = await client.post(SOLANA_RPC, json={
-                    "jsonrpc": "2.0", "id": 1,
-                    "method": "getTokenAccountsByOwner",
-                    "params": [address, {"mint": token_mint, "programId": program_id},
-                               {"encoding": "jsonParsed"}],
-                }, timeout=10)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    accounts = data.get("result", {}).get("value", [])
-                    for acc in accounts:
+        # Query by mint only (not programId) — works on both Helius and public RPC
+        try:
+            resp = await client.post(rpc, json={
+                "jsonrpc": "2.0", "id": 1,
+                "method": "getTokenAccountsByOwner",
+                "params": [address, {"mint": token_mint}, {"encoding": "jsonParsed"}],
+            }, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "error" not in data:
+                    for acc in data.get("result", {}).get("value", []):
                         info = acc.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
                         if info.get("mint") == token_mint:
                             ta = info.get("tokenAmount", {})
                             raw = int(ta.get("amount", 0))
                             if raw > 0:
-                                return (
-                                    raw,
-                                    float(ta.get("uiAmount", 0)),
-                                    int(ta.get("decimals", 6)),
-                                )
+                                return (raw, float(ta.get("uiAmount", 0)), int(ta.get("decimals", 6)))
+        except Exception as exc:
+            _log.debug("Mint balance check failed for %s: %s", token_mint[:16], exc)
+
+        # Fallback: scan ALL accounts per program (handles edge cases)
+        for program_id in TOKEN_PROGRAMS:
+            try:
+                resp = await client.post(rpc, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getTokenAccountsByOwner",
+                    "params": [address, {"programId": program_id}, {"encoding": "jsonParsed"}],
+                }, timeout=10)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if "error" not in data:
+                        for acc in data.get("result", {}).get("value", []):
+                            info = acc.get("account", {}).get("data", {}).get("parsed", {}).get("info", {})
+                            if info.get("mint") == token_mint:
+                                ta = info.get("tokenAmount", {})
+                                raw = int(ta.get("amount", 0))
+                                if raw > 0:
+                                    return (raw, float(ta.get("uiAmount", 0)), int(ta.get("decimals", 6)))
             except Exception as exc:
-                _log.warning("Failed to fetch token balance for %s: %s", token_mint, exc)
+                _log.debug("Program scan failed for %s: %s", token_mint[:16], exc)
 
     return (0, 0.0, 6)

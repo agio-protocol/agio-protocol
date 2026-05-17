@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     # Entry criteria — data-driven: sub-500K MC is net-negative (23-37% WR), 500K+ is profitable
     "min_agiotage_score": 20,
     "min_mc": 550000,
-    "max_mc": 1000000,
+    "max_mc": 5000000,
     "min_sources": 2,
     "min_wallet_count": 3,
     "min_wallet_count_with_deployer": 2,
@@ -225,6 +225,57 @@ async def _get_price_mc_liquidity(token_addr: str) -> tuple:
     return 0, 0, 0, 0
 
 
+async def _check_momentum(token_addr: str) -> dict:
+    """Check if token has positive momentum before buying.
+    Returns {ok: bool, reason: str, m5_pct, h1_pct, buy_ratio_m5}."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.dexscreener.com/token-pairs/v1/solana/{token_addr}", timeout=5)
+            if resp.status_code != 200:
+                return {"ok": True, "reason": "no data"}
+            data = resp.json()
+            pairs = data if isinstance(data, list) else data.get("pairs", [])
+            if not pairs:
+                return {"ok": True, "reason": "no pairs"}
+
+            pair = pairs[0]
+            pc = pair.get("priceChange", {})
+            txns = pair.get("txns", {})
+
+            m5_pct = float(pc.get("m5", 0) or 0)
+            h1_pct = float(pc.get("h1", 0) or 0)
+
+            m5_buys = int(txns.get("m5", {}).get("buys", 0) or 0)
+            m5_sells = int(txns.get("m5", {}).get("sells", 0) or 0)
+            buy_ratio = m5_buys / max(m5_sells, 1)
+
+            # REJECT: price dropping hard in last 5 min (dumping)
+            if m5_pct < -10:
+                return {"ok": False, "reason": f"5m dump {m5_pct:.0f}%",
+                        "m5_pct": m5_pct, "h1_pct": h1_pct, "buy_ratio_m5": buy_ratio}
+
+            # REJECT: price dropping hard in last hour (sustained decline)
+            if h1_pct < -20:
+                return {"ok": False, "reason": f"1h decline {h1_pct:.0f}%",
+                        "m5_pct": m5_pct, "h1_pct": h1_pct, "buy_ratio_m5": buy_ratio}
+
+            # REJECT: more sells than buys in last 5 min (selling pressure)
+            if m5_sells > 0 and buy_ratio < 0.7:
+                return {"ok": False, "reason": f"sell pressure {m5_buys}b/{m5_sells}s",
+                        "m5_pct": m5_pct, "h1_pct": h1_pct, "buy_ratio_m5": buy_ratio}
+
+            # REJECT: price crashed from peak (h1 way down but was higher)
+            if h1_pct < -10 and m5_pct < 0:
+                return {"ok": False, "reason": f"falling 1h={h1_pct:.0f}% 5m={m5_pct:.0f}%",
+                        "m5_pct": m5_pct, "h1_pct": h1_pct, "buy_ratio_m5": buy_ratio}
+
+            return {"ok": True, "reason": "momentum OK",
+                    "m5_pct": m5_pct, "h1_pct": h1_pct, "buy_ratio_m5": buy_ratio}
+    except Exception:
+        return {"ok": True, "reason": "check failed"}
+
+
 async def _get_sol_price() -> float:
     """Fetch current SOL/USD price."""
     try:
@@ -409,39 +460,36 @@ async def _check_for_entries():
                 _log.info(f"SKIP ${symbol}: in skip_symbols list")
                 continue
 
-            # 4a2. Wallet balance safety check — never trade if insufficient SOL
-            try:
-                from .paper_trader import _get_sol_balance
-            except ImportError:
-                pass
-            try:
-                wallet_bal = 0
-                async with httpx.AsyncClient() as _hc:
-                    from ..services.jupiter_swap import get_wallet_address
-                    _addr = get_wallet_address()
-                    _resp = await _hc.post(
-                        os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
-                        json={"jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [_addr]},
-                        timeout=10)
-                    if _resp.status_code == 200:
-                        wallet_bal = _resp.json().get("result", {}).get("value", 0) / 1e9
-                needed = config["base_position_sol"] + 0.01  # position + gas
-                if wallet_bal < needed:
-                    _log.info(f"SKIP ${symbol}: wallet {wallet_bal:.4f} SOL < {needed} needed")
-                    continue
-            except Exception:
-                pass
+            # 4a2. Wallet balance safety check — only in live mode
+            if await _is_live_mode():
+                try:
+                    wallet_bal = 0
+                    async with httpx.AsyncClient() as _hc:
+                        from ..services.jupiter_swap import get_wallet_address
+                        _addr = get_wallet_address()
+                        _resp = await _hc.post(
+                            os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
+                            json={"jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [_addr]},
+                            timeout=10)
+                        if _resp.status_code == 200:
+                            wallet_bal = _resp.json().get("result", {}).get("value", 0) / 1e9
+                    needed = config["base_position_sol"] + 0.01
+                    if wallet_bal < needed:
+                        _log.info(f"SKIP ${symbol}: wallet {wallet_bal:.4f} SOL < {needed} needed")
+                        continue
+                except Exception:
+                    pass
 
-            # 4b. Dedup — don't enter a token we've traded in the last 4 hours
+            # 4b. Dedup — don't enter a token we've traded in the last 12 hours
             recent_any = (await db.execute(
                 select(func.count()).select_from(PaperPosition)
                 .where(
                     PaperPosition.token_address == signal.token_address,
-                    PaperPosition.opened_at >= datetime.utcnow() - timedelta(hours=4),
+                    PaperPosition.opened_at >= datetime.utcnow() - timedelta(hours=12),
                 )
             )).scalar() or 0
             if recent_any > 0:
-                _log.info(f"SKIP ${symbol}: traded in last 4h (dedup)")
+                _log.info(f"SKIP ${symbol}: traded in last 12h (dedup)")
                 continue
 
             # 4c. Get current price, MC, liquidity, and volume from DexScreener
@@ -600,6 +648,15 @@ async def _check_for_entries():
                 continue
 
             _log.info(f"PASSED ${symbol}: score={score} sources={','.join(sources)} wallets={wallet_count} MC=${mc:,.0f} vol1h=${vol_h1:,.0f}")
+
+            # 4j2. Momentum check — don't buy into a dump
+            momentum = await _check_momentum(signal.token_address)
+            if not momentum["ok"]:
+                _log.info(f"SKIP ${symbol}: bad momentum — {momentum['reason']}")
+                continue
+            _log.info(f"MOMENTUM ${symbol}: {momentum.get('reason')} "
+                      f"5m={momentum.get('m5_pct', 0):+.1f}% 1h={momentum.get('h1_pct', 0):+.1f}% "
+                      f"buy_ratio={momentum.get('buy_ratio_m5', 0):.1f}")
 
             # 4k. Bot saturation check
             try:
@@ -798,34 +855,44 @@ async def _manage_positions():
                 except Exception:
                     pass
 
-            # Delegate exit logic to exit engine, fallback to basic stop if DB columns missing
+            # Delegate exit logic to exit engine
             try:
                 from .exit_engine import manage_position_tick
                 from .exit_config import EXIT_CONFIG
                 await manage_position_tick(pos, db, EXIT_CONFIG)
             except Exception as _exit_err:
-                # Fallback: basic stop loss + timeout if exit engine fails (missing DB columns)
-                if pnl_pct <= -40:
-                    live_tx = await _live_sell(pos.token_address, 100,
-                                               f"FALLBACK SL ${pos.token_symbol}",
-                                               slippage_bps=500)
-                    if not live_tx or live_tx.get("success", False) or live_tx is None:
+                _log.error(f"EXIT ENGINE FAILED for ${pos.token_symbol}: {_exit_err}")
+                # Fallback: basic stop loss + timeout using DexScreener price
+                try:
+                    fb_price, fb_mc = await _get_price_mc(pos.token_address)
+                    entry_p = float(pos.entry_price or 0)
+                    if fb_price > 0 and entry_p > 0:
+                        fb_pnl = ((fb_price - entry_p) / entry_p) * 100
+                    else:
+                        fb_pnl = 0
+
+                    if fb_pnl <= -35:
                         pos.remaining_pct = Decimal("0")
                         pos.status = "CLOSED"
-                        pos.close_reason = f"Fallback stop ({pnl_pct:.1f}%)"
+                        pos.close_reason = f"Fallback stop ({fb_pnl:.1f}%)"
                         pos.closed_at = datetime.utcnow()
-                        _log.info(f"FALLBACK SELL (SL): ${pos.token_symbol} @ {pnl_pct:.1f}%")
-                age_hours = (datetime.utcnow() - pos.opened_at).total_seconds() / 3600
-                if age_hours >= 6 and float(pos.remaining_pct) > 0:
-                    live_tx = await _live_sell(pos.token_address, 100,
-                                               f"FALLBACK TIMEOUT ${pos.token_symbol}",
-                                               slippage_bps=500)
-                    if not live_tx or live_tx.get("success", False) or live_tx is None:
+                        pos.pnl_pct = Decimal(str(round(fb_pnl, 4)))
+                        _log.info(f"FALLBACK SELL (SL): ${pos.token_symbol} @ {fb_pnl:.1f}%")
+                        if await _is_live_mode():
+                            await _live_sell(pos.token_address, 100, f"FALLBACK SL", slippage_bps=500)
+
+                    age_hours = (datetime.utcnow() - pos.opened_at).total_seconds() / 3600
+                    if age_hours >= 4 and float(pos.remaining_pct) > 0:
                         pos.remaining_pct = Decimal("0")
                         pos.status = "CLOSED"
-                        pos.close_reason = f"Fallback timeout ({pnl_pct:.1f}%)"
+                        pos.close_reason = f"Fallback timeout ({fb_pnl:.1f}%)"
                         pos.closed_at = datetime.utcnow()
-                        _log.info(f"FALLBACK SELL (TIMEOUT): ${pos.token_symbol} @ {pnl_pct:.1f}%")
+                        pos.pnl_pct = Decimal(str(round(fb_pnl, 4)))
+                        _log.info(f"FALLBACK SELL (TIMEOUT): ${pos.token_symbol} @ {fb_pnl:.1f}%")
+                        if await _is_live_mode():
+                            await _live_sell(pos.token_address, 100, f"FALLBACK TIMEOUT", slippage_bps=500)
+                except Exception as fb_err:
+                    _log.error(f"FALLBACK ALSO FAILED for ${pos.token_symbol}: {fb_err}")
 
             await asyncio.sleep(0.5)
 

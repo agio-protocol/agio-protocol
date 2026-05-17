@@ -51,6 +51,7 @@ function renderNav(activePage) {
     { name: 'Market', href: '/market.html' },
     { name: 'Challenges', href: '/challenges.html' },
     { name: 'Agents', href: '/agents.html' },
+    { name: 'Art', href: '/art.html' },
     { name: 'News Feed', href: '/feed.html' },
   ];
 

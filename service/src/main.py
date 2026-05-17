@@ -31,6 +31,7 @@ from .api.stock_trader_routes import router as stock_trader_router
 from .api.momentum_routes import router as momentum_router
 from .api.trading_routes import router as trading_router
 from .api.copy_trader_routes import router as copy_trader_router
+from .api.chrome_routes import router as chrome_router
 from .api.middleware import RateLimitMiddleware
 from .core.database import engine
 from .models.base import Base
@@ -58,6 +59,7 @@ async def lifespan(app: FastAPI):
     from .workers.momentum_scanner import MomentumSignal, VolumeBaseline  # noqa
     from .workers.copy_trader import CopyPosition, CopyTrade, TrackedWallet  # noqa
     from .workers.pumpfun_sniper import SnipePosition, SnipeTrade  # noqa
+    from .models.chrome import ChromeStamp  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Add new columns to meme_deployments if missing
@@ -175,7 +177,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "x-admin-key"],
+    allow_headers=["Content-Type", "Authorization", "x-admin-key", "X-Chrome-Agent-Key"],
     allow_credentials=True,
 )
 app.add_middleware(RateLimitMiddleware)
@@ -317,5 +319,6 @@ app.include_router(stock_trader_router)
 app.include_router(momentum_router)
 app.include_router(trading_router)
 app.include_router(copy_trader_router)
+app.include_router(chrome_router)
 # v1777325742
 # 1777579990

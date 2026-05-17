@@ -44,28 +44,34 @@ DEFAULT_CONFIG = {
     "paper_mode": True,
 
     # Position sizing
-    "position_size_sol": 0.05,
+    "position_size_sol": 0.12,
     "max_open_positions": 5,
     "daily_loss_limit_sol": 0.50,
     "min_sol_reserve": 0.05,
 
-    # Entry filters — bonding curve progress
-    "min_curve_pct": 25,
-    "max_curve_pct": 50,
-    "min_holders": 15,
-    "min_volume_sol": 3.0,
+    # Entry filters — tightened from 100-trade analysis
+    # 37-40% curve: +0.085 SOL on 63 trades. 33-37%: -0.019 SOL on 37 trades.
+    "min_curve_pct": 35,
+    "max_curve_pct": 40,
+    "min_holders": 10,
+    "max_holders": 20,
+    "min_volume_sol": 10.0,
     "max_dev_pct": 5.0,
-    "min_buy_sell_ratio": 1.5,
+    "min_buy_sell_ratio": 2.0,
     "max_token_age_minutes": 120,
 
-    # Exit rules
-    "tp1_pct": 50,
+    # Exit rules — added TP1 to lock profit before rug crashes
+    "emergency_exit_pct": 12,
+    "emergency_exit_seconds": 5,
+    "tp1_pct": 30,
     "tp1_sell_pct": 50,
-    "tp2_pct": 100,
-    "tp2_sell_pct": 30,
-    "graduation_sell_pct": 20,
-    "stop_loss_pct": 30,
-    "max_hold_minutes": 120,
+    "tp2_pct": 60,
+    "tp2_sell_pct": 50,
+    "trailing_activate_pct": 15,
+    "trailing_distance_pct": 10,
+    "stagnation_seconds": 60,
+    "stop_loss_pct": 20,
+    "max_hold_minutes": 15,
 
     # Execution
     "slippage_pct": 15,
@@ -225,11 +231,12 @@ async def _execute_buy(mint: str, amount_sol: float, config: dict) -> dict:
             tx = VersionedTransaction.from_bytes(tx_bytes)
             signed_tx = VersionedTransaction(tx.message, [keypair])
 
-            rpc = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+            _hk = os.getenv("HELIUS_API_KEY", "")
+            rpc = f"https://mainnet.helius-rpc.com/?api-key={_hk}" if _hk else os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
             send_resp = await client.post(rpc, json={
                 "jsonrpc": "2.0", "id": 1, "method": "sendTransaction",
                 "params": [base64.b64encode(bytes(signed_tx)).decode(),
-                           {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+                           {"encoding": "base64", "skipPreflight": True, "maxRetries": 5}],
             }, timeout=30)
 
             if send_resp.status_code == 200 and "result" in send_resp.json():
@@ -281,11 +288,12 @@ async def _execute_sell(mint: str, token_amount: float, config: dict) -> dict:
             tx = VersionedTransaction.from_bytes(tx_bytes)
             signed_tx = VersionedTransaction(tx.message, [keypair])
 
-            rpc = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+            _hk = os.getenv("HELIUS_API_KEY", "")
+            rpc = f"https://mainnet.helius-rpc.com/?api-key={_hk}" if _hk else os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
             send_resp = await client.post(rpc, json={
                 "jsonrpc": "2.0", "id": 1, "method": "sendTransaction",
                 "params": [base64.b64encode(bytes(signed_tx)).decode(),
-                           {"encoding": "base64", "skipPreflight": False, "maxRetries": 3}],
+                           {"encoding": "base64", "skipPreflight": True, "maxRetries": 5}],
             }, timeout=30)
 
             if send_resp.status_code == 200 and "result" in send_resp.json():
@@ -332,7 +340,8 @@ async def _evaluate_token(token: dict, config: dict):
                     from solders.keypair import Keypair
                     import base58 as b58
                     pubkey = str(Keypair.from_bytes(b58.b58decode(pk)).pubkey())
-                rpc = os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+                _hk = os.getenv("HELIUS_API_KEY", "")
+                rpc = f"https://mainnet.helius-rpc.com/?api-key={_hk}" if _hk else os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(rpc, json={
                         "jsonrpc": "2.0", "id": 1, "method": "getBalance", "params": [pubkey],
@@ -375,6 +384,11 @@ async def _evaluate_token(token: dict, config: dict):
         _log.info(f"SKIP {symbol}: {holders} holders < {config['min_holders']}")
         return
 
+    max_holders = config.get("max_holders", 999)
+    if holders > max_holders:
+        _log.info(f"SKIP {symbol}: {holders} holders > {max_holders} (frontran)")
+        return
+
     if volume_sol < config["min_volume_sol"]:
         _log.info(f"SKIP {symbol}: {volume_sol:.1f} SOL vol < {config['min_volume_sol']}")
         return
@@ -394,6 +408,26 @@ async def _evaluate_token(token: dict, config: dict):
         if age_min > config["max_token_age_minutes"]:
             _log.info(f"SKIP {symbol}: {age_min:.0f}min old > {config['max_token_age_minutes']}min")
             return
+
+    # Security check — honeypot, sell tax, top10 holder concentration
+    try:
+        from ..services.gmgn_client import get_token_security
+        sec_result = await get_token_security(mint)
+        if sec_result:
+            sec_data = sec_result.get("data", {})
+            sec_fails = []
+            if sec_data.get("is_honeypot") == "yes":
+                sec_fails.append("honeypot")
+            if float(sec_data.get("sell_tax", 0) or 0) > 0.10:
+                sec_fails.append("high_sell_tax")
+            top10 = float(sec_data.get("top_10_holder_rate", 0) or 0)
+            if top10 > 0.40:
+                sec_fails.append(f"top10={top10:.0%}")
+            if sec_fails:
+                _log.info(f"SKIP {symbol}: security fail — {', '.join(sec_fails)}")
+                return
+    except Exception:
+        pass
 
     # All filters passed — execute snipe
     _seen_mints.add(mint)
@@ -455,7 +489,7 @@ async def _evaluate_token(token: dict, config: dict):
 # === POSITION MANAGEMENT ===
 
 async def _manage_positions(config: dict):
-    """Check open snipe positions for TP/SL/timeout."""
+    """Data-driven exit engine: emergency → TP1(+30%) → TP2(+60%) → trailing → stop → stagnation → timeout."""
     async with async_session() as db:
         positions = (await db.execute(
             select(SnipePosition).where(SnipePosition.status == "OPEN")
@@ -467,11 +501,10 @@ async def _manage_positions(config: dict):
             v_sol = token_state.get("v_sol", 0)
             v_tokens = token_state.get("v_tokens", 0)
             price_sol = _calc_price_from_curve(v_sol, v_tokens) if v_sol > 0 else 0
+            age_sec = (datetime.utcnow() - pos.opened_at).total_seconds()
 
             if price_sol <= 0:
-                # Check timeout even without price
-                age_min = (datetime.utcnow() - pos.opened_at).total_seconds() / 60
-                if age_min >= config["max_hold_minutes"]:
+                if age_sec / 60 >= config["max_hold_minutes"]:
                     await _close_position(pos, 100, "Timeout (no price data)", 0, config)
                 continue
 
@@ -489,11 +522,19 @@ async def _manage_positions(config: dict):
                     p.pnl_pct = Decimal(str(round(pnl_pct, 4)))
                     await db.commit()
 
-            # Check graduation
+            # === EMERGENCY EXIT: instant dump in first N seconds ===
+            emergency_secs = config.get("emergency_exit_seconds", 5)
+            emergency_pct = config.get("emergency_exit_pct", 15)
+            if age_sec <= emergency_secs and pnl_pct <= -emergency_pct:
+                await _close_position(pos, remaining,
+                                      f"Emergency exit {pnl_pct:.1f}% in {age_sec:.0f}s",
+                                      pnl_pct, config)
+                continue
+
+            # === GRADUATION: sell all on migration ===
             curve_pct = _calc_curve_pct(v_sol)
             if curve_pct >= 99 and remaining > 0:
-                sell_pct = config["graduation_sell_pct"]
-                await _close_position(pos, min(sell_pct, remaining),
+                await _close_position(pos, remaining,
                                       f"Graduation ({pnl_pct:+.1f}%)", pnl_pct, config)
                 async with async_session() as db:
                     p = await db.get(SnipePosition, pos.id)
@@ -502,31 +543,51 @@ async def _manage_positions(config: dict):
                         await db.commit()
                 continue
 
-            # TP1
+            # === TP1: sell 50% at +30% ===
             if pnl_pct >= config["tp1_pct"] and remaining > config["tp1_sell_pct"]:
                 await _close_position(pos, config["tp1_sell_pct"],
                                       f"TP1 +{pnl_pct:.0f}%", pnl_pct, config)
                 continue
 
-            # TP2
-            if pnl_pct >= config["tp2_pct"] and remaining > config["graduation_sell_pct"]:
-                sell = min(config["tp2_sell_pct"], remaining - config["graduation_sell_pct"])
-                if sell > 0:
-                    await _close_position(pos, sell,
-                                          f"TP2 +{pnl_pct:.0f}%", pnl_pct, config)
+            # === TP2: sell remaining at +60% ===
+            if pnl_pct >= config["tp2_pct"] and remaining > 0:
+                await _close_position(pos, remaining,
+                                      f"TP2 +{pnl_pct:.0f}%", pnl_pct, config)
                 continue
 
-            # Stop loss
+            # === TRAILING STOP: activate at +15%, trail 15% from peak ===
+            trail_act = config.get("trailing_activate_pct", 15)
+            trail_dist = config.get("trailing_distance_pct", 15)
+            if highest > 0 and entry > 0:
+                highest_pnl = ((highest - entry) / entry * 100)
+                if highest_pnl >= trail_act:
+                    trail_stop = highest * (1 - trail_dist / 100)
+                    if price_sol <= trail_stop:
+                        await _close_position(pos, remaining,
+                                              f"Trailing stop ({pnl_pct:+.1f}%, peak {highest_pnl:+.0f}%)",
+                                              pnl_pct, config)
+                        continue
+
+            # === HARD STOP LOSS ===
             if pnl_pct <= -config["stop_loss_pct"]:
                 await _close_position(pos, remaining,
                                       f"Stop loss {pnl_pct:.1f}%", pnl_pct, config)
                 continue
 
-            # Timeout
-            age_min = (datetime.utcnow() - pos.opened_at).total_seconds() / 60
-            if age_min >= config["max_hold_minutes"]:
+            # === STAGNATION: 20s no volume ===
+            stag_secs = config.get("stagnation_seconds", 20)
+            last_trade = token_state.get("last_trade_time", 0)
+            if last_trade > 0 and (time.time() - last_trade) >= stag_secs and pnl_pct < 30:
                 await _close_position(pos, remaining,
-                                      f"Timeout {age_min:.0f}min ({pnl_pct:+.1f}%)", pnl_pct, config)
+                                      f"Stagnation {stag_secs}s ({pnl_pct:+.1f}%)",
+                                      pnl_pct, config)
+                continue
+
+            # === TIMEOUT: 15 min max hold ===
+            if age_sec / 60 >= config["max_hold_minutes"]:
+                await _close_position(pos, remaining,
+                                      f"Timeout {age_sec/60:.0f}min ({pnl_pct:+.1f}%)",
+                                      pnl_pct, config)
                 continue
 
         except Exception as e:
@@ -659,6 +720,7 @@ async def _run_websocket(config: dict):
                                 sol_amount = float(data.get("solAmount", 0) or data.get("sol_amount", 0) or 0)
                                 trader = data.get("traderPublicKey", "")
 
+                                t["last_trade_time"] = time.time()
                                 if tx_type == "buy":
                                     t["buys"] = t.get("buys", 0) + 1
                                     t["volume_sol"] = t.get("volume_sol", 0) + sol_amount
